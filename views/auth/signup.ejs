@@ -1,0 +1,31 @@
+<%- include("../partials/header", { pageTitle }) %>
+
+<div class="card">
+  <h2>Create account</h2>
+  <form method="post" action="/signup" class="form">
+    <label>
+      <span>Name</span>
+      <input name="name" type="text" required />
+    </label>
+    <label>
+      <span>Email</span>
+      <input name="email" type="email" required />
+    </label>
+    <label>
+      <span>Password</span>
+      <input name="password" type="password" required />
+    </label>
+    <label>
+      <span>Role</span>
+      <select name="role">
+        <option value="student" selected>Student</option>
+        <option value="vendor">Vendor</option>
+      </select>
+    </label>
+    <button class="btn" type="submit">Sign up</button>
+  </form>
+  <p class="muted">Already have an account? <a href="/login">Log in</a></p>
+</div>
+
+<%- include("../partials/footer") %>
+

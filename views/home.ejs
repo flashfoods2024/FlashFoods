@@ -1,0 +1,21 @@
+<%- include("partials/header", { pageTitle }) %>
+
+<section class="hero">
+  <h1>Skip the queue.</h1>
+  <p>Pre-order from campus canteens, pay (mock), get an OTP, and collect fast.</p>
+
+  <% if (!currentUser) { %>
+    <div class="row">
+      <a class="btn" href="/signup">Create account</a>
+      <a class="btn btn--ghost" href="/login">Log in</a>
+    </div>
+  <% } else { %>
+    <div class="card">
+      <p>You’re logged in as <strong><%= currentUser.role %></strong>.</p>
+      <p class="muted">Next: we’ll add shops, menus, cart, orders, and the vendor OTP verify screen.</p>
+    </div>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>
+
