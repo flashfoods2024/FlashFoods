@@ -7,10 +7,10 @@ import { MenuItem } from "./models/MenuItem.js";
 
 dotenv.config();
 
-const VENDOR_EMAIL = "vendor@college.test";
+const VENDOR_EMAIL = "vendor@college.com";
 const STUDENT_EMAIL = "student@college.test";
 const SHOP_SLUG = "main-canteen";
-const PASSWORD = "password123";
+const PASSWORD = "vendor@1";
 
 async function seed() {
   await connectDb();

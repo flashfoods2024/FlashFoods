@@ -72,7 +72,7 @@ ordersRouter.post("/orders/checkout", requireDb, requireStudent, async (req, res
   });
 
   req.session.cart = { shopId: null, items: [] };
-  req.flash("success", "Order placed. Show your pickup code at the counter.");
+  req.flash("success", "Order placed (paid). You’ll get a pickup code after the canteen marks it ready.");
   return res.redirect(`/orders/${order._id}`);
 });
 

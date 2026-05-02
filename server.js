@@ -5,6 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import connectDb from "./config/db.js";
+import { User } from "./models/User.js";
+import { Shop } from "./models/Shop.js";
 import { authRouter } from "./routes/auth.js";
 import { shopsRouter } from "./routes/shops.js";
 import { cartRouter } from "./routes/cart.js";
@@ -35,10 +37,22 @@ app.use(
 
 app.use(flash());
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   res.locals.currentUser = req.session?.userId
     ? { id: req.session.userId, role: req.session.role, name: req.session.name }
     : null;
+
+  res.locals.vendorShop = null;
+  if (req.session?.userId && req.session.role === "vendor") {
+    try {
+      const u = await User.findById(req.session.userId).select("shop").lean();
+      if (u?.shop) {
+        res.locals.vendorShop = await Shop.findById(u.shop).select("name slug").lean();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   const cart = req.session?.cart;
   const items = cart && Array.isArray(cart.items) ? cart.items : [];

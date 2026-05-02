@@ -18,7 +18,7 @@ const orderSchema = new mongoose.Schema(
     total: { type: Number, required: true, min: 0 },
     status: {
       type: String,
-      enum: ["pending_payment", "paid", "completed", "cancelled"],
+      enum: ["pending_payment", "paid", "ready_for_pickup", "completed", "cancelled"],
       default: "pending_payment",
     },
     pickupOtp: { type: String, required: true },
@@ -28,6 +28,7 @@ const orderSchema = new mongoose.Schema(
 );
 
 orderSchema.index({ shop: 1, pickupOtp: 1 });
+orderSchema.index({ shop: 1, status: 1 });
 orderSchema.index({ customer: 1, createdAt: -1 });
 
 export const Order = mongoose.model("Order", orderSchema);

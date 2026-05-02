@@ -17,7 +17,7 @@
             <a class="nav__link" href="/orders">Orders</a>
           <% } %>
           <% if (currentUser && currentUser.role === "vendor") { %>
-            <a class="nav__link" href="/vendor/verify">Verify pickup</a>
+            <%- include("./vendor-nav") %>
           <% } %>
           <% if (currentUser) { %>
             <span class="nav__text">Hi, <%= currentUser.name %></span>

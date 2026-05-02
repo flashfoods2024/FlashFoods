@@ -2,9 +2,9 @@
 
 <section class="hero hero--compact">
   <h1>Verify pickup</h1>
-  <p class="muted">Enter the student’s 6-digit code to mark their order as collected.</p>
-  <% if (typeof pending === "number") { %>
-    <p class="muted small"><%= pending %> order(s) waiting for pickup.</p>
+  <p class="muted">After you mark an order as ready, the student brings their code. Enter it here to move the order to completed.</p>
+  <% if (typeof waitingPickup === "number") { %>
+    <p class="muted small"><%= waitingPickup %> order(s) ready for pickup verification.</p>
   <% } %>
 </section>
 

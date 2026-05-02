@@ -1,0 +1,27 @@
+<%- include("../partials/header", { pageTitle }) %>
+
+<h1>Pending orders</h1>
+<p>New paid orders. Confirm when prepared — they move to <strong>Verify pickup</strong>.</p>
+
+<% if (!orders.length) { %>
+  <p>No pending orders.</p>
+<% } else { %>
+  <% orders.forEach((order) => { %>
+    <div>
+      <p><strong>Order ID:</strong> <%= order._id %></p>
+      <p><strong>Items:</strong></p>
+      <ul>
+        <% order.items.forEach((item) => { %>
+          <li><%= item.name %> — <%= item.quantity %> × <%= item.price %></li>
+        <% }) %>
+      </ul>
+      <p><strong>Total:</strong> ₹<%= Number(order.total).toFixed(2) %></p>
+      <form method="post" action="/vendor/orders/<%= order._id %>/ready">
+        <button type="submit">Mark as ready for pickup</button>
+      </form>
+      <hr />
+    </div>
+  <% }) %>
+<% } %>
+
+<%- include("../partials/footer") %>

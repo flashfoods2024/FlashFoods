@@ -20,10 +20,11 @@
           <a class="btn btn--ghost" href="/orders">My orders</a>
         </div>
       <% } else { %>
-        <p class="muted">Use Verify pickup when a student shows their code at the counter.</p>
+        <p class="muted">Pending orders → mark ready → verify pickup code → completed.</p>
         <div class="row">
-          <a class="btn" href="/vendor/verify">Verify pickup</a>
-          <a class="btn btn--ghost" href="/shops">View menus (public)</a>
+          <a class="btn" href="/vendor/orders/pending">Pending orders</a>
+          <a class="btn btn--ghost" href="/vendor/verify">Verify pickup</a>
+          <a class="btn btn--ghost" href="/vendor/orders/completed">Completed</a>
         </div>
       <% } %>
     </div>

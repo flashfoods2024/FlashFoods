@@ -1,0 +1,23 @@
+<%- include("../partials/header", { pageTitle }) %>
+
+<h1>Completed orders</h1>
+<p>Orders that were picked up and verified.</p>
+
+<% if (!orders.length) { %>
+  <p>No completed orders yet.</p>
+<% } else { %>
+  <% orders.forEach((order) => { %>
+    <div>
+      <p><strong>Order ID:</strong> <%= order._id %> · <%= new Date(order.createdAt).toLocaleString() %></p>
+      <ul>
+        <% order.items.forEach((item) => { %>
+          <li><%= item.name %> × <%= item.quantity %></li>
+        <% }) %>
+      </ul>
+      <p><strong>Total:</strong> ₹<%= Number(order.total).toFixed(2) %></p>
+      <hr />
+    </div>
+  <% }) %>
+<% } %>
+
+<%- include("../partials/footer") %>
