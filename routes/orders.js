@@ -6,7 +6,7 @@ import { Order } from "../models/Order.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { generateOtp } from "../utils/otp.js";
-
+import razorpay from "../config/razorpay.js";
 export const ordersRouter = express.Router();
 
 function getCart(req) {
@@ -17,97 +17,146 @@ function getCart(req) {
   return req.session.cart;
 }
 
-ordersRouter.post("/orders/checkout", requireDb, requireAuth, requireStudent, async (req, res) => {
-  const cart = getCart(req);
-  if (!cart.shopId || !cart.items.length) {
-    req.flash("error", "Your cart is empty.");
-    return res.redirect("/cart");
+ordersRouter.post("/create-razorpay-order", async (req, res) => {
+  try {
+    const { amount } = req.body;
+
+    const options = {
+      amount: amount * 100,
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    res.json(order);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create Razorpay order" });
   }
+});
 
-  const shop = await Shop.findById(cart.shopId).lean();
-  if (!shop) {
-    req.session.cart = { shopId: null, items: [] };
-    req.flash("error", "That canteen no longer exists.");
-    return res.redirect("/shops");
-  }
+ordersRouter.post(
+  "/orders/checkout",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    const cart = getCart(req);
+    if (!cart.shopId || !cart.items.length) {
+      req.flash("error", "Your cart is empty.");
+      return res.redirect("/cart");
+    }
 
-  const ids = cart.items.map((l) => l.menuItemId);
-  const menuItems = await MenuItem.find({
-    _id: { $in: ids },
-    shop: cart.shopId,
-    available: true,
-  }).lean();
+    const shop = await Shop.findById(cart.shopId).lean();
+    if (!shop) {
+      req.session.cart = { shopId: null, items: [] };
+      req.flash("error", "That canteen no longer exists.");
+      return res.redirect("/shops");
+    }
 
-  const byId = new Map(menuItems.map((m) => [String(m._id), m]));
-  const orderItems = [];
-  let total = 0;
+    const ids = cart.items.map((l) => l.menuItemId);
+    const menuItems = await MenuItem.find({
+      _id: { $in: ids },
+      shop: cart.shopId,
+      available: true,
+    }).lean();
 
-  for (const line of cart.items) {
-    const m = byId.get(String(line.menuItemId));
-    if (!m) continue;
-    const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
-    orderItems.push({
-      menuItem: m._id,
-      name: m.name,
-      price: m.price,
-      quantity: q,
+    const byId = new Map(menuItems.map((m) => [String(m._id), m]));
+    const orderItems = [];
+    let total = 0;
+
+    for (const line of cart.items) {
+      const m = byId.get(String(line.menuItemId));
+      if (!m) continue;
+      const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
+      orderItems.push({
+        menuItem: m._id,
+        name: m.name,
+        price: m.price,
+        quantity: q,
+      });
+      total += m.price * q;
+    }
+
+    if (!orderItems.length) {
+      req.flash("error", "Nothing in your cart is available to order.");
+      return res.redirect("/cart");
+    }
+
+    const pickupOtp = generateOtp();
+    const order = await Order.create({
+      customer: req.session.userId,
+      shop: cart.shopId,
+      items: orderItems,
+      total,
+      status: "paid",
+      pickupOtp,
+      paymentNote: "mock",
     });
-    total += m.price * q;
-  }
 
-  if (!orderItems.length) {
-    req.flash("error", "Nothing in your cart is available to order.");
-    return res.redirect("/cart");
-  }
+    req.session.cart = { shopId: null, items: [] };
+    req.flash(
+      "success",
+      "Order placed (paid). You’ll get a pickup code after the canteen marks it ready.",
+    );
+    return res.redirect(`/orders/${order._id}`);
+  },
+);
 
-  const pickupOtp = generateOtp();
-  const order = await Order.create({
-    customer: req.session.userId,
-    shop: cart.shopId,
-    items: orderItems,
-    total,
-    status: "paid",
-    pickupOtp,
-    paymentNote: "mock",
-  });
+ordersRouter.get(
+  "/orders",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    const orders = await Order.find({ customer: req.session.userId })
+      .sort({ createdAt: -1 })
+      .populate("shop", "name slug")
+      .lean();
+    res.render("orders/index", { pageTitle: "My orders", orders });
+  },
+);
 
-  req.session.cart = { shopId: null, items: [] };
-  req.flash("success", "Order placed (paid). You’ll get a pickup code after the canteen marks it ready.");
-  return res.redirect(`/orders/${order._id}`);
-});
+ordersRouter.get(
+  "/api/orders/:id/status",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).json({ error: "Order not found." });
+    }
 
-ordersRouter.get("/orders", requireDb, requireAuth, requireStudent, async (req, res) => {
-  const orders = await Order.find({ customer: req.session.userId })
-    .sort({ createdAt: -1 })
-    .populate("shop", "name slug")
-    .lean();
-  res.render("orders/index", { pageTitle: "My orders", orders });
-});
+    const order = await Order.findById(id).select("customer status").lean();
+    if (!order || String(order.customer) !== String(req.session.userId)) {
+      return res.status(404).json({ error: "Order not found." });
+    }
 
-ordersRouter.get("/api/orders/:id/status", requireDb, requireAuth, requireStudent, async (req, res) => {
-  const { id } = req.params;
-  if (!mongoose.isValidObjectId(id)) {
-    return res.status(404).json({ error: "Order not found." });
-  }
+    return res.json({ status: order.status });
+  },
+);
 
-  const order = await Order.findById(id).select("customer status").lean();
-  if (!order || String(order.customer) !== String(req.session.userId)) {
-    return res.status(404).json({ error: "Order not found." });
-  }
-
-  return res.json({ status: order.status });
-});
-
-ordersRouter.get("/orders/:id", requireDb, requireAuth, requireStudent, async (req, res) => {
-  const { id } = req.params;
-  if (!mongoose.isValidObjectId(id)) {
-    req.flash("error", "Order not found.");
-    return res.redirect("/orders");
-  }
-  const order = await Order.findById(id).populate("shop", "name slug").lean();
-  if (!order || String(order.customer) !== String(req.session.userId)) {
-    req.flash("error", "Order not found.");
-    return res.redirect("/orders");
-  }
-  res.render("orders/show", { pageTitle: `Order ${String(order._id).slice(-6)}`, order });
-});
+ordersRouter.get(
+  "/orders/:id",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      req.flash("error", "Order not found.");
+      return res.redirect("/orders");
+    }
+    const order = await Order.findById(id).populate("shop", "name slug").lean();
+    if (!order || String(order.customer) !== String(req.session.userId)) {
+      req.flash("error", "Order not found.");
+      return res.redirect("/orders");
+    }
+    res.render("orders/show", {
+      pageTitle: `Order ${String(order._id).slice(-6)}`,
+      order,
+    });
+  },
+);

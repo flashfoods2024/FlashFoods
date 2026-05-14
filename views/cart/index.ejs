@@ -49,12 +49,48 @@
       <form method="post" action="/cart/clear" onsubmit="return confirm('Clear cart?');">
         <button class="btn btn--ghost" type="submit">Clear cart</button>
       </form>
-      <form method="post" action="/orders/checkout">
-        <button class="btn" type="submit">Place order (mock pay)</button>
-      </form>
+      <button class="btn" id="rzp-button">
+        Pay with Razorpay
+      </button>
     </div>
     <p class="muted small">Payment is simulated. You will get a pickup code to show at the counter.</p>
   </div>
 <% } %>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+  const rzpButton = document.getElementById("rzp-button");
+
+  rzpButton.addEventListener("click", async () => {
+    const response = await fetch("/create-razorpay-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: Number("<%= subtotal %>")
+      }),
+    });
+
+    const order = await response.json();
+
+    const options = {
+    key: "<%= locals.env?.RAZORPAY_KEY_ID || '' %>",
+      amount: order.amount,
+      currency: order.currency,
+      name: "Smart Canteen",
+      description: "Order Payment",
+      order_id: order.id,
+
+      handler: async function () {
+        window.location.href = "/orders/checkout";
+      },
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+  });
+</script>
 
 <%- include("../partials/footer") %>

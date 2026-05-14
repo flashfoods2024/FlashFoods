@@ -34,7 +34,7 @@ app.use(
     secret: process.env.SESSION_SECRET || "dev-secret",
     resave: false,
     saveUninitialized: false,
-  })
+  }),
 );
 
 app.use(flash());
@@ -53,7 +53,9 @@ app.use(async (req, res, next) => {
   res.locals.vendorShop = null;
   if (req.user?.role === "vendor" && req.user.shop) {
     try {
-      res.locals.vendorShop = await Shop.findById(req.user.shop).select("name slug").lean();
+      res.locals.vendorShop = await Shop.findById(req.user.shop)
+        .select("name slug")
+        .lean();
     } catch {
       /* ignore */
     }
@@ -61,11 +63,18 @@ app.use(async (req, res, next) => {
 
   const cart = req.session?.cart;
   const items = cart && Array.isArray(cart.items) ? cart.items : [];
-  res.locals.cartCount = items.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
+  res.locals.cartCount = items.reduce(
+    (sum, line) => sum + (Number(line.quantity) || 0),
+    0,
+  );
 
   res.locals.flash = {
     success: req.flash("success"),
     error: req.flash("error"),
+  };
+
+  res.locals.env = {
+    RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   };
 
   next();
@@ -86,7 +95,9 @@ try {
   await connectDb();
 } catch (e) {
   console.error("Server not started because MongoDB could not connect.");
-  console.error("Fix your MONGODB_URI in .env (preferred) or MONGO_URI, then restart.");
+  console.error(
+    "Fix your MONGODB_URI in .env (preferred) or MONGO_URI, then restart.",
+  );
   process.exit(1);
 }
 
