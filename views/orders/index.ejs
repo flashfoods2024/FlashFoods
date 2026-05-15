@@ -16,7 +16,9 @@
           <a href="/orders/<%= o._id %>">Order …<%= String(o._id).slice(-6) %></a>
           <span class="tag tag--<%= tagClass %>"><%= label %></span>
         </div>
-        <p class="muted small"><%= o.shop?.name || "Canteen" %> · ₹<%= o.total.toFixed(2) %> · <%= new Date(o.createdAt).toLocaleString() %></p>
+        <p class="muted small"><%= o.shop?.name || "Canteen" %> · ₹<%= o.total.toFixed(2) %> · <%= new Date(o.createdAt).toLocaleString("en-IN", {
+  timeZone: "Asia/Kolkata"
+}) %></p>
       </li>
     <% }) %>
   </ul>

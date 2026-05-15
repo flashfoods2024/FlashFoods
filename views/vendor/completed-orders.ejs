@@ -8,7 +8,9 @@
 <% } else { %>
   <% orders.forEach((order) => { %>
     <div>
-      <p><strong>Order ID:</strong> <%= order._id %> · <%= new Date(order.createdAt).toLocaleString() %></p>
+      <p><strong>Order ID:</strong> <%= order._id %> · <%= new Date(order.createdAt).toLocaleString("en-IN", {
+  timeZone: "Asia/Kolkata"
+}) %></p>
       <ul>
         <% order.items.forEach((item) => { %>
           <li><%= item.name %> × <%= item.quantity %></li>

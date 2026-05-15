@@ -14,7 +14,9 @@
     <h1>Order details</h1>
     <span class="tag tag--<%= tagClass %>"><%= studentLabel %></span>
   </div>
-  <p class="muted"><%= order.shop?.name || "Canteen" %> · <%= new Date(order.createdAt).toLocaleString() %></p>
+  <p class="muted"><%= order.shop?.name || "Canteen" %> · <%= new Date(order.createdAt).toLocaleString("en-IN", {
+  timeZone: "Asia/Kolkata"
+}) %></p>
 
   <% if (order.status === "paid") { %>
     <p class="muted">The canteen is preparing your order. When they mark it ready, your pickup code will appear here.</p>
