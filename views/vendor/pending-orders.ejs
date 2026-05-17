@@ -19,6 +19,15 @@
       <form method="post" action="/vendor/orders/<%= order._id %>/ready">
         <button type="submit">Mark as ready for pickup</button>
       </form>
+      <form
+        method="post"
+        action="/vendor/orders/<%= order._id %>/cancel"
+        onsubmit="return confirm('Cancel this order and refund customer?');"
+      >
+        <button class="btn btn--danger" type="submit">
+          Cancel Order
+        </button>
+      </form>
       <hr />
     </div>
   <% }) %>

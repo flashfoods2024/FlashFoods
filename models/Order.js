@@ -23,6 +23,11 @@ const orderSchema = new mongoose.Schema(
     },
     pickupOtp: { type: String, required: true },
     paymentNote: { type: String, default: "mock" },
+    refundStatus: {
+      type: String,
+      enum: ["none", "pending", "completed", "failed"],
+      default: "none",
+    },
   },
   { timestamps: true }
 );

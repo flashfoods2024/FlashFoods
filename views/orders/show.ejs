@@ -8,11 +8,13 @@
 
 <% const studentLabel = order.status === "pending_payment" ? "Payment pending" : order.status === "paid" ? "Paid — waiting for canteen" : order.status === "ready_for_pickup" ? "Ready for pickup" : order.status === "completed" ? "Completed" : order.status; %>
 <% const tagClass = order.status === "completed" ? "ok" : order.status === "ready_for_pickup" ? "pending" : order.status === "paid" ? "pending" : "muted"; %>
+<% const displayLabel = order.status === "cancelled" ? "Order Cancelled" : studentLabel; %>
+<% const displayTagClass = order.status === "cancelled" ? "warn" : tagClass; %>
 
 <div class="card order-detail">
   <div class="order-detail__head">
     <h1>Order details</h1>
-    <span class="tag tag--<%= tagClass %>"><%= studentLabel %></span>
+    <span class="tag tag--<%= displayTagClass %>"><%= displayLabel %></span>
   </div>
   <p class="muted"><%= order.shop?.name || "Canteen" %> · <%= new Date(order.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
@@ -28,6 +30,13 @@
     </div>
   <% } else if (order.status === "completed") { %>
     <p class="muted">This order was picked up. (Code used: <strong class="mono"><%= order.pickupOtp %></strong>.)</p>
+  <% } else if (order.status === "cancelled") { %>
+    <p class="muted">Order Cancelled</p>
+    <% if (order.refundStatus === "completed") { %>
+      <p class="muted">Refund Initiated</p>
+    <% } else if (order.refundStatus === "failed") { %>
+      <p class="muted">Refund processing issue. Please contact support.</p>
+    <% } %>
   <% } else if (order.status === "pending_payment") { %>
     <p class="muted">Complete payment when checkout supports it.</p>
   <% } %>

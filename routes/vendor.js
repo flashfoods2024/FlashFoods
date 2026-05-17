@@ -5,6 +5,7 @@ import { MenuItem } from "../models/MenuItem.js";
 import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireVendor, requireVendorShop } from "../middleware/auth.js";
+import razorpay from "../config/razorpay.js";
 
 export const vendorRouter = express.Router();
 
@@ -170,6 +171,98 @@ vendorRouter.post("/vendor/orders/:id/ready", requireDb, requireAuth, requireVen
   req.flash("success", "Order marked ready. Student can pick up with their code.");
   return res.redirect("/vendor/orders/pending");
 });
+
+vendorRouter.post(
+  "/vendor/orders/:id/cancel",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    let order = null;
+
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) {
+        req.flash("error", "Order not found.");
+        return res.redirect("/vendor/orders/pending");
+      }
+
+      order = await Order.findOne({
+        _id: req.params.id,
+        shop: req.vendorShopId,
+      });
+
+      if (!order) {
+        req.flash("error", "Order not found.");
+        return res.redirect("/vendor/orders/pending");
+      }
+
+      if (order.status !== "paid") {
+        req.flash("error", "Only paid orders can be cancelled.");
+        return res.redirect("/vendor/orders/pending");
+      }
+
+      if (!order.paymentNote?.startsWith("pay_")) {
+        req.flash("error", "Invalid payment ID.");
+        return res.redirect("/vendor/orders/pending");
+      }
+
+      const payment = await razorpay.payments.fetch(order.paymentNote);
+
+      if (payment.status !== "captured") {
+        req.flash("error", "Only captured payments can be refunded.");
+        return res.redirect("/vendor/orders/pending");
+      }
+
+      order.refundStatus = "pending";
+      await order.save();
+
+      const refund = await razorpay.payments.refund(
+        order.paymentNote,
+        {
+          amount: Math.round(order.total * 100),
+          speed: "normal",
+          notes: {
+            reason: "Vendor cancelled order",
+          },
+        }
+      );
+
+      order.status = "cancelled";
+      order.refundStatus = "completed";
+
+      await order.save();
+
+      console.log("Refund successful:", refund.id);
+
+      req.flash(
+        "success",
+        "Order cancelled and refund initiated."
+      );
+
+      return res.redirect("/vendor/orders/pending");
+    } catch (error) {
+      console.error("REFUND ERROR:", error);
+
+      if (error?.error) {
+        console.error(error.error);
+      }
+
+      if (order) {
+        order.refundStatus = "failed";
+
+        await order.save();
+      }
+
+      req.flash(
+        "error",
+        "Refund failed. Please process manually from Razorpay dashboard."
+      );
+
+      return res.redirect("/vendor/orders/pending");
+    }
+  }
+);
 
 vendorRouter.get("/vendor/verify", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
   const waitingPickup = await Order.countDocuments({
