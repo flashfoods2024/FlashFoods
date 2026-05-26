@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title><%= pageTitle ? `${pageTitle} • Smart Canteen` : "Smart Canteen" %></title>
+    <title><%= pageTitle ? `${pageTitle} - Smart Canteen` : "Smart Canteen" %></title>
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
@@ -20,7 +20,7 @@
             aria-controls="main-nav"
             aria-label="Open menu"
           >
-            ☰
+            &#9776;
           </button>
         </div>
         <nav id="main-nav" class="nav nav-main" aria-label="Main">
@@ -52,4 +52,3 @@
       <% if (flash?.error?.length) { %>
         <div class="flash flash--error"><%= flash.error[0] %></div>
       <% } %>
-

@@ -3,22 +3,42 @@
 <div class="breadcrumb">
   <a href="/orders">My orders</a>
   <span class="muted"> / </span>
-  <span>…<%= String(order._id).slice(-6) %></span>
+  <span>...<%= String(order._id).slice(-6) %></span>
 </div>
 
-<% const studentLabel = order.status === "pending_payment" ? "Payment pending" : order.status === "paid" ? "Paid — waiting for canteen" : order.status === "ready_for_pickup" ? "Ready for pickup" : order.status === "completed" ? "Completed" : order.status; %>
+<% const studentLabel = order.status === "pending_payment" ? "Payment pending" : order.status === "paid" ? "Paid - waiting for canteen" : order.status === "ready_for_pickup" ? "Ready for pickup" : order.status === "completed" ? "Completed" : order.status; %>
 <% const tagClass = order.status === "completed" ? "ok" : order.status === "ready_for_pickup" ? "pending" : order.status === "paid" ? "pending" : "muted"; %>
 <% const displayLabel = order.status === "cancelled" ? "Order Cancelled" : studentLabel; %>
 <% const displayTagClass = order.status === "cancelled" ? "warn" : tagClass; %>
+<% const stepIndex = order.status === "completed" ? 4 : order.status === "ready_for_pickup" ? 3 : order.status === "paid" ? 2 : order.status === "pending_payment" ? 1 : 0; %>
 
 <div class="card order-detail">
   <div class="order-detail__head">
-    <h1>Order details</h1>
+    <div>
+      <p class="eyebrow">Order ...<%= String(order._id).slice(-6) %></p>
+      <h1>Order details</h1>
+    </div>
     <span class="tag tag--<%= displayTagClass %>"><%= displayLabel %></span>
   </div>
-  <p class="muted"><%= order.shop?.name || "Canteen" %> · <%= new Date(order.createdAt).toLocaleString("en-IN", {
+  <p class="muted"><%= order.shop?.name || "Canteen" %> &middot; <%= new Date(order.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
+
+  <% if (order.status !== "cancelled") { %>
+    <ol class="progress-tracker" aria-label="Order progress">
+      <% [
+        ["Order placed", 1],
+        ["Preparing", 2],
+        ["Ready for pickup", 3],
+        ["Completed", 4],
+      ].forEach(([label, index]) => { %>
+        <li class="progress-tracker__step <%= stepIndex >= index ? "is-complete" : "" %> <%= stepIndex === index ? "is-current" : "" %>">
+          <span class="progress-tracker__dot"><% if (stepIndex >= index) { %>&#10003;<% } else { %><%= index %><% } %></span>
+          <span><%= label %></span>
+        </li>
+      <% }) %>
+    </ol>
+  <% } %>
 
   <% if (order.status === "paid") { %>
     <p class="muted">The canteen is preparing your order. When they mark it ready, your pickup code will appear here.</p>
@@ -29,7 +49,7 @@
       <p class="muted small">Show this code at the counter. The vendor enters it in <strong>Verify pickup</strong> when you collect.</p>
     </div>
   <% } else if (order.status === "completed") { %>
-    <p class="muted">This order was picked up. (Code used: <strong class="mono"><%= order.pickupOtp %></strong>.)</p>
+    <p class="muted">This order was picked up. Code used: <strong class="mono"><%= order.pickupOtp %></strong>.</p>
   <% } else if (order.status === "cancelled") { %>
     <p class="muted">Order Cancelled</p>
     <% if (order.refundStatus === "completed") { %>
@@ -44,10 +64,10 @@
   <h2 class="h2">Items</h2>
   <ul class="plain-list">
     <% order.items.forEach((line) => { %>
-      <li><%= line.quantity %> × <%= line.name %> — ₹<%= (line.price * line.quantity).toFixed(2) %></li>
+      <li><%= line.quantity %> x <%= line.name %> - &#8377;<%= (line.price * line.quantity).toFixed(2) %></li>
     <% }) %>
   </ul>
-  <p class="cart-total"><strong>Total:</strong> ₹<%= order.total.toFixed(2) %></p>
+  <p class="cart-total"><strong>Total:</strong> &#8377;<%= order.total.toFixed(2) %></p>
 </div>
 
 <script>

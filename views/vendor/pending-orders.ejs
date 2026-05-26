@@ -1,36 +1,50 @@
 <%- include("../partials/header", { pageTitle }) %>
 
-<h1>Pending orders</h1>
-<p>New paid orders. Confirm when prepared — they move to <strong>Verify pickup</strong>.</p>
+<section class="hero hero--compact">
+  <p class="eyebrow">Rush hour control</p>
+  <h1>Pending orders</h1>
+  <p class="muted">New paid orders. Confirm when prepared and move them to pickup verification.</p>
+</section>
 
 <% if (!orders.length) { %>
-  <p>No pending orders.</p>
+  <div class="card empty-state">
+    <p class="muted">No pending orders.</p>
+  </div>
 <% } else { %>
-  <% orders.forEach((order) => { %>
-    <div>
-      <p><strong>Order ID:</strong> <%= order._id %></p>
-      <p><strong>Items:</strong></p>
-      <ul>
-        <% order.items.forEach((item) => { %>
-          <li><%= item.name %> — <%= item.quantity %> × <%= item.price %></li>
-        <% }) %>
-      </ul>
-      <p><strong>Total:</strong> ₹<%= Number(order.total).toFixed(2) %></p>
-      <form method="post" action="/vendor/orders/<%= order._id %>/ready">
-        <button type="submit">Mark as ready for pickup</button>
-      </form>
-      <form
-        method="post"
-        action="/vendor/orders/<%= order._id %>/cancel"
-        onsubmit="return confirm('Cancel this order and refund customer?');"
-      >
-        <button class="btn btn--danger" type="submit">
-          Cancel Order
-        </button>
-      </form>
-      <hr />
-    </div>
-  <% }) %>
+  <div class="vendor-order-grid">
+    <% orders.forEach((order) => { %>
+      <article class="card vendor-order-card">
+        <div class="vendor-order-card__head">
+          <div>
+            <p class="eyebrow">Order</p>
+            <h2>...<%= String(order._id).slice(-6) %></h2>
+          </div>
+          <span class="tag tag--pending">Preparing</span>
+        </div>
+        <ul class="vendor-order-card__items">
+          <% order.items.forEach((item) => { %>
+            <li>
+              <span><%= item.name %></span>
+              <strong><%= item.quantity %> x</strong>
+            </li>
+          <% }) %>
+        </ul>
+        <p class="cart-total"><strong>Total:</strong> &#8377;<%= Number(order.total).toFixed(2) %></p>
+        <div class="vendor-order-card__actions">
+          <form method="post" action="/vendor/orders/<%= order._id %>/ready">
+            <button class="btn btn--wide" type="submit">Mark ready</button>
+          </form>
+          <form
+            method="post"
+            action="/vendor/orders/<%= order._id %>/cancel"
+            onsubmit="return confirm('Cancel this order and refund customer?');"
+          >
+            <button class="btn btn--danger btn--wide" type="submit">Cancel</button>
+          </form>
+        </div>
+      </article>
+    <% }) %>
+  </div>
 <% } %>
 
 <%- include("../partials/footer") %>

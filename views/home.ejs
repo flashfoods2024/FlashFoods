@@ -1,36 +1,61 @@
 <%- include("partials/header", { pageTitle }) %>
 
-<section class="hero">
-  <h1>Skip the queue.</h1>
-  <p>Pre-order from campus canteens, pay (mock), get an OTP, and collect fast.</p>
+<section class="hero hero--home">
+  <div class="hero__content">
+    <span class="hero__eyebrow">Campus food, faster</span>
+    <h1>Skip the Queue.</h1>
+    <p>Order before break. Pick up instantly.</p>
 
-  <% if (!currentUser) { %>
-    <div class="row">
-      <a class="btn" href="/shops">Browse canteens</a>
-      <a class="btn" href="/signup">Create account</a>
-      <a class="btn btn--ghost" href="/login">Log in</a>
-    </div>
-  <% } else { %>
-    <div class="card">
-      <p>You’re logged in as <strong><%= currentUser.role %></strong>.</p>
-      <% if (currentUser.role === "student") { %>
-        <p class="muted">Browse canteens, add items to your cart, and place an order to get a pickup code.</p>
-        <div class="row">
-          <a class="btn" href="/shops">Browse canteens</a>
-          <a class="btn btn--ghost" href="/orders">My orders</a>
-        </div>
-      <% } else if (currentUser.role === "vendor") { %>
-        <p class="muted">Pending orders → mark ready → verify pickup code → completed.</p>
-        <div class="row">
-          <a class="btn" href="/vendor/orders/pending">Pending orders</a>
-          <a class="btn btn--ghost" href="/vendor/menu">Manage menu</a>
-          <a class="btn btn--ghost" href="/vendor/verify">Verify pickup</a>
-          <a class="btn btn--ghost" href="/vendor/orders/completed">Completed</a>
-        </div>
-      <% } %>
-    </div>
-  <% } %>
+    <% if (!currentUser) { %>
+      <div class="row hero__actions">
+        <a class="btn" href="/shops">Browse canteens</a>
+        <a class="btn btn--outline" href="/signup">Create account</a>
+        <a class="btn btn--ghost" href="/login">Log in</a>
+      </div>
+    <% } else { %>
+      <div class="hero__panel">
+        <p>You are logged in as <strong><%= currentUser.role %></strong>.</p>
+        <% if (currentUser.role === "student") { %>
+          <p class="muted">Browse canteens, add items to your cart, and place an order to get a pickup code.</p>
+          <div class="row">
+            <a class="btn" href="/shops">Browse canteens</a>
+            <a class="btn btn--outline" href="/orders">My orders</a>
+          </div>
+        <% } else if (currentUser.role === "vendor") { %>
+          <p class="muted">Pending orders to ready pickup to completed.</p>
+          <div class="row">
+            <a class="btn" href="/vendor/orders/pending">Pending orders</a>
+            <a class="btn btn--outline" href="/vendor/menu">Manage menu</a>
+            <a class="btn btn--outline" href="/vendor/verify">Verify pickup</a>
+            <a class="btn btn--outline" href="/vendor/orders/completed">Completed</a>
+          </div>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<section class="features" aria-label="Smart Canteen benefits">
+  <article class="feature-card">
+    <span class="feature-card__icon" aria-hidden="true">1</span>
+    <h2>Save time</h2>
+    <p class="muted">Order before the bell and collect without waiting in line.</p>
+  </article>
+  <article class="feature-card">
+    <span class="feature-card__icon" aria-hidden="true">2</span>
+    <h2>Live menu availability</h2>
+    <p class="muted">Students see what is available before they add it to cart.</p>
+  </article>
+  <article class="feature-card">
+    <span class="feature-card__icon" aria-hidden="true">3</span>
+    <h2>Secure online payment</h2>
+    <p class="muted">Simple checkout flow with clear order confirmation.</p>
+  </article>
+  <article class="feature-card">
+    <span class="feature-card__icon" aria-hidden="true">4</span>
+    <h2>Instant pickup</h2>
+    <p class="muted">Pickup codes help counters complete orders quickly.</p>
+  </article>
 </section>
 
 <%- include("partials/footer") %>
-

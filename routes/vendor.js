@@ -5,6 +5,7 @@ import { MenuItem } from "../models/MenuItem.js";
 import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireVendor, requireVendorShop } from "../middleware/auth.js";
+import { handleMenuImageUpload } from "../middleware/upload.js";
 import razorpay from "../config/razorpay.js";
 
 export const vendorRouter = express.Router();
@@ -57,10 +58,11 @@ vendorRouter.post(
   }
 );
 
-vendorRouter.post("/vendor/menu", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
+vendorRouter.post("/vendor/menu", requireDb, requireAuth, requireVendor, requireVendorShop, handleMenuImageUpload, async (req, res) => {
   const name = String((req.body && req.body.name) || "").trim();
   const description = String((req.body && req.body.description) || "").trim();
   const price = Number((req.body && req.body.price) || 0);
+  const image = req.file?.path || "";
 
   if (!name) {
     req.flash("error", "Name is required.");
@@ -76,13 +78,14 @@ vendorRouter.post("/vendor/menu", requireDb, requireAuth, requireVendor, require
     name,
     description,
     price,
+    image,
   });
 
   req.flash("success", "Menu item created.");
   return res.redirect("/vendor/menu");
 });
 
-vendorRouter.patch("/vendor/menu/:id", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
+vendorRouter.patch("/vendor/menu/:id", requireDb, requireAuth, requireVendor, requireVendorShop, handleMenuImageUpload, async (req, res) => {
   const { id } = req.params;
   if (!mongoose.isValidObjectId(id)) {
     return res.status(400).json({ error: "Invalid menu item id." });
@@ -107,6 +110,9 @@ vendorRouter.patch("/vendor/menu/:id", requireDb, requireAuth, requireVendor, re
   item.name = name;
   item.description = description;
   item.price = price;
+  if (req.file?.path) {
+    item.image = req.file.path;
+  }
   await item.save();
 
   return res.json({
@@ -117,6 +123,7 @@ vendorRouter.patch("/vendor/menu/:id", requireDb, requireAuth, requireVendor, re
       name: item.name,
       description: item.description,
       price: item.price,
+      image: item.image,
       available: item.available,
     },
   });

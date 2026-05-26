@@ -1,25 +1,40 @@
 <%- include("../partials/header", { pageTitle }) %>
 
-<h1>Completed orders</h1>
-<p>Orders that were picked up and verified.</p>
+<section class="hero hero--compact">
+  <p class="eyebrow">Completed pickups</p>
+  <h1>Completed orders</h1>
+  <p class="muted">Orders that were picked up and verified.</p>
+</section>
 
 <% if (!orders.length) { %>
-  <p>No completed orders yet.</p>
+  <div class="card empty-state">
+    <p class="muted">No completed orders yet.</p>
+  </div>
 <% } else { %>
-  <% orders.forEach((order) => { %>
-    <div>
-      <p><strong>Order ID:</strong> <%= order._id %> · <%= new Date(order.createdAt).toLocaleString("en-IN", {
+  <div class="vendor-order-grid">
+    <% orders.forEach((order) => { %>
+      <article class="card vendor-order-card">
+        <div class="vendor-order-card__head">
+          <div>
+            <p class="eyebrow"><%= new Date(order.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
-      <ul>
-        <% order.items.forEach((item) => { %>
-          <li><%= item.name %> × <%= item.quantity %></li>
-        <% }) %>
-      </ul>
-      <p><strong>Total:</strong> ₹<%= Number(order.total).toFixed(2) %></p>
-      <hr />
-    </div>
-  <% }) %>
+            <h2>...<%= String(order._id).slice(-6) %></h2>
+          </div>
+          <span class="tag tag--ok">Completed</span>
+        </div>
+        <ul class="vendor-order-card__items">
+          <% order.items.forEach((item) => { %>
+            <li>
+              <span><%= item.name %></span>
+              <strong><%= item.quantity %> x</strong>
+            </li>
+          <% }) %>
+        </ul>
+        <p class="cart-total"><strong>Total:</strong> &#8377;<%= Number(order.total).toFixed(2) %></p>
+      </article>
+    <% }) %>
+  </div>
 <% } %>
 
 <%- include("../partials/footer") %>

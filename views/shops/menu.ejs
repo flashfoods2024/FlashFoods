@@ -23,28 +23,41 @@
 <% } else { %>
   <ul class="menu-list">
     <% menuItems.forEach((item) => { %>
-      <li class="menu-list__row card">
-        <div class="menu-list__info">
-          <h3 class="menu-list__name"><%= item.name %></h3>
-          <% if (item.description) { %>
-            <p class="muted menu-list__desc"><%= item.description %></p>
+      <li class="menu-list__row card <%= item.available === false ? "menu-list__row--sold-out" : "" %>">
+        <div class="menu-list__content">
+          <div class="menu-list__info">
+            <span class="tag <%= item.available === false ? "tag--warn" : "tag--ok" %>">
+              <%= item.available === false ? "Sold Out" : "Available" %>
+            </span>
+            <h3 class="menu-list__name"><%= item.name %></h3>
+            <% if (item.description) { %>
+              <p class="muted menu-list__desc"><%= item.description %></p>
+            <% } %>
+            <p class="menu-list__price">&#8377;<%= item.price.toFixed(2) %></p>
+          </div>
+          <% if (currentUser && currentUser.role === "student" && shop.isOpen && item.available !== false) { %>
+            <form method="post" action="/cart/add" class="menu-list__form">
+              <input type="hidden" name="menuItemId" value="<%= item._id %>" />
+              <input type="hidden" name="redirect" value="/shops/<%= shop.slug %>" />
+              <label class="sr-only"><span>Quantity</span>
+                <input class="input--qty" name="quantity" type="number" min="1" max="99" value="1" />
+              </label>
+              <button class="btn btn--small" type="submit">Add</button>
+            </form>
+          <% } else if (currentUser && currentUser.role === "student" && item.available === false) { %>
+            <span class="tag tag--warn">Sold Out</span>
+          <% } else if (currentUser && currentUser.role === "student") { %>
+            <span class="tag tag--warn">Closed</span>
+          <% } else if (!currentUser) { %>
+            <a class="btn btn--ghost btn--small" href="/login">Log in to order</a>
           <% } %>
-          <p class="menu-list__price">₹<%= item.price.toFixed(2) %></p>
         </div>
-        <% if (currentUser && currentUser.role === "student" && shop.isOpen) { %>
-          <form method="post" action="/cart/add" class="menu-list__form">
-            <input type="hidden" name="menuItemId" value="<%= item._id %>" />
-            <input type="hidden" name="redirect" value="/shops/<%= shop.slug %>" />
-            <label class="sr-only"><span>Quantity</span>
-              <input class="input--qty" name="quantity" type="number" min="1" max="99" value="1" />
-            </label>
-            <button class="btn btn--small" type="submit">Add</button>
-          </form>
-        <% } else if (currentUser && currentUser.role === "student") { %>
-          <span class="tag tag--warn">Closed</span>
-        <% } else if (!currentUser) { %>
-          <a class="btn btn--ghost btn--small" href="/login">Log in to order</a>
-        <% } %>
+        <img
+          class="menu-list__image"
+          src="<%= item.image || "/food-placeholder.svg" %>"
+          alt="<%= item.name %>"
+          loading="lazy"
+        />
       </li>
     <% }) %>
   </ul>
