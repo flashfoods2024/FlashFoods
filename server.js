@@ -81,7 +81,7 @@ app.use(async (req, res, next) => {
 });
 
 app.get("/", (req, res) => {
-  res.render("home", { pageTitle: "Smart Canteen" });
+  res.render("home", { pageTitle: "Fast Food" });
 });
 
 app.use(authRouter);

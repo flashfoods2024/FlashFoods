@@ -21,7 +21,7 @@ export function isCloudinaryConfigured() {
 export const menuImageStorage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: "smart-canteen/menu-items",
+    folder: "fast-food/menu-items",
     allowed_formats: ["jpg", "jpeg", "png", "webp"],
     resource_type: "image",
     transformation: [
