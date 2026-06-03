@@ -8,6 +8,10 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <% if (typeof hidePageBackground === "undefined" || !hidePageBackground) { %>
+      <%- include("./page-background") %>
+    <% } %>
+    <div class="page-content">
     <header class="topbar">
       <div class="container topbar__inner">
         <div class="topbar__brand-row">
