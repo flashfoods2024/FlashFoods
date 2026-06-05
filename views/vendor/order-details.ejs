@@ -1,0 +1,125 @@
+<%- include("../partials/header", { pageTitle }) %>
+
+<% const orderNumber = `#${String(order._id).slice(-6).toUpperCase()}`; %>
+<% const statusLabels = {
+  pending_payment: "Payment Pending",
+  paid: "Paid",
+  ready_for_pickup: "Ready for Pickup",
+  completed: "Completed",
+  cancelled: "Cancelled",
+}; %>
+<% const refundLabels = {
+  none: "No refund",
+  pending: "Refund Pending",
+  completed: "Refund Completed",
+  failed: "Refund Failed",
+}; %>
+<% const paymentStatus = order.status === "pending_payment"
+  ? "Payment Pending"
+  : order.status === "cancelled" && order.refundStatus === "completed"
+    ? "Refunded"
+    : "Payment Confirmed"; %>
+<% const timelineStage = order.collectedAt
+  ? 4
+  : order.status === "ready_for_pickup"
+    ? 3
+    : order.pickupTime
+      ? 2
+      : 1; %>
+<% const timeline = [
+  ["Order Placed", 1],
+  ["Pickup Scheduled", 2],
+  ["Ready For Pickup", 3],
+  ["Collected By Customer", 4],
+]; %>
+
+<div class="breadcrumb">
+  <a href="<%= backHref %>">Back</a>
+  <span class="muted"> / </span>
+  <span>Order <%= orderNumber %></span>
+</div>
+
+<div class="vendor-detail-actions">
+  <a class="btn btn--outline" href="<%= backHref %>">Back</a>
+</div>
+
+<section class="card vendor-order-detail">
+  <div class="order-detail__head">
+    <div>
+      <p class="eyebrow">Order Number</p>
+      <h1><%= orderNumber %></h1>
+    </div>
+    <span class="tag tag--<%= order.status === "completed" ? "ok" : order.status === "cancelled" ? "warn" : "pending" %>">
+      <%= statusLabels[order.status] || "In Progress" %>
+    </span>
+  </div>
+
+  <div class="vendor-detail-grid">
+    <div>
+      <span>Customer Name</span>
+      <strong><%= order.customer?.name || "Customer" %></strong>
+    </div>
+    <div>
+      <span>Shop Name</span>
+      <strong><%= order.shop?.name || "Canteen" %></strong>
+    </div>
+    <div>
+      <span>Order Status</span>
+      <strong><%= statusLabels[order.status] || "In Progress" %></strong>
+    </div>
+    <div>
+      <span>Pickup Time</span>
+      <strong><%= formatPickupTime(order.pickupTime) %></strong>
+    </div>
+    <div>
+      <span>Pickup OTP</span>
+      <strong class="mono"><%= order.pickupOtp || "Not assigned" %></strong>
+    </div>
+    <div>
+      <span>Total Amount</span>
+      <strong>&#8377;<%= Number(order.total).toFixed(2) %></strong>
+    </div>
+    <div>
+      <span>Payment Status</span>
+      <strong><%= paymentStatus %></strong>
+    </div>
+    <div>
+      <span>Transaction ID</span>
+      <strong class="mono"><%= order.paymentNote || "Not recorded" %></strong>
+    </div>
+    <div>
+      <span>Refund Status</span>
+      <strong><%= refundLabels[order.refundStatus] || "No refund" %></strong>
+    </div>
+    <div>
+      <span>Order Placed Time</span>
+      <strong><%= formatLocalDateTime(order.createdAt) %></strong>
+    </div>
+    <div>
+      <span>Order Collected</span>
+      <strong><%= order.collectedAt ? formatLocalDateTime(order.collectedAt) : "Not collected yet" %></strong>
+    </div>
+  </div>
+
+  <h2 class="h2">Items Ordered</h2>
+  <ul class="vendor-detail-items">
+    <% order.items.forEach((item) => { %>
+      <li>
+        <span><%= item.name %></span>
+        <strong>&times;<%= item.quantity %></strong>
+      </li>
+    <% }) %>
+  </ul>
+
+  <h2 class="h2">Order Timeline</h2>
+  <ol class="vendor-timeline" aria-label="Order timeline">
+    <% timeline.forEach(([label, index]) => { %>
+      <li class="vendor-timeline__step <%= timelineStage >= index ? "is-complete" : "" %> <%= timelineStage === index && !order.collectedAt ? "is-current" : "" %>">
+        <span class="vendor-timeline__dot"><% if (timelineStage >= index) { %>&#10003;<% } else { %><%= index %><% } %></span>
+        <span><%= label %></span>
+      </li>
+    <% }) %>
+  </ol>
+</section>
+
+<%- include("../partials/footer") %>

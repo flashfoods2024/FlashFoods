@@ -13,13 +13,18 @@
 <% } else { %>
   <div class="vendor-order-grid">
     <% orders.forEach((order) => { %>
+      <% const pickupUrgency = getPickupUrgency(order.pickupTime); %>
       <article class="card vendor-order-card">
+        <a class="vendor-order-card__overlay" href="/vendor/orders/<%= order._id %>" aria-label="View order #<%= String(order._id).slice(-6).toUpperCase() %> details"></a>
         <div class="vendor-order-card__head">
           <div>
             <p class="eyebrow">Order</p>
-            <h2>...<%= String(order._id).slice(-6) %></h2>
+            <h2>#<%= String(order._id).slice(-6).toUpperCase() %></h2>
           </div>
-          <span class="tag tag--pending">Preparing</span>
+          <div class="vendor-order-card__status">
+            <span class="tag tag--pending">Preparing</span>
+            <span class="tag tag--<%= pickupUrgency %>">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
+          </div>
         </div>
         <ul class="vendor-order-card__items">
           <% order.items.forEach((item) => { %>

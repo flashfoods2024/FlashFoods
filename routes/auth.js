@@ -6,7 +6,7 @@ import { requireDb } from "../middleware/requireDb.js";
 export const authRouter = express.Router();
 
 authRouter.get("/signup", (req, res) => {
-  res.render("auth/signup", { pageTitle: "Sign up" });
+  res.render("auth/signup", { pageTitle: "Sign Up" });
 });
 
 authRouter.post("/signup", requireDb, async (req, res) => {
@@ -39,7 +39,7 @@ authRouter.post("/signup", requireDb, async (req, res) => {
 });
 
 authRouter.get("/login", (req, res) => {
-  res.render("auth/login", { pageTitle: "Log in" });
+  res.render("auth/login", { pageTitle: "Login" });
 });
 
 authRouter.post("/login", requireDb, async (req, res) => {

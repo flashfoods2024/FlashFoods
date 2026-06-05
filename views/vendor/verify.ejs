@@ -18,4 +18,41 @@
   </form>
 </div>
 
+<% if (orders && orders.length) { %>
+  <section class="vendor-section">
+    <div class="row row--split">
+      <div>
+        <p class="eyebrow">Ready now</p>
+        <h2 class="h2">Orders waiting for pickup</h2>
+      </div>
+    </div>
+    <div class="vendor-order-grid">
+      <% orders.forEach((order) => { %>
+        <article class="card vendor-order-card">
+          <a class="vendor-order-card__overlay" href="/vendor/orders/<%= order._id %>" aria-label="View order #<%= String(order._id).slice(-6).toUpperCase() %> details"></a>
+          <div class="vendor-order-card__head">
+            <div>
+              <p class="eyebrow"><%= order.customer?.name || "Customer" %></p>
+              <h2>#<%= String(order._id).slice(-6).toUpperCase() %></h2>
+            </div>
+            <div class="vendor-order-card__status">
+              <span class="tag tag--pending">Ready</span>
+              <span class="tag tag--muted">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
+            </div>
+          </div>
+          <ul class="vendor-order-card__items">
+            <% order.items.forEach((item) => { %>
+              <li>
+                <span><%= item.name %></span>
+                <strong><%= item.quantity %> x</strong>
+              </li>
+            <% }) %>
+          </ul>
+          <p class="cart-total"><strong>Total:</strong> &#8377;<%= Number(order.total).toFixed(2) %></p>
+        </article>
+      <% }) %>
+    </div>
+  </section>
+<% } %>
+
 <%- include("../partials/footer") %>

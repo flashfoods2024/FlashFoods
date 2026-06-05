@@ -2,26 +2,32 @@
 
 <section class="hero hero--compact">
   <p class="eyebrow">Completed pickups</p>
-  <h1>Completed orders</h1>
-  <p class="muted">Orders that were picked up and verified.</p>
+  <h1>Completed and cancelled orders</h1>
+  <p class="muted">Orders that were picked up, verified, or cancelled.</p>
 </section>
 
 <% if (!orders.length) { %>
   <div class="card empty-state">
-    <p class="muted">No completed orders yet.</p>
+    <p class="muted">No completed or cancelled orders yet.</p>
   </div>
 <% } else { %>
   <div class="vendor-order-grid">
     <% orders.forEach((order) => { %>
       <article class="card vendor-order-card">
+        <a class="vendor-order-card__overlay" href="/vendor/orders/<%= order._id %>" aria-label="View order #<%= String(order._id).slice(-6).toUpperCase() %> details"></a>
         <div class="vendor-order-card__head">
           <div>
             <p class="eyebrow"><%= new Date(order.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
-            <h2>...<%= String(order._id).slice(-6) %></h2>
+            <h2>#<%= String(order._id).slice(-6).toUpperCase() %></h2>
           </div>
-          <span class="tag tag--ok">Completed</span>
+          <div class="vendor-order-card__status">
+            <% const statusLabel = order.status === "completed" ? "Completed" : order.status === "cancelled" ? "Cancelled" : order.status; %>
+            <% const statusClass = order.status === "completed" ? "ok" : order.status === "cancelled" ? "warn" : "muted"; %>
+            <span class="tag tag--<%= statusClass %>"><%= statusLabel %></span>
+            <span class="tag tag--muted">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
+          </div>
         </div>
         <ul class="vendor-order-card__items">
           <% order.items.forEach((item) => { %>

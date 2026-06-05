@@ -16,13 +16,28 @@ const orderSchema = new mongoose.Schema(
     shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", required: true },
     items: { type: [orderItemSchema], required: true },
     total: { type: Number, required: true, min: 0 },
+
+    pickupTime: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+
+    collectedAt: {
+      type: Date,
+      default: null,
+    },
+
     status: {
       type: String,
       enum: ["pending_payment", "paid", "ready_for_pickup", "completed", "cancelled"],
       default: "pending_payment",
     },
+
     pickupOtp: { type: String, required: true },
+
     paymentNote: { type: String, default: "mock" },
+
     refundStatus: {
       type: String,
       enum: ["none", "pending", "completed", "failed"],
@@ -35,5 +50,8 @@ const orderSchema = new mongoose.Schema(
 orderSchema.index({ shop: 1, pickupOtp: 1 });
 orderSchema.index({ shop: 1, status: 1 });
 orderSchema.index({ customer: 1, createdAt: -1 });
+
+// New index for priority ordering
+orderSchema.index({ shop: 1, pickupTime: 1, createdAt: 1 });
 
 export const Order = mongoose.model("Order", orderSchema);

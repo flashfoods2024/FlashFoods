@@ -45,10 +45,11 @@ ordersRouter.post(
   async (req, res) => {
     try {
       const {
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature,
-      } = req.body;
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      pickupTime,
+} = req.body;
 
       const sign = razorpay_order_id + "|" + razorpay_payment_id;
 
@@ -116,14 +117,15 @@ ordersRouter.post(
       const pickupOtp = generateOtp();
 
       const order = await Order.create({
-        customer: req.session.userId,
-        shop: cart.shopId,
-        items: orderItems,
-        total,
-        status: "paid",
-        pickupOtp,
-        paymentNote: razorpay_payment_id,
-      });
+  customer: req.session.userId,
+  shop: cart.shopId,
+  items: orderItems,
+  total,
+  pickupTime: pickupTime ? new Date(pickupTime) : null,
+  status: "paid",
+  pickupOtp,
+  paymentNote: razorpay_payment_id,
+});
 
       req.session.cart = {
         shopId: null,
@@ -198,15 +200,19 @@ ordersRouter.post(
     }
 
     const pickupOtp = generateOtp();
+
     const order = await Order.create({
-      customer: req.session.userId,
-      shop: cart.shopId,
-      items: orderItems,
-      total,
-      status: "paid",
-      pickupOtp,
-      paymentNote: "mock",
-    });
+  customer: req.session.userId,
+  shop: cart.shopId,
+  items: orderItems,
+  total,
+  pickupTime: req.body.pickupTime
+    ? new Date(req.body.pickupTime)
+    : null,
+  status: "paid",
+  pickupOtp,
+  paymentNote: "mock",
+});
 
     req.session.cart = { shopId: null, items: [] };
     req.flash(
@@ -227,7 +233,7 @@ ordersRouter.get(
       .sort({ createdAt: -1 })
       .populate("shop", "name slug")
       .lean();
-    res.render("orders/index", { pageTitle: "My orders", orders });
+    res.render("orders/index", { pageTitle: "Orders", orders });
   },
 );
 

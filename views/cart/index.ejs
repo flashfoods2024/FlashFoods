@@ -44,67 +44,127 @@
         <% }) %>
       </tbody>
     </table>
-    <p class="cart-total"><strong>Subtotal:</strong> ₹<%= subtotal.toFixed(2) %></p>
+
+    <p class="cart-total">
+      <strong>Subtotal:</strong> ₹<%= subtotal.toFixed(2) %>
+    </p>
+
+    <div class="pickup-time-section">
+      <label for="pickupTime">
+        <strong>Pickup Time</strong>
+      </label>
+
+      <select id="pickupTime" class="input">
+        <option value="">Select pickup time</option>
+      </select>
+
+      <p class="muted small">
+        Choose when you plan to collect your order.
+      </p>
+    </div>
+
     <div class="row row--split">
       <form method="post" action="/cart/clear" onsubmit="return confirm('Clear cart?');">
         <button class="btn btn--ghost" type="submit">Clear cart</button>
       </form>
+
       <button class="btn" id="rzp-button">
         Pay with Razorpay
       </button>
     </div>
-    <p class="muted small">Payment is simulated. You will get a pickup code to show at the counter.</p>
+
+    <p class="muted small">
+      Payment is simulated. You will get a pickup code to show at the counter.
+    </p>
   </div>
 <% } %>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
 <script>
-  const rzpButton = document.getElementById("rzp-button");
+  const pickupSelect = document.getElementById("pickupTime");
 
-  rzpButton.addEventListener("click", async () => {
-    const response = await fetch("/create-razorpay-order", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        amount: Number("<%= subtotal %>")
-      }),
-    });
+  if (pickupSelect) {
+    (function generatePickupTimes() {
+      const now = new Date();
 
-    const order = await response.json();
+      for (let i = 5; i <= 120; i += 5) {
+        const time = new Date(now.getTime() + i * 60000);
 
-    const options = {
-    key: "<%= locals.env?.RAZORPAY_KEY_ID || '' %>",
-      amount: order.amount,
-      currency: order.currency,
-      name: "Fast Food",
-      description: "Order Payment",
-      order_id: order.id,
+        const value = time.toISOString();
 
-      handler: async function (response) {
-        const verifyResponse = await fetch("/verify-payment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(response),
+        const label = time.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
         });
 
-        const data = await verifyResponse.json();
+        pickupSelect.innerHTML += `
+          <option value="${value}">
+            ${label}
+          </option>
+        `;
+      }
+    })();
+  }
 
-        if (data.success) {
-          window.location.href = `/orders/${data.orderId}`;
-        } else {
-          alert("Payment verification failed");
-        }
-      },
-    };
+  const rzpButton = document.getElementById("rzp-button");
 
-    const rzp = new Razorpay(options);
-    rzp.open();
-  });
+  if (rzpButton) {
+    rzpButton.addEventListener("click", async () => {
+      const pickupTime = pickupSelect?.value;
+
+      if (!pickupTime) {
+        alert("Please select a pickup time.");
+        return;
+      }
+
+      const response = await fetch("/create-razorpay-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: Number("<%= subtotal %>"),
+          pickupTime,
+        }),
+      });
+
+      const order = await response.json();
+
+      const options = {
+        key: "<%= locals.env?.RAZORPAY_KEY_ID || '' %>",
+        amount: order.amount,
+        currency: order.currency,
+        name: "Flash Foods",
+        description: "Order Payment",
+        order_id: order.id,
+
+        handler: async function (response) {
+          const verifyResponse = await fetch("/verify-payment", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              ...response,
+              pickupTime,
+            }),
+          });
+
+          const data = await verifyResponse.json();
+
+          if (data.success) {
+            window.location.href = `/orders/${data.orderId}`;
+          } else {
+            alert("Payment verification failed");
+          }
+        },
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+    });
+  }
 </script>
 
 <%- include("../partials/footer") %>

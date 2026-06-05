@@ -13,6 +13,11 @@ import { cartRouter } from "./routes/cart.js";
 import { ordersRouter } from "./routes/orders.js";
 import { vendorRouter } from "./routes/vendor.js";
 import { menuRouter } from "./routes/menu.js";
+import {
+  formatLocalDateTime,
+  formatPickupTime,
+  getPickupUrgency,
+} from "./utils/time.js";
 
 dotenv.config();
 
@@ -77,11 +82,15 @@ app.use(async (req, res, next) => {
     RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   };
 
+  res.locals.formatPickupTime = formatPickupTime;
+  res.locals.formatLocalDateTime = formatLocalDateTime;
+  res.locals.getPickupUrgency = getPickupUrgency;
+
   next();
 });
 
 app.get("/", (req, res) => {
-  res.render("home", { pageTitle: "Fast Food" });
+  res.render("home", { pageTitle: null });
 });
 
 app.use(authRouter);

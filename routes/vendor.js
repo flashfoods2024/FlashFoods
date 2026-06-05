@@ -18,7 +18,7 @@ vendorRouter.get("/vendor/menu", requireDb, requireAuth, requireVendor, requireV
   }
   if (shop && typeof shop.isOpen !== "boolean") shop.isOpen = true;
   const menuItems = await MenuItem.find({ shop: req.vendorShopId }).sort({ name: 1 }).lean();
-  res.render("vendor/menu", { pageTitle: "Manage menu", shop, menuItems });
+  res.render("vendor/menu", { pageTitle: "Vendor Dashboard", shop, menuItems });
 });
 
 vendorRouter.post(
@@ -144,14 +144,32 @@ vendorRouter.delete("/vendor/menu/:id", requireDb, requireAuth, requireVendor, r
 });
 
 vendorRouter.get("/vendor/orders/pending", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
-  const orders = await Order.find({
-    shop: req.vendorShopId,
-    status: "paid",
-  })
-    .sort({ createdAt: 1 })
-    .lean();
+  const orders = await Order.aggregate([
+    {
+      $match: {
+        shop: req.vendorShopId,
+        status: "paid",
+      },
+    },
+    {
+      $addFields: {
+        priorityTime: { $ifNull: ["$pickupTime", "$createdAt"] },
+      },
+    },
+    {
+      $sort: {
+        priorityTime: 1,
+        createdAt: 1,
+      },
+    },
+    {
+      $project: {
+        priorityTime: 0,
+      },
+    },
+  ]);
 
-  res.render("vendor/pending-orders", { pageTitle: "Pending orders", orders });
+  res.render("vendor/pending-orders", { pageTitle: "Pending Orders", orders });
 });
 
 vendorRouter.post("/vendor/orders/:id/ready", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
@@ -272,11 +290,19 @@ vendorRouter.post(
 );
 
 vendorRouter.get("/vendor/verify", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
-  const waitingPickup = await Order.countDocuments({
+  const readyOrders = await Order.find({
     shop: req.vendorShopId,
     status: "ready_for_pickup",
+  })
+    .sort({ pickupTime: 1, createdAt: 1 })
+    .populate("customer", "name")
+    .lean();
+
+  res.render("vendor/verify", {
+    pageTitle: "Verify Pickup",
+    waitingPickup: readyOrders.length,
+    orders: readyOrders,
   });
-  res.render("vendor/verify", { pageTitle: "Verify pickup", waitingPickup });
 });
 
 vendorRouter.post("/vendor/verify", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
@@ -293,15 +319,41 @@ vendorRouter.post("/vendor/verify", requireDb, requireAuth, requireVendor, requi
     pickupOtp: otp,
     status: "ready_for_pickup",
   })
-    .populate("customer", "name email")
-    .lean();
+    .populate("customer", "name email");
 
   if (!order) {
     req.flash("error", "No order waiting for pickup matches that code.");
     return res.redirect("/vendor/verify");
   }
 
-  await Order.updateOne({ _id: order._id }, { $set: { status: "completed" } });
+  console.log(
+    "Completing order via OTP:",
+    {
+      orderId: String(order._id),
+      statusBefore: order.status,
+      collectedAtBefore: order.collectedAt || null,
+    },
+  );
+
+  order.status = "completed";
+  if (!order.collectedAt) {
+    order.collectedAt = new Date();
+  }
+  await order.save();
+
+  const persistedCollection = await Order.findById(order._id)
+    .select("status collectedAt")
+    .lean();
+
+  console.log(
+    "Order completed via OTP:",
+    {
+      orderId: String(order._id),
+      statusAfter: persistedCollection?.status || order.status,
+      collectedAtAfter: persistedCollection?.collectedAt || null,
+    },
+  );
+
   req.flash("success", `Pickup verified for ${order.customer?.name || "customer"}.`);
   return res.redirect("/vendor/verify");
 });
@@ -309,11 +361,53 @@ vendorRouter.post("/vendor/verify", requireDb, requireAuth, requireVendor, requi
 vendorRouter.get("/vendor/orders/completed", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
   const orders = await Order.find({
     shop: req.vendorShopId,
-    status: "completed",
+    status: { $in: ["completed", "cancelled"] },
   })
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();
 
-  res.render("vendor/completed-orders", { pageTitle: "Completed orders", orders });
+  res.render("vendor/completed-orders", {
+    pageTitle: "Completed & Cancelled Orders",
+    orders,
+  });
+});
+
+vendorRouter.get("/vendor/orders/:id", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) {
+    req.flash("error", "Order not found.");
+    return res.redirect("/vendor/orders/pending");
+  }
+
+  const order = await Order.findById(id)
+    .populate("customer", "name email")
+    .populate("shop", "name slug")
+    .lean();
+
+  if (!order || String(order.shop?._id || order.shop) !== req.vendorShopIdStr) {
+    req.flash("error", "Order not found.");
+    return res.redirect("/vendor/orders/pending");
+  }
+
+  const referrer = req.get("Referrer");
+  let backHref = "/vendor/orders/pending";
+  if (referrer) {
+    try {
+      const referrerUrl = new URL(referrer);
+      if (referrerUrl.host === req.get("host")) {
+        backHref = `${referrerUrl.pathname}${referrerUrl.search}`;
+      }
+    } catch {
+      if (referrer.startsWith("/")) {
+        backHref = referrer;
+      }
+    }
+  }
+
+  res.render("vendor/order-details", {
+    pageTitle: `Order #${String(order._id).slice(-6).toUpperCase()}`,
+    order,
+    backHref,
+  });
 });

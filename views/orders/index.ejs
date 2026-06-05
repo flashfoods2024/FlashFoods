@@ -9,8 +9,8 @@
 <% } else { %>
   <ul class="order-list">
     <% orders.forEach((o) => { %>
-      <% const label = o.status === "pending_payment" ? "Payment pending" : o.status === "paid" ? "Paid — waiting for canteen" : o.status === "ready_for_pickup" ? "Ready for pickup" : o.status === "completed" ? "Completed" : o.status; %>
-      <% const tagClass = o.status === "completed" ? "ok" : o.status === "ready_for_pickup" ? "pending" : o.status === "paid" ? "pending" : "muted"; %>
+      <% const label = o.status === "pending_payment" ? "Payment pending" : o.status === "paid" ? "Paid — waiting for canteen" : o.status === "ready_for_pickup" ? "Ready for pickup" : o.status === "completed" ? "Completed" : o.status === "cancelled" ? "Cancelled" : o.status; %>
+      <% const tagClass = o.status === "completed" ? "ok" : o.status === "ready_for_pickup" || o.status === "paid" ? "pending" : o.status === "cancelled" ? "warn" : "muted"; %>
       <li class="card order-list__item">
         <div class="order-list__meta">
           <a href="/orders/<%= o._id %>">Order …<%= String(o._id).slice(-6) %></a>
@@ -19,6 +19,7 @@
         <p class="muted small"><%= o.shop?.name || "Canteen" %> · ₹<%= o.total.toFixed(2) %> · <%= new Date(o.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
+        <p class="pickup-meta pickup-meta--compact"><strong>Pickup:</strong> <%= formatPickupTime(o.pickupTime) %></p>
       </li>
     <% }) %>
   </ul>

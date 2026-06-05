@@ -10,7 +10,7 @@
 <% const tagClass = order.status === "completed" ? "ok" : order.status === "ready_for_pickup" ? "pending" : order.status === "paid" ? "pending" : "muted"; %>
 <% const displayLabel = order.status === "cancelled" ? "Order Cancelled" : studentLabel; %>
 <% const displayTagClass = order.status === "cancelled" ? "warn" : tagClass; %>
-<% const stepIndex = order.status === "completed" ? 4 : order.status === "ready_for_pickup" ? 3 : order.status === "paid" ? 2 : order.status === "pending_payment" ? 1 : 0; %>
+<% const stepIndex = order.status === "completed" ? 4 : order.status === "ready_for_pickup" ? 3 : order.pickupTime ? 2 : order.status === "pending_payment" ? 1 : 0; %>
 
 <div class="card order-detail">
   <div class="order-detail__head">
@@ -23,14 +23,15 @@
   <p class="muted"><%= order.shop?.name || "Canteen" %> &middot; <%= new Date(order.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
+  <p class="pickup-meta"><strong>Pickup time:</strong> <%= formatPickupTime(order.pickupTime) %></p>
 
   <% if (order.status !== "cancelled") { %>
     <ol class="progress-tracker" aria-label="Order progress">
       <% [
-        ["Order placed", 1],
-        ["Preparing", 2],
-        ["Ready for pickup", 3],
-        ["Completed", 4],
+        ["Order Placed", 1],
+        ["Pickup Scheduled", 2],
+        ["Ready For Pickup", 3],
+        ["Collected By Customer", 4],
       ].forEach(([label, index]) => { %>
         <li class="progress-tracker__step <%= stepIndex >= index ? "is-complete" : "" %> <%= stepIndex === index ? "is-current" : "" %>">
           <span class="progress-tracker__dot"><% if (stepIndex >= index) { %>&#10003;<% } else { %><%= index %><% } %></span>
