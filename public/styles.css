@@ -917,7 +917,7 @@ select:hover {
 
 @media (max-width: 768px) {
   .container {
-    padding: 14px;
+    padding: 20px 2px 20px 2px;
   }
 
   .hero--home {
@@ -995,7 +995,7 @@ select:hover {
 
 @media (max-width: 480px) {
   .brand {
-    font-size: 35px;
+    font-size: 30px;
   }
 
   .hero h1 {
