@@ -37,6 +37,8 @@ const orderSchema = new mongoose.Schema(
     pickupOtp: { type: String, required: true },
 
     paymentNote: { type: String, default: "mock" },
+    transactionId: { type: String, default: "" },
+    readyAt: { type: Date, default: null },
 
     refundStatus: {
       type: String,

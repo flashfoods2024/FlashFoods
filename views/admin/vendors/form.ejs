@@ -1,0 +1,53 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow"><%= mode === "edit" ? "Edit vendor" : "Create vendor" %></p>
+    <h1><%= mode === "edit" ? "Update vendor" : "New vendor" %></h1>
+    <p class="muted">Assign or reassign a vendor to any shop from one browser form.</p>
+  </div>
+</section>
+
+<div class="card admin-panel">
+  <form method="post" action="<%= mode === "edit" ? `/admin/vendors/${vendor._id}/edit` : "/admin/vendors" %>" class="form">
+    <label>
+      <span>Name</span>
+      <input name="name" type="text" maxlength="120" required value="<%= vendor?.name || "" %>" />
+    </label>
+    <label>
+      <span>Email</span>
+      <input name="email" type="email" maxlength="160" required value="<%= vendor?.email || "" %>" />
+    </label>
+    <label>
+      <span><%= mode === "edit" ? "New password (leave blank to keep existing)" : "Password" %></span>
+      <input name="password" type="password" <%= mode === "create" ? "required" : "" %> />
+    </label>
+    <label>
+      <span>Assigned shop</span>
+      <select name="shop">
+        <option value="">No shop assigned</option>
+        <% shops.forEach((shop) => { %>
+          <option value="<%= shop._id %>" <%= String(vendor?.shop?._id || vendor?.shop || "") === String(shop._id) ? "selected" : "" %>><%= shop.name %> (<%= shop.slug %>)</option>
+        <% }) %>
+      </select>
+    </label>
+    <% if (mode === "edit") { %>
+      <label>
+        <span>Status</span>
+        <select name="isActive">
+          <option value="1" <%= vendor?.isActive !== false ? "selected" : "" %>>Enabled</option>
+          <option value="0" <%= vendor?.isActive === false ? "selected" : "" %>>Disabled</option>
+        </select>
+      </label>
+    <% } %>
+    <div class="row">
+      <button class="btn" type="submit"><%= mode === "edit" ? "Save changes" : "Create vendor" %></button>
+      <a class="btn btn--outline" href="/admin/vendors">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>
+

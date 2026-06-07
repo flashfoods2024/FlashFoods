@@ -13,6 +13,11 @@ menuRouter.patch(
   requireVendor,
   requireVendorShop,
   async (req, res) => {
+    const activeShop = await Shop.findById(req.vendorShopId).lean();
+    if (!activeShop || activeShop.isActive === false) {
+      return res.status(403).json({ error: "This shop is disabled by an admin." });
+    }
+
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({ error: "Invalid menu item id." });

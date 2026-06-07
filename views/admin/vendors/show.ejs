@@ -1,0 +1,79 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Vendor profile</p>
+    <h1><%= vendor.name %></h1>
+    <p class="muted"><%= vendor.email %></p>
+  </div>
+  <div class="row">
+    <a class="btn btn--outline" href="/admin/vendors/<%= vendor._id %>/edit">Edit</a>
+    <form method="post" action="/admin/vendors/<%= vendor._id %>/toggle" class="inline" onsubmit="return confirm('Toggle this vendor status?')">
+      <button class="btn btn--ghost" type="submit"><%= vendor.isActive ? "Disable" : "Enable" %></button>
+    </form>
+  </div>
+</section>
+
+<section class="admin-metrics">
+  <article class="card admin-metric">
+    <p class="muted small">Status</p>
+    <h2 class="h2"><%= vendor.isActive === false ? "Disabled" : "Active" %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Assigned Shop</p>
+    <h2 class="h2"><%= vendor.shop?.name || "Unassigned" %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Completed Orders</p>
+    <h2 class="h2"><%= completedOrders %></h2>
+  </article>
+</section>
+
+<div class="card admin-panel">
+  <h2 class="h2">Vendor details</h2>
+  <div class="admin-detail-grid">
+    <div><span>Email</span><strong><%= vendor.email %></strong></div>
+    <div><span>Shop slug</span><strong><%= vendor.shop?.slug || "Unassigned" %></strong></div>
+    <div><span>Created</span><strong><%= new Date(vendor.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) %></strong></div>
+    <div><span>Disabled at</span><strong><%= vendor.disabledAt ? new Date(vendor.disabledAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not disabled" %></strong></div>
+  </div>
+</div>
+
+<div class="card admin-panel">
+  <div class="row row--split">
+    <h2 class="h2">Recent orders</h2>
+    <a class="btn btn--outline btn--small" href="/admin/orders?filter=preparing&q=<%= encodeURIComponent(vendor.name) %>">Search orders</a>
+  </div>
+  <% if (!recentOrders.length) { %>
+    <p class="muted">No orders yet for this vendor.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Total</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% recentOrders.forEach((order) => { %>
+            <tr>
+              <td><a class="admin-link" href="/admin/orders/<%= order._id %>">#<%= orderNumber(order) %></a></td>
+              <td><%= order.customer?.name || "Customer" %></td>
+              <td><span class="tag tag--<%= order.status === "completed" ? "ok" : order.status === "cancelled" ? "danger" : order.status === "ready_for_pickup" ? "pending" : "muted" %>"><%= formatOrderStatus(order.status) %></span></td>
+              <td><%= formatMoney(order.total) %></td>
+              <td><%= new Date(order.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>

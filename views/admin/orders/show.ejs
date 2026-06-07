@@ -1,0 +1,64 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Order details</p>
+    <h1>#<%= orderNumber(order) %></h1>
+    <p class="muted"><%= order.shop?.name || "Deleted shop" %></p>
+  </div>
+  <a class="btn btn--outline" href="/admin/orders">Back to orders</a>
+</section>
+
+<section class="admin-metrics">
+  <article class="card admin-metric">
+    <p class="muted small">Current Status</p>
+    <h2 class="h2"><%= formatOrderStatus(order.status) %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Payment Status</p>
+    <h2 class="h2"><%= paymentStatus %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Total</p>
+    <h2 class="h2"><%= formatMoney(order.total) %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Pickup OTP</p>
+    <h2 class="h2 mono"><%= order.pickupOtp %></h2>
+  </article>
+</section>
+
+<div class="card admin-panel">
+  <h2 class="h2">Order metadata</h2>
+  <div class="admin-detail-grid">
+    <div><span>Customer</span><strong><%= order.customer?.name || "Customer" %> (<%= order.customer?.email || "Unknown" %>)</strong></div>
+    <div><span>Shop</span><strong><%= order.shop?.name || "Deleted shop" %></strong></div>
+    <div><span>Vendor</span><strong><%= order.shop?.vendor?.name || "Unassigned" %></strong></div>
+    <div><span>Transaction ID</span><strong class="mono"><%= order.transactionId || order.paymentNote || "Not available" %></strong></div>
+    <div><span>Refund status</span><strong><%= order.refundStatus %></strong></div>
+    <div><span>Pickup time</span><strong><%= order.pickupTime ? new Date(order.pickupTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not specified" %></strong></div>
+    <div><span>Ready time</span><strong><%= order.readyAt ? new Date(order.readyAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not ready yet" %></strong></div>
+    <div><span>Collected time</span><strong><%= order.collectedAt ? new Date(order.collectedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not collected yet" %></strong></div>
+    <div><span>Created</span><strong><%= new Date(order.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) %></strong></div>
+  </div>
+</div>
+
+<div class="card admin-panel">
+  <h2 class="h2">Items</h2>
+  <ul class="admin-item-list">
+    <% order.items.forEach((line) => { %>
+      <li>
+        <div>
+          <strong><%= line.name %></strong>
+          <div class="muted small">Qty <%= line.quantity %> x <%= formatMoney(line.price) %></div>
+        </div>
+        <strong><%= formatMoney(line.price * line.quantity) %></strong>
+      </li>
+    <% }) %>
+  </ul>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>
+

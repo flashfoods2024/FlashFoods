@@ -9,7 +9,7 @@ export async function attachUser(req, res, next) {
 
   try {
     const user = await User.findById(req.session.userId).select("-passwordHash").lean();
-    if (!user) {
+    if (!user || user.isActive === false) {
       delete req.session.userId;
       return next();
     }
@@ -33,7 +33,7 @@ export async function requireAuth(req, res, next) {
 
   try {
     const user = await User.findById(req.session.userId).select("-passwordHash").lean();
-    if (!user) {
+    if (!user || user.isActive === false) {
       req.flash("error", "Please log in to continue.");
       delete req.session.userId;
       return res.redirect("/login");
@@ -46,7 +46,7 @@ export async function requireAuth(req, res, next) {
 }
 
 export function requireVendor(req, res, next) {
-  if (req.user.role !== "vendor") {
+  if (!req.user || req.user.role !== "vendor") {
     req.flash("error", "Vendor access only.");
     return res.redirect("/");
   }
@@ -54,7 +54,7 @@ export function requireVendor(req, res, next) {
 }
 
 export function requireStudent(req, res, next) {
-  if (req.user.role !== "student") {
+  if (!req.user || req.user.role !== "student") {
     req.flash("error", "Student access only.");
     return res.redirect("/");
   }
@@ -62,7 +62,7 @@ export function requireStudent(req, res, next) {
 }
 
 export function requireAdmin(req, res, next) {
-  if (req.user.role !== "admin") {
+  if (!req.user || req.user.role !== "admin") {
     req.flash("error", "Admin access only.");
     return res.redirect("/");
   }
@@ -70,7 +70,7 @@ export function requireAdmin(req, res, next) {
 }
 
 export function requireVendorShop(req, res, next) {
-  if (req.user.role !== "vendor") {
+  if (!req.user || req.user.role !== "vendor") {
     req.flash("error", "Vendor access only.");
     return res.redirect("/");
   }

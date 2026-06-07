@@ -1,0 +1,120 @@
+<%- include("../partials/header", { pageTitle }) %>
+<%- include("./partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Operational analytics</p>
+    <h1>Analytics</h1>
+    <p class="muted">Revenue, demand, peak ordering patterns, and top performers.</p>
+  </div>
+</section>
+
+<section class="admin-metrics">
+  <article class="card admin-metric">
+    <p class="muted small">Total Revenue</p>
+    <h2 class="h2"><%= formatMoney(stats.totalRevenue) %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Orders Today</p>
+    <h2 class="h2"><%= stats.ordersToday %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Orders This Week</p>
+    <h2 class="h2"><%= stats.ordersThisWeek %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Orders This Month</p>
+    <h2 class="h2"><%= stats.ordersThisMonth %></h2>
+  </article>
+</section>
+
+<section class="admin-grid admin-grid--analytics">
+  <div class="card admin-panel">
+    <h2 class="h2">Most popular shop</h2>
+    <% if (mostPopularShop) { %>
+      <p class="muted"><strong><%= mostPopularShop.name || mostPopularShop.shopName || "Shop" %></strong></p>
+      <p><%= mostPopularShop.orders %> orders</p>
+      <p><%= formatMoney(mostPopularShop.revenue) %> revenue</p>
+    <% } else { %>
+      <p class="muted">No data yet.</p>
+    <% } %>
+  </div>
+  <div class="card admin-panel">
+    <h2 class="h2">Most popular item</h2>
+    <% if (mostPopularItem) { %>
+      <p class="muted"><strong><%= mostPopularItem._id %></strong></p>
+      <p><%= mostPopularItem.quantity %> sold</p>
+      <p><%= formatMoney(mostPopularItem.revenue) %> revenue</p>
+    <% } else { %>
+      <p class="muted">No data yet.</p>
+    <% } %>
+  </div>
+  <div class="card admin-panel">
+    <h2 class="h2">Peak ordering hour</h2>
+    <p class="muted"><strong><%= peakHour %></strong></p>
+  </div>
+</section>
+
+<div class="grid admin-grid--two">
+  <div class="card admin-panel">
+    <h2 class="h2">Top vendors</h2>
+    <% if (!topVendors.length) { %>
+      <p class="muted">No vendor data yet.</p>
+    <% } else { %>
+      <div style="overflow-x: auto;">
+        <table class="table admin-table">
+          <thead>
+            <tr>
+              <th>Vendor</th>
+              <th>Shop</th>
+              <th>Orders</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% topVendors.forEach((row) => { %>
+              <tr>
+                <td><%= row.vendorName || "Unassigned" %></td>
+                <td><%= row.shopName || "No shop" %></td>
+                <td><%= row.orders %></td>
+                <td><%= formatMoney(row.revenue) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="card admin-panel">
+    <h2 class="h2">Top shops</h2>
+    <% if (!topShops.length) { %>
+      <p class="muted">No shop data yet.</p>
+    <% } else { %>
+      <div style="overflow-x: auto;">
+        <table class="table admin-table">
+          <thead>
+            <tr>
+              <th>Shop</th>
+              <th>Orders</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% topShops.forEach((row) => { %>
+              <tr>
+                <td><%= row.shopName || "Deleted shop" %></td>
+                <td><%= row.orders %></td>
+                <td><%= formatMoney(row.revenue) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include("./partials/layout-end") %>
+<%- include("../partials/footer") %>
+

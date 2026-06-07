@@ -1,0 +1,58 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow"><%= mode === "edit" ? "Edit shop" : "Create shop" %></p>
+    <h1><%= mode === "edit" ? "Update shop details" : "New shop" %></h1>
+    <p class="muted">Keep the public canteen catalog consistent from one screen.</p>
+  </div>
+</section>
+
+<div class="card admin-panel">
+  <form method="post" action="<%= mode === "edit" ? `/admin/shops/${shop._id}/edit` : "/admin/shops" %>" class="form" enctype="multipart/form-data">
+    <label>
+      <span>Shop name</span>
+      <input name="name" type="text" maxlength="120" required value="<%= shop?.name || "" %>" />
+    </label>
+    <label>
+      <span>Slug</span>
+      <input name="slug" type="text" maxlength="120" required value="<%= shop?.slug || "" %>" />
+    </label>
+    <label>
+      <span>Description</span>
+      <input name="description" type="text" maxlength="220" value="<%= shop?.description || "" %>" />
+    </label>
+    <label>
+      <span>Shop image</span>
+      <input name="image" type="file" accept="image/*" />
+    </label>
+    <% if (shop?.image) { %>
+      <img class="food-thumb admin-preview" src="<%= shop.image %>" alt="<%= shop.name %>" />
+    <% } %>
+    <label>
+      <span>Open / closed</span>
+      <select name="isOpen">
+        <option value="open" <%= !shop || shop.isOpen !== false ? "selected" : "" %>>Open</option>
+        <option value="closed" <%= shop?.isOpen === false ? "selected" : "" %>>Closed</option>
+      </select>
+    </label>
+    <label>
+      <span>Assigned vendor</span>
+      <select name="vendor">
+        <option value="">No vendor assigned</option>
+        <% vendors.forEach((vendor) => { %>
+          <option value="<%= vendor._id %>" <%= String(shop?.vendor?._id || shop?.vendor || "") === String(vendor._id) ? "selected" : "" %>><%= vendor.name %> (<%= vendor.email %>)</option>
+        <% }) %>
+      </select>
+    </label>
+    <div class="row">
+      <button class="btn" type="submit"><%= mode === "edit" ? "Save changes" : "Create shop" %></button>
+      <a class="btn btn--outline" href="/admin/shops">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>
+

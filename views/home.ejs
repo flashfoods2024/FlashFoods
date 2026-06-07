@@ -29,6 +29,14 @@
             <a class="btn btn--outline" href="/vendor/verify">Verify pickup</a>
             <a class="btn btn--outline" href="/vendor/orders/completed">Completed</a>
           </div>
+        <% } else if (currentUser.role === "admin") { %>
+          <p class="muted">Manage shops, vendors, students, orders, and analytics from one browser dashboard.</p>
+          <div class="row">
+            <a class="btn" href="/admin">Open admin dashboard</a>
+            <a class="btn btn--outline" href="/admin/shops">Shops</a>
+            <a class="btn btn--outline" href="/admin/vendors">Vendors</a>
+            <a class="btn btn--outline" href="/admin/orders">Orders</a>
+          </div>
         <% } %>
       </div>
     <% } %>

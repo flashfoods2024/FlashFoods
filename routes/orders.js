@@ -77,7 +77,7 @@ ordersRouter.post(
       }
 
       const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isOpen === false) {
+      if (!shop || shop.isActive === false || shop.isOpen === false) {
         return res.status(400).json({
           success: false,
           message: "This shop is currently closed.",
@@ -125,6 +125,7 @@ ordersRouter.post(
   status: "paid",
   pickupOtp,
   paymentNote: razorpay_payment_id,
+  transactionId: razorpay_payment_id,
 });
 
       req.session.cart = {
@@ -165,7 +166,7 @@ ordersRouter.post(
       req.flash("error", "That canteen no longer exists.");
       return res.redirect("/shops");
     }
-    if (shop.isOpen === false) {
+    if (shop.isActive === false || shop.isOpen === false) {
       req.flash("error", "This shop is currently closed.");
       return res.redirect("/cart");
     }
@@ -212,6 +213,7 @@ ordersRouter.post(
   status: "paid",
   pickupOtp,
   paymentNote: "mock",
+  transactionId: "mock",
 });
 
     req.session.cart = { shopId: null, items: [] };

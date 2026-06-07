@@ -6,13 +6,13 @@ import { requireDb } from "../middleware/requireDb.js";
 export const shopsRouter = express.Router();
 
 shopsRouter.get("/shops", requireDb, async (req, res) => {
-  const shops = await Shop.find().sort({ name: 1 }).lean();
+  const shops = await Shop.find({ isActive: { $ne: false } }).sort({ name: 1 }).lean();
   res.render("shops/index", { pageTitle: "Canteens", shops });
 });
 
 shopsRouter.get("/shops/:slug", requireDb, async (req, res) => {
   const shop = await Shop.findOne({ slug: String(req.params.slug).toLowerCase().trim() }).lean();
-  if (!shop) {
+  if (!shop || shop.isActive === false) {
     req.flash("error", "Canteen not found.");
     return res.redirect("/shops");
   }

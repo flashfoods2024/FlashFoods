@@ -55,6 +55,11 @@ authRouter.post("/login", requireDb, async (req, res) => {
     return res.redirect("/login");
   }
 
+  if (user.isActive === false) {
+    req.flash("error", "This account has been disabled.");
+    return res.redirect("/login");
+  }
+
   const ok = await bcrypt.compare(String(password), user.passwordHash);
   if (!ok) {
     req.flash("error", "Invalid credentials.");

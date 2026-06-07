@@ -1,0 +1,90 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Shop overview</p>
+    <h1><%= shop.name %></h1>
+    <p class="muted"><%= shop.slug %></p>
+  </div>
+  <div class="row">
+    <a class="btn btn--outline" href="/admin/shops/<%= shop._id %>/edit">Edit</a>
+    <form method="post" action="/admin/shops/<%= shop._id %>/toggle" class="inline" onsubmit="return confirm('Toggle this shop status?')">
+      <button class="btn btn--ghost" type="submit"><%= shop.isActive ? "Disable" : "Enable" %></button>
+    </form>
+  </div>
+</section>
+
+<section class="admin-metrics">
+  <article class="card admin-metric">
+    <p class="muted small">Status</p>
+    <h2 class="h2"><%= shop.isActive === false ? "Disabled" : shop.isOpen === false ? "Closed" : "Open" %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Assigned Vendor</p>
+    <h2 class="h2"><%= shop.vendor?.name || "Unassigned" %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Total Orders</p>
+    <h2 class="h2"><%= stats.totalOrders %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Completed Orders</p>
+    <h2 class="h2"><%= stats.completedOrders %></h2>
+  </article>
+  <article class="card admin-metric">
+    <p class="muted small">Revenue</p>
+    <h2 class="h2"><%= formatMoney(stats.revenue) %></h2>
+  </article>
+</section>
+
+<div class="card admin-panel">
+  <h2 class="h2">Shop details</h2>
+  <% if (shop.image) { %>
+    <img class="admin-hero-image" src="<%= shop.image %>" alt="<%= shop.name %>" />
+  <% } %>
+  <% if (shop.description) { %>
+    <p class="muted"><%= shop.description %></p>
+  <% } %>
+  <div class="admin-detail-grid">
+    <div><span>Slug</span><strong class="mono"><%= shop.slug %></strong></div>
+    <div><span>Vendor email</span><strong><%= shop.vendor?.email || "Unassigned" %></strong></div>
+    <div><span>Open state</span><strong><%= shop.isOpen === false ? "Closed" : "Open" %></strong></div>
+    <div><span>Created</span><strong><%= new Date(shop.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) %></strong></div>
+  </div>
+</div>
+
+<div class="card admin-panel">
+  <div class="row row--split">
+    <h2 class="h2">Menu items</h2>
+    <a class="btn btn--outline btn--small" href="/shops/<%= shop.slug %>">View public menu</a>
+  </div>
+  <% if (!menuItems.length) { %>
+    <p class="muted">No menu items yet.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Price</th>
+            <th>Availability</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% menuItems.forEach((item) => { %>
+            <tr>
+              <td><strong><%= item.name %></strong><div class="muted small"><%= item.description || "No description" %></div></td>
+              <td><%= formatMoney(item.price) %></td>
+              <td><span class="tag tag--<%= item.available ? "ok" : "muted" %>"><%= item.available ? "Available" : "Unavailable" %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>
+

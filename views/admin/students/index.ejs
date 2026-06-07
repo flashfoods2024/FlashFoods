@@ -1,0 +1,54 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Student management</p>
+    <h1>Students</h1>
+    <p class="muted">View ordering activity and disable access when required.</p>
+  </div>
+</section>
+
+<div class="card admin-panel">
+  <% if (!students.length) { %>
+    <p class="muted">No students available.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Email</th>
+            <th>Total Orders</th>
+            <th>Last Order Date</th>
+            <th>Status</th>
+            <th style="width: 1%; white-space: nowrap;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% students.forEach((student) => { %>
+            <tr>
+              <td><strong><%= student.name %></strong></td>
+              <td><%= student.email %></td>
+              <td><%= student.totalOrders %></td>
+              <td><%= student.lastOrderDate ? new Date(student.lastOrderDate).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "No orders" %></td>
+              <td><span class="tag tag--<%= student.isActive === false ? "danger" : "ok" %>"><%= student.statusLabel %></span></td>
+              <td>
+                <div class="admin-actions">
+                  <a class="btn btn--small btn--outline" href="/admin/students/<%= student._id %>">View</a>
+                  <form method="post" action="/admin/students/<%= student._id %>/toggle" class="inline" onsubmit="return confirm('Toggle this student status?')">
+                    <button class="btn btn--small btn--ghost" type="submit"><%= student.isActive ? "Disable" : "Enable" %></button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>
+

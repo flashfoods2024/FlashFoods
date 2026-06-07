@@ -1,0 +1,68 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Shop management</p>
+    <h1>Shops</h1>
+    <p class="muted">Create, disable, edit, and delete canteens from the browser.</p>
+  </div>
+  <a class="btn" href="/admin/shops/new">New shop</a>
+</section>
+
+<div class="card admin-panel">
+  <% if (!shops.length) { %>
+    <p class="muted">No shops available.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th>Shop</th>
+            <th>Slug</th>
+            <th>Status</th>
+            <th>Vendor</th>
+            <th>Total Orders</th>
+            <th style="width: 1%; white-space: nowrap;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% shops.forEach((shop) => { %>
+            <tr>
+              <td>
+                <strong><%= shop.name %></strong>
+                <% if (shop.description) { %>
+                  <div class="muted small"><%= shop.description %></div>
+                <% } %>
+              </td>
+              <td class="mono"><%= shop.slug %></td>
+              <td>
+                <span class="tag tag--<%= shop.isActive === false ? "danger" : shop.isOpen === false ? "warn" : "ok" %>">
+                  <%= shop.statusLabel %>
+                </span>
+              </td>
+              <td><%= shop.assignedVendorName %></td>
+              <td><%= shop.totalOrders %></td>
+              <td>
+                <div class="admin-actions">
+                  <a class="btn btn--small btn--outline" href="/admin/shops/<%= shop._id %>">View</a>
+                  <a class="btn btn--small btn--outline" href="/admin/shops/<%= shop._id %>/edit">Edit</a>
+                  <form method="post" action="/admin/shops/<%= shop._id %>/toggle" class="inline" onsubmit="return confirm('Toggle this shop status?')">
+                    <button class="btn btn--small btn--ghost" type="submit"><%= shop.isActive ? "Disable" : "Enable" %></button>
+                  </form>
+                  <form method="post" action="/admin/shops/<%= shop._id %>/delete" class="inline" onsubmit="return confirm('Delete this shop? This also removes its menu items.')">
+                    <button class="btn btn--small btn--danger" type="submit">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>
+

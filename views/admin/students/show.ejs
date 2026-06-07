@@ -1,51 +1,46 @@
-<%- include("../partials/header", { pageTitle }) %>
-<%- include("./partials/layout-start", { activeSection }) %>
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
 
 <section class="admin-page-head">
   <div>
-    <p class="eyebrow">Platform control</p>
-    <h1>Admin Dashboard</h1>
-    <p class="muted">Live operational summary for shops, vendors, students, and orders.</p>
+    <p class="eyebrow">Student profile</p>
+    <h1><%= student.name %></h1>
+    <p class="muted"><%= student.email %></p>
   </div>
+  <form method="post" action="/admin/students/<%= student._id %>/toggle" class="inline" onsubmit="return confirm('Toggle this student status?')">
+    <button class="btn btn--ghost" type="submit"><%= student.isActive ? "Disable" : "Enable" %></button>
+  </form>
 </section>
 
 <section class="admin-metrics">
   <article class="card admin-metric">
-    <p class="muted small">Total Shops</p>
-    <h2 class="h2"><%= stats.totalShops %></h2>
-  </article>
-  <article class="card admin-metric">
-    <p class="muted small">Total Vendors</p>
-    <h2 class="h2"><%= stats.totalVendors %></h2>
-  </article>
-  <article class="card admin-metric">
-    <p class="muted small">Total Students</p>
-    <h2 class="h2"><%= stats.totalStudents %></h2>
+    <p class="muted small">Status</p>
+    <h2 class="h2"><%= student.isActive === false ? "Disabled" : "Active" %></h2>
   </article>
   <article class="card admin-metric">
     <p class="muted small">Total Orders</p>
     <h2 class="h2"><%= stats.totalOrders %></h2>
   </article>
   <article class="card admin-metric">
-    <p class="muted small">Orders Today</p>
-    <h2 class="h2"><%= stats.ordersToday %></h2>
-  </article>
-  <article class="card admin-metric">
-    <p class="muted small">Completed Orders</p>
-    <h2 class="h2"><%= stats.completedOrders %></h2>
-  </article>
-  <article class="card admin-metric">
-    <p class="muted small">Pending Orders</p>
-    <h2 class="h2"><%= stats.pendingOrders %></h2>
+    <p class="muted small">Last Order Date</p>
+    <h2 class="h2"><%= stats.lastOrderDate ? new Date(stats.lastOrderDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "None" %></h2>
   </article>
 </section>
 
 <div class="card admin-panel">
+  <h2 class="h2">Student details</h2>
+  <div class="admin-detail-grid">
+    <div><span>Email</span><strong><%= student.email %></strong></div>
+    <div><span>Created</span><strong><%= new Date(student.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) %></strong></div>
+    <div><span>Disabled at</span><strong><%= student.disabledAt ? new Date(student.disabledAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not disabled" %></strong></div>
+  </div>
+</div>
+
+<div class="card admin-panel">
   <div class="row row--split">
     <h2 class="h2">Recent orders</h2>
-    <a class="btn btn--outline btn--small" href="/admin/orders">View all orders</a>
+    <a class="btn btn--outline btn--small" href="/admin/orders?q=<%= encodeURIComponent(student.name) %>">Search all orders</a>
   </div>
-
   <% if (!recentOrders.length) { %>
     <p class="muted">No orders yet.</p>
   <% } else { %>
@@ -54,9 +49,7 @@
         <thead>
           <tr>
             <th>Order</th>
-            <th>Customer</th>
             <th>Shop</th>
-            <th>Vendor</th>
             <th>Status</th>
             <th>Total</th>
             <th>Date</th>
@@ -66,9 +59,7 @@
           <% recentOrders.forEach((order) => { %>
             <tr>
               <td><a class="admin-link" href="/admin/orders/<%= order._id %>">#<%= orderNumber(order) %></a></td>
-              <td><%= order.customer?.name || "Customer" %></td>
               <td><%= order.shop?.name || "Deleted shop" %></td>
-              <td><%= order.shop?.vendor?.name || "Unassigned" %></td>
               <td><span class="tag tag--<%= order.status === "completed" ? "ok" : order.status === "cancelled" ? "danger" : order.status === "ready_for_pickup" ? "pending" : "muted" %>"><%= formatOrderStatus(order.status) %></span></td>
               <td><%= formatMoney(order.total) %></td>
               <td><%= new Date(order.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) %></td>
@@ -80,6 +71,5 @@
   <% } %>
 </div>
 
-<%- include("./partials/layout-end") %>
-<%- include("../partials/footer") %>
-
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>

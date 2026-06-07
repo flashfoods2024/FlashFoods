@@ -1,0 +1,59 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Vendor management</p>
+    <h1>Vendors</h1>
+    <p class="muted">Create, reassign, disable, and remove vendors without touching the database.</p>
+  </div>
+  <a class="btn" href="/admin/vendors/new">New vendor</a>
+</section>
+
+<div class="card admin-panel">
+  <% if (!vendors.length) { %>
+    <p class="muted">No vendors available.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th>Vendor</th>
+            <th>Email</th>
+            <th>Assigned Shop</th>
+            <th>Completed Orders</th>
+            <th>Status</th>
+            <th style="width: 1%; white-space: nowrap;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% vendors.forEach((vendor) => { %>
+            <tr>
+              <td><strong><%= vendor.name %></strong></td>
+              <td><%= vendor.email %></td>
+              <td><%= vendor.assignedShopName %></td>
+              <td><%= vendor.completedOrders %></td>
+              <td><span class="tag tag--<%= vendor.isActive === false ? "danger" : "ok" %>"><%= vendor.statusLabel %></span></td>
+              <td>
+                <div class="admin-actions">
+                  <a class="btn btn--small btn--outline" href="/admin/vendors/<%= vendor._id %>">View</a>
+                  <a class="btn btn--small btn--outline" href="/admin/vendors/<%= vendor._id %>/edit">Edit</a>
+                  <form method="post" action="/admin/vendors/<%= vendor._id %>/toggle" class="inline" onsubmit="return confirm('Toggle this vendor status?')">
+                    <button class="btn btn--small btn--ghost" type="submit"><%= vendor.isActive ? "Disable" : "Enable" %></button>
+                  </form>
+                  <form method="post" action="/admin/vendors/<%= vendor._id %>/delete" class="inline" onsubmit="return confirm('Delete this vendor? This removes the account and unassigns the shop.')">
+                    <button class="btn btn--small btn--danger" type="submit">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>
+

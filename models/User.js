@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ["student", "vendor", "admin"], default: "student" },
     shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", default: null },
+    isActive: { type: Boolean, default: true },
+    disabledAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

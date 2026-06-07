@@ -29,3 +29,15 @@ export const menuImageStorage = new CloudinaryStorage({
     ],
   },
 });
+
+export const shopImageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "fast-food/shops",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    resource_type: "image",
+    transformation: [
+      { width: 900, height: 600, crop: "fill", gravity: "auto", quality: "auto", fetch_format: "auto" },
+    ],
+  },
+});

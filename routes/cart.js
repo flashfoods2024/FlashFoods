@@ -22,6 +22,11 @@ cartRouter.get("/cart", requireDb, requireAuth, requireStudent, async (req, res)
 
   if (cart.shopId && cart.items.length) {
     shop = await Shop.findById(cart.shopId).lean();
+    if (!shop || shop.isActive === false) {
+      req.session.cart = { shopId: null, items: [] };
+      req.flash("error", "That canteen is no longer available.");
+      return res.redirect("/shops");
+    }
     const ids = cart.items.map((l) => l.menuItemId).filter(Boolean);
     const items = await MenuItem.find({ _id: { $in: ids } }).lean();
     const byId = new Map(items.map((m) => [String(m._id), m]));
@@ -61,7 +66,7 @@ cartRouter.post("/cart/add", requireDb, requireAuth, requireStudent, async (req,
 
   const shopIdStr = String(item.shop);
   const shop = await Shop.findById(item.shop).lean();
-  if (!shop || shop.isOpen === false) {
+  if (!shop || shop.isActive === false || shop.isOpen === false) {
     req.flash("error", "This shop is currently closed.");
     return res.redirect(redirect || "/shops");
   }

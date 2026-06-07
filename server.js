@@ -13,6 +13,7 @@ import { cartRouter } from "./routes/cart.js";
 import { ordersRouter } from "./routes/orders.js";
 import { vendorRouter } from "./routes/vendor.js";
 import { menuRouter } from "./routes/menu.js";
+import { adminRouter } from "./routes/admin.js";
 import {
   formatLocalDateTime,
   formatPickupTime,
@@ -99,6 +100,7 @@ app.use(cartRouter);
 app.use(ordersRouter);
 app.use(menuRouter);
 app.use(vendorRouter);
+app.use("/admin", adminRouter);
 
 try {
   await connectDb();

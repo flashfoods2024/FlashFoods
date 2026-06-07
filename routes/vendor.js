@@ -36,6 +36,11 @@ vendorRouter.post(
         return res.redirect("/vendor/menu");
       }
 
+      if (shop.isActive === false) {
+        req.flash("error", "This shop is disabled by an admin.");
+        return res.redirect("/vendor/menu");
+      }
+
       shop.isOpen = !shop.isOpen;
 
       await shop.save();
@@ -59,6 +64,11 @@ vendorRouter.post(
 );
 
 vendorRouter.post("/vendor/menu", requireDb, requireAuth, requireVendor, requireVendorShop, handleMenuImageUpload, async (req, res) => {
+  const shop = await Shop.findById(req.vendorShopId).lean();
+  if (!shop || shop.isActive === false) {
+    req.flash("error", "This shop is disabled by an admin.");
+    return res.redirect("/vendor/menu");
+  }
   const name = String((req.body && req.body.name) || "").trim();
   const description = String((req.body && req.body.description) || "").trim();
   const price = Number((req.body && req.body.price) || 0);
@@ -86,6 +96,10 @@ vendorRouter.post("/vendor/menu", requireDb, requireAuth, requireVendor, require
 });
 
 vendorRouter.patch("/vendor/menu/:id", requireDb, requireAuth, requireVendor, requireVendorShop, handleMenuImageUpload, async (req, res) => {
+  const activeShop = await Shop.findById(req.vendorShopId).lean();
+  if (!activeShop || activeShop.isActive === false) {
+    return res.status(403).json({ error: "This shop is disabled by an admin." });
+  }
   const { id } = req.params;
   if (!mongoose.isValidObjectId(id)) {
     return res.status(400).json({ error: "Invalid menu item id." });
@@ -130,6 +144,10 @@ vendorRouter.patch("/vendor/menu/:id", requireDb, requireAuth, requireVendor, re
 });
 
 vendorRouter.delete("/vendor/menu/:id", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
+  const activeShop = await Shop.findById(req.vendorShopId).lean();
+  if (!activeShop || activeShop.isActive === false) {
+    return res.status(403).json({ error: "This shop is disabled by an admin." });
+  }
   const { id } = req.params;
   if (!mongoose.isValidObjectId(id)) {
     return res.status(400).json({ error: "Invalid menu item id." });
@@ -191,6 +209,7 @@ vendorRouter.post("/vendor/orders/:id/ready", requireDb, requireAuth, requireVen
   }
 
   order.status = "ready_for_pickup";
+  order.readyAt = order.readyAt || new Date();
   await order.save();
 
   req.flash("success", "Order marked ready. Student can pick up with their code.");

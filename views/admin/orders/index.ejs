@@ -1,0 +1,75 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Order management</p>
+    <h1>Orders</h1>
+    <p class="muted">Filter by state or search by customer, shop, vendor, and order number.</p>
+  </div>
+</section>
+
+<div class="card admin-panel admin-toolbar">
+  <form method="get" action="/admin/orders" class="admin-filter-bar">
+    <label>
+      <span class="sr-only">Search</span>
+      <input name="q" type="search" placeholder="Search orders" value="<%= search || "" %>" />
+    </label>
+    <label>
+      <span class="sr-only">Filter</span>
+      <select name="filter">
+        <option value="" <%= !filter ? "selected" : "" %>>All orders</option>
+        <option value="today" <%= filter === "today" ? "selected" : "" %>>Today</option>
+        <option value="week" <%= filter === "week" ? "selected" : "" %>>This week</option>
+        <option value="paid" <%= filter === "paid" ? "selected" : "" %>>Paid</option>
+        <option value="preparing" <%= filter === "preparing" ? "selected" : "" %>>Preparing</option>
+        <option value="ready" <%= filter === "ready" ? "selected" : "" %>>Ready</option>
+        <option value="completed" <%= filter === "completed" ? "selected" : "" %>>Completed</option>
+        <option value="cancelled" <%= filter === "cancelled" ? "selected" : "" %>>Cancelled</option>
+      </select>
+    </label>
+    <button class="btn" type="submit">Apply</button>
+    <a class="btn btn--outline" href="/admin/orders">Reset</a>
+  </form>
+</div>
+
+<div class="card admin-panel">
+  <% if (!orders.length) { %>
+    <p class="muted">No orders match the current search or filter.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Shop</th>
+            <th>Vendor</th>
+            <th>Status</th>
+            <th>Payment</th>
+            <th>Total</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% orders.forEach((order) => { %>
+            <tr>
+              <td><a class="admin-link" href="/admin/orders/<%= order._id %>">#<%= order.orderNumber %></a></td>
+              <td><%= order.customerName %></td>
+              <td><%= order.shopName %></td>
+              <td><%= order.vendorName %></td>
+              <td><span class="tag tag--<%= order.status === "completed" ? "ok" : order.status === "cancelled" ? "danger" : order.status === "ready_for_pickup" ? "pending" : "muted" %>"><%= order.statusLabel %></span></td>
+              <td><%= order.paymentStatus %></td>
+              ₹<%= Number(order.total || 0).toFixed(2) %>
+              <td><%= new Date(order.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>
+
