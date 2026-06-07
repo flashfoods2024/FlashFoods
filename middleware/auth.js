@@ -61,6 +61,14 @@ export function requireStudent(req, res, next) {
   return next();
 }
 
+export function requireAdmin(req, res, next) {
+  if (req.user.role !== "admin") {
+    req.flash("error", "Admin access only.");
+    return res.redirect("/");
+  }
+  return next();
+}
+
 export function requireVendorShop(req, res, next) {
   if (req.user.role !== "vendor") {
     req.flash("error", "Vendor access only.");
