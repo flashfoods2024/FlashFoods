@@ -1,5 +1,5 @@
 {
-  "name": "smart-college-canteen",
+  "name": "Flash Foods",
   "version": "1.0.0",
   "description": "Web-based college canteen pre-ordering with OTP pickup verification",
   "license": "ISC",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "cloudinary": "^2.10.0",
+    "cloudinary": "^1.41.3",
     "connect-flash": "^0.1.1",
     "dotenv": "^17.4.2",
     "ejs": "^6.0.1",
