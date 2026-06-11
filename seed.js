@@ -41,6 +41,15 @@ async function seed() {
     slug: SHOP_SLUG,
     description: "North Indian, snacks, and beverages.",
     vendor: vendor._id,
+    paymentProvider: "razorpay",
+    paymentConfigured: Boolean(
+      process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET,
+    ),
+    paymentSettings: {
+      merchantId: process.env.RAZORPAY_KEY_ID || "demo_merchant",
+      apiKey: process.env.RAZORPAY_KEY_ID || "",
+      apiSecret: process.env.RAZORPAY_KEY_SECRET || "",
+    },
   });
 
   await User.updateOne({ _id: vendor._id }, { $set: { shop: shop._id } });

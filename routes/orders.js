@@ -1,5 +1,4 @@
 import express from "express";
-import crypto from "crypto";
 import mongoose from "mongoose";
 import { MenuItem } from "../models/MenuItem.js";
 import { Shop } from "../models/Shop.js";
@@ -7,7 +6,12 @@ import { Order } from "../models/Order.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { generateOtp } from "../utils/otp.js";
-import razorpay from "../config/razorpay.js";
+import {
+  createOrder as createPaymentOrder,
+  verifyPayment,
+  PAYMENT_PROVIDERS,
+} from "../services/payments/index.js";
+
 export const ordersRouter = express.Router();
 
 function getCart(req) {
@@ -18,24 +22,96 @@ function getCart(req) {
   return req.session.cart;
 }
 
-ordersRouter.post("/create-razorpay-order", async (req, res) => {
-  try {
-    const { amount } = req.body;
-
-    const options = {
-      amount: amount * 100,
-      currency: "INR",
-      receipt: `receipt_${Date.now()}`,
-    };
-
-    const order = await razorpay.orders.create(options);
-
-    res.json(order);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create Razorpay order" });
+async function loadCartShop(cart) {
+  if (!cart.shopId || !cart.items.length) {
+    return { error: "Cart is empty", status: 400 };
   }
-});
+
+  const shop = await Shop.findById(cart.shopId).lean();
+  if (!shop || shop.isActive === false || shop.isOpen === false) {
+    return { error: "This shop is currently closed.", status: 400 };
+  }
+
+  if (!shop.paymentConfigured) {
+    return {
+      error: "This shop has not configured payments yet. Please try again later.",
+      status: 400,
+    };
+  }
+
+  if (!PAYMENT_PROVIDERS.includes(shop.paymentProvider)) {
+    return { error: "This shop has an invalid payment provider.", status: 400 };
+  }
+
+  return { shop };
+}
+
+function buildOrderItems(cart) {
+  return MenuItem.find({
+    _id: { $in: cart.items.map((l) => l.menuItemId) },
+    shop: cart.shopId,
+    available: true,
+  })
+    .lean()
+    .then((menuItems) => {
+      const byId = new Map(menuItems.map((m) => [String(m._id), m]));
+      const orderItems = [];
+      let total = 0;
+
+      for (const line of cart.items) {
+        const m = byId.get(String(line.menuItemId));
+        if (!m) continue;
+
+        const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
+        orderItems.push({
+          menuItem: m._id,
+          name: m.name,
+          price: m.price,
+          quantity: q,
+        });
+        total += m.price * q;
+      }
+
+      return { orderItems, total };
+    });
+}
+
+ordersRouter.post(
+  "/create-payment-order",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    try {
+      const cart = getCart(req);
+      const shopResult = await loadCartShop(cart);
+      if (shopResult.error) {
+        return res.status(shopResult.status).json({ error: shopResult.error });
+      }
+
+      const { shop } = shopResult;
+      const { orderItems, total } = await buildOrderItems(cart);
+
+      if (!orderItems.length) {
+        return res.status(400).json({ error: "Nothing in your cart is available to order." });
+      }
+
+      const paymentOrder = await createPaymentOrder(shop.paymentProvider, {
+        amount: total,
+        shop,
+        receipt: `cart_${cart.shopId}_${Date.now()}`,
+      });
+
+      return res.json({
+        provider: shop.paymentProvider,
+        ...paymentOrder,
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Failed to create payment order" });
+    }
+  },
+);
 
 ordersRouter.post(
   "/verify-payment",
@@ -44,89 +120,57 @@ ordersRouter.post(
   requireStudent,
   async (req, res) => {
     try {
-      const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      pickupTime,
-} = req.body;
-
-      const sign = razorpay_order_id + "|" + razorpay_payment_id;
-
-      const expectedSign = crypto
-        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-        .update(sign.toString())
-        .digest("hex");
-
-      const isAuthentic = expectedSign === razorpay_signature;
-
-      if (!isAuthentic) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid payment signature",
-        });
-      }
-
       const cart = getCart(req);
-
-      if (!cart.shopId || !cart.items.length) {
-        return res.status(400).json({
+      const shopResult = await loadCartShop(cart);
+      if (shopResult.error) {
+        return res.status(shopResult.status).json({
           success: false,
-          message: "Cart is empty",
+          message: shopResult.error,
         });
       }
 
-      const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isActive === false || shop.isOpen === false) {
+      const { shop } = shopResult;
+      const provider = shop.paymentProvider;
+      const { pickupTime } = req.body;
+
+      const verification = await verifyPayment(provider, {
+        shop,
+        ...req.body,
+      });
+
+      if (!verification.success) {
         return res.status(400).json({
           success: false,
-          message: "This shop is currently closed.",
+          message: verification.message || "Payment verification failed",
         });
       }
 
-      const ids = cart.items.map((l) => l.menuItemId);
-
-      const menuItems = await MenuItem.find({
-        _id: { $in: ids },
-        shop: cart.shopId,
-        available: true,
-      }).lean();
-
-      const byId = new Map(menuItems.map((m) => [String(m._id), m]));
-
-      const orderItems = [];
-      let total = 0;
-
-      for (const line of cart.items) {
-        const m = byId.get(String(line.menuItemId));
-
-        if (!m) continue;
-
-        const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
-
-        orderItems.push({
-          menuItem: m._id,
-          name: m.name,
-          price: m.price,
-          quantity: q,
+      const { orderItems, total } = await buildOrderItems(cart);
+      if (!orderItems.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Nothing in your cart is available to order.",
         });
-
-        total += m.price * q;
       }
 
       const pickupOtp = generateOtp();
+      const gatewayTransactionId =
+        verification.gatewayTransactionId || verification.transactionId || "";
 
       const order = await Order.create({
-  customer: req.session.userId,
-  shop: cart.shopId,
-  items: orderItems,
-  total,
-  pickupTime: pickupTime ? new Date(pickupTime) : null,
-  status: "paid",
-  pickupOtp,
-  paymentNote: razorpay_payment_id,
-  transactionId: razorpay_payment_id,
-});
+        customer: req.session.userId,
+        shop: cart.shopId,
+        items: orderItems,
+        total,
+        pickupTime: pickupTime ? new Date(pickupTime) : null,
+        status: "paid",
+        pickupOtp,
+        paymentProvider: provider,
+        paymentNote: verification.paymentNote || gatewayTransactionId,
+        transactionId: verification.transactionId || gatewayTransactionId,
+        gatewayTransactionId,
+        paymentStatus: verification.paymentStatus || "paid",
+      });
 
       req.session.cart = {
         shopId: null,
@@ -145,7 +189,7 @@ ordersRouter.post(
         message: "Payment verification failed",
       });
     }
-  }
+  },
 );
 
 ordersRouter.post(
@@ -203,18 +247,19 @@ ordersRouter.post(
     const pickupOtp = generateOtp();
 
     const order = await Order.create({
-  customer: req.session.userId,
-  shop: cart.shopId,
-  items: orderItems,
-  total,
-  pickupTime: req.body.pickupTime
-    ? new Date(req.body.pickupTime)
-    : null,
-  status: "paid",
-  pickupOtp,
-  paymentNote: "mock",
-  transactionId: "mock",
-});
+      customer: req.session.userId,
+      shop: cart.shopId,
+      items: orderItems,
+      total,
+      pickupTime: req.body.pickupTime ? new Date(req.body.pickupTime) : null,
+      status: "paid",
+      pickupOtp,
+      paymentProvider: "mock",
+      paymentNote: "mock",
+      transactionId: "mock",
+      gatewayTransactionId: "mock",
+      paymentStatus: "paid",
+    });
 
     req.session.cart = { shopId: null, items: [] };
     req.flash(

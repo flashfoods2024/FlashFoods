@@ -6,7 +6,10 @@ import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireVendor, requireVendorShop } from "../middleware/auth.js";
 import { handleMenuImageUpload } from "../middleware/upload.js";
-import razorpay from "../config/razorpay.js";
+import {
+  refundPayment,
+  isRefundableOrder,
+} from "../services/payments/index.js";
 
 export const vendorRouter = express.Router();
 
@@ -246,34 +249,32 @@ vendorRouter.post(
         return res.redirect("/vendor/orders/pending");
       }
 
-      if (!order.paymentNote?.startsWith("pay_")) {
+      if (!isRefundableOrder(order)) {
         req.flash("error", "Invalid payment ID.");
         return res.redirect("/vendor/orders/pending");
       }
 
-      const payment = await razorpay.payments.fetch(order.paymentNote);
-
-      if (payment.status !== "captured") {
-        req.flash("error", "Only captured payments can be refunded.");
+      const shop = await Shop.findById(req.vendorShopId).lean();
+      if (!shop) {
+        req.flash("error", "Shop not found.");
         return res.redirect("/vendor/orders/pending");
       }
+
+      const paymentId =
+        order.gatewayTransactionId || order.paymentNote || order.transactionId;
 
       order.refundStatus = "pending";
       await order.save();
 
-      const refund = await razorpay.payments.refund(
-        order.paymentNote,
-        {
-          amount: Math.round(order.total * 100),
-          speed: "normal",
-          notes: {
-            reason: "Vendor cancelled order",
-          },
-        }
-      );
+      const refund = await refundPayment(order.paymentProvider || shop.paymentProvider, {
+        shop,
+        paymentId,
+        amount: order.total,
+      });
 
       order.status = "cancelled";
       order.refundStatus = "completed";
+      order.paymentStatus = "refunded";
 
       await order.save();
 
@@ -430,3 +431,74 @@ vendorRouter.get("/vendor/orders/:id", requireDb, requireAuth, requireVendor, re
     backHref,
   });
 });
+
+const VALID_PAYMENT_PROVIDERS = ["razorpay", "ccavenue", "paytm", "phonepe"];
+
+vendorRouter.get(
+  "/vendor/payment-settings",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    const shop = await Shop.findById(req.vendorShopId).lean();
+    if (!shop) {
+      req.flash("error", "Shop not found.");
+      return res.redirect("/");
+    }
+
+    res.render("vendor/payment-settings", {
+      pageTitle: "Payment Settings",
+      shop,
+      providers: VALID_PAYMENT_PROVIDERS,
+    });
+  },
+);
+
+vendorRouter.post(
+  "/vendor/payment-settings",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    const shop = await Shop.findById(req.vendorShopId);
+    if (!shop) {
+      req.flash("error", "Shop not found.");
+      return res.redirect("/");
+    }
+
+    if (shop.isActive === false) {
+      req.flash("error", "This shop is disabled by an admin.");
+      return res.redirect("/vendor/payment-settings");
+    }
+
+    const paymentProvider = String(req.body.paymentProvider || "").trim();
+    const merchantId = String(req.body.merchantId || "").trim();
+    const apiKey = String(req.body.apiKey || "").trim();
+    const apiSecret = String(req.body.apiSecret || "").trim();
+
+    if (!VALID_PAYMENT_PROVIDERS.includes(paymentProvider)) {
+      req.flash("error", "Select a valid payment provider.");
+      return res.redirect("/vendor/payment-settings");
+    }
+
+    if (!merchantId || !apiKey || !apiSecret) {
+      req.flash("error", "Merchant ID, API Key, and API Secret are required.");
+      return res.redirect("/vendor/payment-settings");
+    }
+
+    shop.paymentProvider = paymentProvider;
+    shop.paymentSettings = {
+      merchantId,
+      apiKey,
+      apiSecret,
+    };
+    shop.paymentConfigured = true;
+
+    await shop.save();
+
+    req.flash("success", "Payment settings saved.");
+    return res.redirect("/vendor/payment-settings");
+  },
+);

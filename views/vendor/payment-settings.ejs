@@ -1,0 +1,71 @@
+<%- include("../partials/header", { pageTitle }) %>
+
+<section class="hero hero--compact">
+  <h1>Payment Settings</h1>
+  <p class="muted">
+    Connect your shop's payment gateway. Students cannot checkout until payments are configured.
+  </p>
+</section>
+
+<div class="card">
+  <div class="row row--split">
+    <span class="tag <%= shop.paymentConfigured ? "tag--ok" : "tag--warn" %>">
+      <%= shop.paymentConfigured ? "Payments configured" : "Payments not configured" %>
+    </span>
+  </div>
+</div>
+
+<div class="card">
+  <form method="post" action="/vendor/payment-settings" class="form">
+    <label>
+      <span>Payment Provider</span>
+      <select name="paymentProvider" class="input" required>
+        <% providers.forEach((provider) => { %>
+          <option
+            value="<%= provider %>"
+            <%= shop.paymentProvider === provider ? "selected" : "" %>
+          >
+            <%= provider.charAt(0).toUpperCase() + provider.slice(1) %>
+          </option>
+        <% }) %>
+      </select>
+    </label>
+
+    <label>
+      <span>Merchant ID</span>
+      <input
+        name="merchantId"
+        type="text"
+        class="input"
+        value="<%= shop.paymentSettings?.merchantId || "" %>"
+        required
+      />
+    </label>
+
+    <label>
+      <span>API Key</span>
+      <input
+        name="apiKey"
+        type="text"
+        class="input"
+        value="<%= shop.paymentSettings?.apiKey || "" %>"
+        required
+      />
+    </label>
+
+    <label>
+      <span>API Secret</span>
+      <input
+        name="apiSecret"
+        type="password"
+        class="input"
+        value="<%= shop.paymentSettings?.apiSecret || "" %>"
+        required
+      />
+    </label>
+
+    <button class="btn" type="submit">Save payment settings</button>
+  </form>
+</div>
+
+<%- include("../partials/footer") %>

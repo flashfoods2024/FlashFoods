@@ -19,7 +19,7 @@ const shopSchema = new mongoose.Schema(
     },
     paymentProvider: {
       type: String,
-      enum: ["razorpay", "phonepe", "paytm"],
+      enum: ["razorpay", "ccavenue", "paytm", "phonepe"],
       default: "razorpay",
     },
 

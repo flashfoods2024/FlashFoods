@@ -36,8 +36,22 @@ const orderSchema = new mongoose.Schema(
 
     pickupOtp: { type: String, required: true },
 
+    paymentProvider: {
+      type: String,
+      enum: ["razorpay", "ccavenue", "paytm", "phonepe", "mock"],
+      default: "mock",
+    },
+
     paymentNote: { type: String, default: "mock" },
     transactionId: { type: String, default: "" },
+    gatewayTransactionId: { type: String, default: "" },
+
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed", "refunded"],
+      default: "pending",
+    },
+
     readyAt: { type: Date, default: null },
 
     refundStatus: {

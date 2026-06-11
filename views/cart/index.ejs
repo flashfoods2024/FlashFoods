@@ -68,21 +68,40 @@
         <button class="btn btn--ghost" type="submit">Clear cart</button>
       </form>
 
-      <button class="btn" id="rzp-button">
-        Pay with Razorpay
-      </button>
+      <% if (!shop.paymentConfigured) { %>
+        <button class="btn" type="button" disabled title="This shop has not configured payments yet">
+          Checkout unavailable
+        </button>
+      <% } else if (shop.paymentProvider === "razorpay") { %>
+        <button class="btn" id="pay-button">
+          Pay with Razorpay
+        </button>
+      <% } else { %>
+        <button class="btn" type="button" disabled>
+          <%= shop.paymentProvider.charAt(0).toUpperCase() + shop.paymentProvider.slice(1) %> checkout coming soon
+        </button>
+      <% } %>
     </div>
 
-    <p class="muted small">
-      Payment is simulated. You will get a pickup code to show at the counter.
-    </p>
+    <% if (!shop.paymentConfigured) { %>
+      <p class="muted small tag tag--warn">
+        This canteen has not set up payments yet. Please check back later.
+      </p>
+    <% } else if (shop.paymentProvider === "razorpay") { %>
+      <p class="muted small">
+        You will get a pickup code after the canteen marks your order ready.
+      </p>
+    <% } %>
   </div>
 <% } %>
 
+<% if (shop && shop.paymentConfigured && shop.paymentProvider === "razorpay") { %>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
 <script>
   const pickupSelect = document.getElementById("pickupTime");
+  const paymentProvider = "<%= shop.paymentProvider %>";
+  const publicKey = "<%= shop.paymentSettings?.apiKey || locals.env?.RAZORPAY_KEY_ID || '' %>";
 
   if (pickupSelect) {
     (function generatePickupTimes() {
@@ -90,9 +109,7 @@
 
       for (let i = 5; i <= 120; i += 5) {
         const time = new Date(now.getTime() + i * 60000);
-
         const value = time.toISOString();
-
         const label = time.toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -107,10 +124,10 @@
     })();
   }
 
-  const rzpButton = document.getElementById("rzp-button");
+  const payButton = document.getElementById("pay-button");
 
-  if (rzpButton) {
-    rzpButton.addEventListener("click", async () => {
+  if (payButton) {
+    payButton.addEventListener("click", async () => {
       const pickupTime = pickupSelect?.value;
 
       if (!pickupTime) {
@@ -118,7 +135,7 @@
         return;
       }
 
-      const response = await fetch("/create-razorpay-order", {
+      const response = await fetch("/create-payment-order", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -131,13 +148,23 @@
 
       const order = await response.json();
 
+      if (order.error) {
+        alert(order.error);
+        return;
+      }
+
+      if (paymentProvider !== "razorpay") {
+        alert("This payment provider is not supported in checkout yet.");
+        return;
+      }
+
       const options = {
-        key: "<%= locals.env?.RAZORPAY_KEY_ID || '' %>",
+        key: order.publicKey || publicKey,
         amount: order.amount,
         currency: order.currency,
         name: "Flash Foods",
         description: "Order Payment",
-        order_id: order.id,
+        order_id: order.orderId || order.id,
 
         handler: async function (response) {
           const verifyResponse = await fetch("/verify-payment", {
@@ -156,7 +183,7 @@
           if (data.success) {
             window.location.href = `/orders/${data.orderId}`;
           } else {
-            alert("Payment verification failed");
+            alert(data.message || "Payment verification failed");
           }
         },
       };
@@ -166,5 +193,6 @@
     });
   }
 </script>
+<% } %>
 
 <%- include("../partials/footer") %>
