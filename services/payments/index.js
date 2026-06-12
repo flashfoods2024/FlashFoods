@@ -46,10 +46,17 @@ export function getProviderPublicKey(provider, shop) {
 
 export function isRefundableOrder(order) {
   const provider = order.paymentProvider || "razorpay";
+  const txId =
+    order.gatewayTransactionId || order.transactionId || order.paymentNote;
+  const adapter = providers[provider];
+
+  if (adapter && typeof adapter.isRefundableTransaction === "function") {
+    return adapter.isRefundableTransaction(txId);
+  }
+
   if (provider === "razorpay" || !order.paymentProvider) {
-    const txId =
-      order.gatewayTransactionId || order.transactionId || order.paymentNote;
     return razorpay.isRefundableTransaction(txId);
   }
+
   return false;
 }

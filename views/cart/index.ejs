@@ -77,10 +77,10 @@
           Pay with Razorpay
         </button>
       <% } else { %>
-        <button class="btn" type="button" disabled>
-          <%= shop.paymentProvider.charAt(0).toUpperCase() + shop.paymentProvider.slice(1) %> checkout coming soon
-        </button>
-      <% } %>
+  <button class="btn" id="pay-button">
+    Proceed to <%= shop.paymentProvider.charAt(0).toUpperCase() + shop.paymentProvider.slice(1) %>
+  </button>
+<% } %>
     </div>
 
     <% if (!shop.paymentConfigured) { %>
@@ -95,7 +95,7 @@
   </div>
 <% } %>
 
-<% if (shop && shop.paymentConfigured && shop.paymentProvider === "razorpay") { %>
+<% if (shop && shop.paymentConfigured) { %>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
 <script>
@@ -153,8 +153,27 @@
         return;
       }
 
-      if (paymentProvider !== "razorpay") {
-        alert("This payment provider is not supported in checkout yet.");
+      if (paymentProvider === "ccavenue") {
+        // CCAvenue uses a browser POST with encrypted payload instead of an in-page widget.
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = order.gatewayUrl;
+        form.style.display = "none";
+
+        const encRequestInput = document.createElement("input");
+        encRequestInput.type = "hidden";
+        encRequestInput.name = "encRequest";
+        encRequestInput.value = order.encRequest;
+
+        const accessCodeInput = document.createElement("input");
+        accessCodeInput.type = "hidden";
+        accessCodeInput.name = "access_code";
+        accessCodeInput.value = order.accessCode;
+
+        form.appendChild(encRequestInput);
+        form.appendChild(accessCodeInput);
+        document.body.appendChild(form);
+        form.submit();
         return;
       }
 
