@@ -7,7 +7,7 @@ import { Order } from "../models/Order.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { generateOtp } from "../utils/otp.js";
-import razorpay from "../config/razorpay.js";
+import { createRazorpayFromShop } from "../config/razorpay.js";
 export const ordersRouter = express.Router();
 
 function getCart(req) {
@@ -18,24 +18,40 @@ function getCart(req) {
   return req.session.cart;
 }
 
-ordersRouter.post("/create-razorpay-order", async (req, res) => {
-  try {
-    const { amount } = req.body;
+ordersRouter.post(
+  "/create-razorpay-order",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    try {
+      const { amount } = req.body;
+      const cart = getCart(req);
 
-    const options = {
-      amount: amount * 100,
-      currency: "INR",
-      receipt: `receipt_${Date.now()}`,
-    };
+      if (!cart.shopId) {
+        return res.status(400).json({ error: "Cart is empty" });
+      }
 
-    const order = await razorpay.orders.create(options);
+      const shop = await Shop.findById(cart.shopId)
+        .select("paymentConfigured paymentSettings")
+        .lean();
+      const { keyId, instance } = createRazorpayFromShop(shop);
 
-    res.json(order);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create Razorpay order" });
+      const options = {
+        amount: amount * 100,
+        currency: "INR",
+        receipt: `receipt_${Date.now()}`,
+      };
+
+      const order = await instance.orders.create(options);
+
+      res.json({ ...order, key_id: keyId });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to create Razorpay order" });
+    }
   }
-});
+);
 
 ordersRouter.post(
   "/verify-payment",
@@ -51,10 +67,24 @@ ordersRouter.post(
       pickupTime,
 } = req.body;
 
+      const cart = getCart(req);
+
+      if (!cart.shopId || !cart.items.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Cart is empty",
+        });
+      }
+
       const sign = razorpay_order_id + "|" + razorpay_payment_id;
 
+      const paymentShop = await Shop.findById(cart.shopId)
+        .select("paymentConfigured paymentSettings")
+        .lean();
+      const { keySecret } = createRazorpayFromShop(paymentShop);
+
       const expectedSign = crypto
-        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+        .createHmac("sha256", keySecret)
         .update(sign.toString())
         .digest("hex");
 
@@ -64,15 +94,6 @@ ordersRouter.post(
         return res.status(400).json({
           success: false,
           message: "Invalid payment signature",
-        });
-      }
-
-      const cart = getCart(req);
-
-      if (!cart.shopId || !cart.items.length) {
-        return res.status(400).json({
-          success: false,
-          message: "Cart is empty",
         });
       }
 

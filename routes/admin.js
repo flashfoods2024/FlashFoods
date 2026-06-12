@@ -582,6 +582,74 @@ adminRouter.post("/shops/:id/delete", async (req, res) => {
   return res.redirect("/admin/shops");
 });
 
+adminRouter.get("/shops/:id/payment-settings", async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) {
+    req.flash("error", "Shop not found.");
+    return res.redirect("/admin/shops");
+  }
+
+  const shop = await Shop.findById(id).lean();
+  if (!shop) {
+    req.flash("error", "Shop not found.");
+    return res.redirect("/admin/shops");
+  }
+
+  res.render("admin/shops/payment-settings", {
+    pageTitle: `Payment Settings - ${shop.name}`,
+    activeSection: "shops",
+    shop,
+  });
+});
+
+adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) {
+    req.flash("error", "Shop not found.");
+    return res.redirect("/admin/shops");
+  }
+
+  try {
+    const { paymentGateway, razorpayKeyId, razorpayKeySecret } = req.body;
+
+    const shop = await Shop.findById(id);
+    if (!shop) {
+      req.flash("error", "Shop not found.");
+      return res.redirect("/admin/shops");
+    }
+
+    if (paymentGateway !== undefined) {
+      if (!["razorpay", "phonepe", "paytm"].includes(paymentGateway)) {
+        req.flash("error", "Invalid payment gateway.");
+        return res.redirect(`/admin/shops/${id}/payment-settings`);
+      }
+      shop.paymentGateway = paymentGateway;
+    }
+
+    const keyId = String(razorpayKeyId || "").trim();
+    if (keyId) {
+      shop.paymentSettings.razorpay.keyId = keyId;
+    }
+
+    if (razorpayKeySecret !== undefined && String(razorpayKeySecret).trim()) {
+      shop.paymentSettings.razorpay.keySecret = String(razorpayKeySecret).trim();
+    }
+
+    const hasRazorpayKeys =
+      shop.paymentSettings.razorpay.keyId && shop.paymentSettings.razorpay.keySecret;
+    shop.paymentConfigured = !!hasRazorpayKeys;
+
+    await shop.save();
+
+    req.flash("success", "Payment settings saved successfully.");
+    return res.redirect(`/admin/shops/${id}`);
+  } catch (err) {
+    console.error("Error updating payment settings:", err);
+    req.flash("error", "Failed to save payment settings.");
+    return res.redirect(`/admin/shops/${id}/payment-settings`);
+  }
+});
+
 adminRouter.get("/vendors", async (req, res) => {
   const [vendors, completedCounts] = await Promise.all([
     User.find({ role: "vendor" })

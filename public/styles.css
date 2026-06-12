@@ -455,6 +455,25 @@ select:hover {
   color: #991b1b;
 }
 
+.flash--info {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+fieldset.fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+fieldset.fieldset legend {
+  font-weight: 700;
+  font-size: 16px;
+  padding: 0 8px;
+}
+
 .vendor-nav {
   display: flex;
   flex-wrap: wrap;

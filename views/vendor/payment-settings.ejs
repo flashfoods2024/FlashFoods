@@ -1,0 +1,54 @@
+<%- include("../partials/header", { pageTitle }) %>
+
+<section class="hero hero--compact">
+  <h1>Payment Settings</h1>
+  <p class="muted"><%= shop.name %></p>
+</section>
+
+<div class="card admin-panel">
+  <form method="post" action="/vendor/payment/settings" class="form">
+
+    <label>
+      <span>Payment Gateway</span>
+      <select name="paymentGateway">
+        <option value="razorpay" <%= shop.paymentGateway === "razorpay" ? "selected" : "" %>>Razorpay</option>
+        <option value="phonepe" disabled>PhonePe (coming soon)</option>
+        <option value="paytm" disabled>Paytm (coming soon)</option>
+      </select>
+    </label>
+
+    <fieldset class="fieldset">
+      <legend>Razorpay Credentials</legend>
+
+      <% if (shop.paymentConfigured) { %>
+        <div class="flash flash--success">Razorpay is configured and active for this shop.</div>
+      <% } else { %>
+        <div class="flash flash--info">Enter your Razorpay API keys to accept live payments.</div>
+      <% } %>
+
+      <label>
+        <span>Key ID</span>
+        <input name="razorpayKeyId" type="text" maxlength="100"
+          value="<%= shop.paymentSettings?.razorpay?.keyId || "" %>"
+          placeholder="rzp_live_... or rzp_test_..." />
+      </label>
+
+      <label>
+        <span>Key Secret</span>
+        <input name="razorpayKeySecret" type="password" maxlength="100"
+          placeholder="<% if (shop.paymentSettings?.razorpay?.keySecret) { %>Leave blank to keep current secret<% } else { %>Enter your Razorpay key secret<% } %>" />
+        <% if (shop.paymentSettings?.razorpay?.keySecret) { %>
+          <p class="muted small">Leave blank to keep the existing secret.</p>
+        <% } %>
+      </label>
+    </fieldset>
+
+    <div class="row">
+      <button class="btn" type="submit">Save payment settings</button>
+      <a class="btn btn--outline" href="/vendor/menu">Cancel</a>
+    </div>
+
+  </form>
+</div>
+
+<%- include("../partials/footer") %>

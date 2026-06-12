@@ -6,7 +6,7 @@ import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireVendor, requireVendorShop } from "../middleware/auth.js";
 import { handleMenuImageUpload } from "../middleware/upload.js";
-import razorpay from "../config/razorpay.js";
+import { createRazorpayFromShop } from "../config/razorpay.js";
 
 export const vendorRouter = express.Router();
 
@@ -251,7 +251,10 @@ vendorRouter.post(
         return res.redirect("/vendor/orders/pending");
       }
 
-      const payment = await razorpay.payments.fetch(order.paymentNote);
+      const shop = await Shop.findById(req.vendorShopId).select("paymentConfigured paymentSettings").lean();
+      const { instance } = createRazorpayFromShop(shop);
+
+      const payment = await instance.payments.fetch(order.paymentNote);
 
       if (payment.status !== "captured") {
         req.flash("error", "Only captured payments can be refunded.");
@@ -261,7 +264,7 @@ vendorRouter.post(
       order.refundStatus = "pending";
       await order.save();
 
-      const refund = await razorpay.payments.refund(
+      const refund = await instance.payments.refund(
         order.paymentNote,
         {
           amount: Math.round(order.total * 100),
@@ -430,3 +433,78 @@ vendorRouter.get("/vendor/orders/:id", requireDb, requireAuth, requireVendor, re
     backHref,
   });
 });
+
+vendorRouter.get(
+  "/vendor/payment/settings",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId).lean();
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/menu");
+      }
+
+      res.render("vendor/payment-settings", {
+        pageTitle: "Payment Settings",
+        shop,
+      });
+    } catch (err) {
+      console.error("Error fetching payment settings:", err);
+      req.flash("error", "Failed to load payment settings.");
+      return res.redirect("/vendor/menu");
+    }
+  }
+);
+
+vendorRouter.post(
+  "/vendor/payment/settings",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const { paymentGateway, razorpayKeyId, razorpayKeySecret } = req.body;
+
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/payment/settings");
+      }
+
+      if (paymentGateway !== undefined) {
+        if (!["razorpay", "phonepe", "paytm"].includes(paymentGateway)) {
+          req.flash("error", "Invalid payment gateway.");
+          return res.redirect("/vendor/payment/settings");
+        }
+        shop.paymentGateway = paymentGateway;
+      }
+
+      const keyId = String(razorpayKeyId || "").trim();
+      if (keyId) {
+        shop.paymentSettings.razorpay.keyId = keyId;
+      }
+
+      if (razorpayKeySecret !== undefined && String(razorpayKeySecret).trim()) {
+        shop.paymentSettings.razorpay.keySecret = String(razorpayKeySecret).trim();
+      }
+
+      const hasRazorpayKeys =
+        shop.paymentSettings.razorpay.keyId && shop.paymentSettings.razorpay.keySecret;
+      shop.paymentConfigured = !!hasRazorpayKeys;
+
+      await shop.save();
+
+      req.flash("success", "Payment settings saved successfully.");
+      return res.redirect("/vendor/payment/settings");
+    } catch (err) {
+      console.error("Error updating payment settings:", err);
+      req.flash("error", "Failed to save payment settings.");
+      return res.redirect("/vendor/payment/settings");
+    }
+  }
+);

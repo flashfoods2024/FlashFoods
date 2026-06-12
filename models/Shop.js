@@ -17,7 +17,7 @@ const shopSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
-    paymentProvider: {
+    paymentGateway: {
       type: String,
       enum: ["razorpay", "phonepe", "paytm"],
       default: "razorpay",
@@ -32,6 +32,10 @@ const shopSchema = new mongoose.Schema(
       merchantId: { type: String, default: "" },
       apiKey: { type: String, default: "" },
       apiSecret: { type: String, default: "" },
+      razorpay: {
+        keyId: { type: String, default: "" },
+        keySecret: { type: String, default: "" },
+      },
     },
     isOpen: {
       type: Boolean,

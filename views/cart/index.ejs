@@ -129,15 +129,15 @@
         }),
       });
 
-      const order = await response.json();
+      const data = await response.json();
 
       const options = {
-        key: "<%= locals.env?.RAZORPAY_KEY_ID || '' %>",
-        amount: order.amount,
-        currency: order.currency,
+        key: data.key_id || "<%= razorpayKeyId || locals.env?.RAZORPAY_KEY_ID || '' %>",
+        amount: data.amount,
+        currency: data.currency,
         name: "Flash Foods",
         description: "Order Payment",
-        order_id: order.id,
+        order_id: data.id,
 
         handler: async function (response) {
           const verifyResponse = await fetch("/verify-payment", {

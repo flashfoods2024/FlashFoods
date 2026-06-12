@@ -46,7 +46,13 @@ cartRouter.get("/cart", requireDb, requireAuth, requireStudent, async (req, res)
   }
 
   const subtotal = lines.reduce((s, l) => s + l.price * l.quantity, 0);
-  res.render("cart/index", { pageTitle: "Cart", shop, lines, subtotal });
+
+  let razorpayKeyId = process.env.RAZORPAY_KEY_ID || "";
+  if (shop?.paymentConfigured && shop?.paymentSettings?.razorpay?.keyId) {
+    razorpayKeyId = shop.paymentSettings.razorpay.keyId;
+  }
+
+  res.render("cart/index", { pageTitle: "Cart", shop, lines, subtotal, razorpayKeyId });
 });
 
 cartRouter.post("/cart/add", requireDb, requireAuth, requireStudent, async (req, res) => {

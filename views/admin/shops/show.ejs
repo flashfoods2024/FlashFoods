@@ -85,6 +85,18 @@
   <% } %>
 </div>
 
+<div class="card admin-panel">
+  <div class="row row--split">
+    <h2 class="h2">Payment Settings</h2>
+    <a class="btn btn--outline btn--small" href="/admin/shops/<%= shop._id %>/payment-settings">Edit</a>
+  </div>
+  <div class="admin-detail-grid">
+    <div><span>Gateway</span><strong><%= shop.paymentGateway || "Not set" %></strong></div>
+    <div><span>Status</span><strong><%= shop.paymentConfigured ? "Configured" : "Not configured" %></strong></div>
+    <div><span>Razorpay Key ID</span><strong class="mono"><%= shop.paymentSettings?.razorpay?.keyId ? shop.paymentSettings.razorpay.keyId : "—" %></strong></div>
+  </div>
+</div>
+
 <%- include("../partials/layout-end") %>
 <%- include("../../partials/footer") %>
 
