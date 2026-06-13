@@ -25,27 +25,68 @@ ordersRouter.post(
   requireStudent,
   async (req, res) => {
     try {
-      const { amount } = req.body;
+      const { pickupTime } = req.body;
       const cart = getCart(req);
 
-      if (!cart.shopId) {
+      if (!cart.shopId || !cart.items.length) {
         return res.status(400).json({ error: "Cart is empty" });
       }
 
-      const shop = await Shop.findById(cart.shopId)
-        .select("paymentConfigured paymentSettings")
-        .lean();
+      const shop = await Shop.findById(cart.shopId).lean();
+      if (!shop || shop.isActive === false || shop.isOpen === false) {
+        return res.status(400).json({ error: "This shop is currently closed." });
+      }
+
+      // Build the order line items from the cart and compute the total
+      // server-side so the charged amount cannot be tampered with client-side.
+      const ids = cart.items.map((l) => l.menuItemId);
+      const menuItems = await MenuItem.find({
+        _id: { $in: ids },
+        shop: cart.shopId,
+        available: true,
+      }).lean();
+      const byId = new Map(menuItems.map((m) => [String(m._id), m]));
+
+      const orderItems = [];
+      let total = 0;
+      for (const line of cart.items) {
+        const m = byId.get(String(line.menuItemId));
+        if (!m) continue;
+        const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
+        orderItems.push({ menuItem: m._id, name: m.name, price: m.price, quantity: q });
+        total += m.price * q;
+      }
+
+      if (!orderItems.length) {
+        return res.status(400).json({ error: "Nothing in your cart is available to order." });
+      }
+
       const { keyId, instance } = createRazorpayFromShop(shop);
 
-      const options = {
-        amount: amount * 100,
+      const rzpOrder = await instance.orders.create({
+        amount: Math.round(total * 100),
         currency: "INR",
         receipt: `receipt_${Date.now()}`,
-      };
+      });
 
-      const order = await instance.orders.create(options);
+      // Persist a pending order immediately. This gives webhooks a stable
+      // identifier (razorpayOrderId) to look up, and is intentionally created
+      // with status "pending_payment" so it is excluded from vendor workflows
+      // until payment is confirmed (by /verify-payment or the webhook).
+      await Order.create({
+        customer: req.session.userId,
+        shop: cart.shopId,
+        items: orderItems,
+        total,
+        pickupTime: pickupTime ? new Date(pickupTime) : null,
+        status: "pending_payment",
+        pickupOtp: generateOtp(),
+        paymentNote: "pending",
+        transactionId: "",
+        razorpayOrderId: rzpOrder.id,
+      });
 
-      res.json({ ...order, key_id: keyId });
+      res.json({ ...rzpOrder, key_id: keyId });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to create Razorpay order" });
@@ -97,57 +138,29 @@ ordersRouter.post(
         });
       }
 
-      const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isActive === false || shop.isOpen === false) {
-        return res.status(400).json({
+      // Locate the pending order created in /create-razorpay-order using the
+      // existing Razorpay order identifier. We do NOT create a new record here.
+      const order = await Order.findOne({ razorpayOrderId: razorpay_order_id });
+      if (!order || String(order.customer) !== String(req.session.userId)) {
+        return res.status(404).json({
           success: false,
-          message: "This shop is currently closed.",
+          message: "Order not found",
         });
       }
 
-      const ids = cart.items.map((l) => l.menuItemId);
-
-      const menuItems = await MenuItem.find({
-        _id: { $in: ids },
-        shop: cart.shopId,
-        available: true,
-      }).lean();
-
-      const byId = new Map(menuItems.map((m) => [String(m._id), m]));
-
-      const orderItems = [];
-      let total = 0;
-
-      for (const line of cart.items) {
-        const m = byId.get(String(line.menuItemId));
-
-        if (!m) continue;
-
-        const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
-
-        orderItems.push({
-          menuItem: m._id,
-          name: m.name,
-          price: m.price,
-          quantity: q,
-        });
-
-        total += m.price * q;
+      // Idempotency / fallback safety: if the webhook (or a previous verify)
+      // already moved the order out of pending_payment, just return success
+      // without re-processing.
+      if (order.status !== "pending_payment") {
+        req.session.cart = { shopId: null, items: [] };
+        return res.json({ success: true, orderId: order._id });
       }
 
-      const pickupOtp = generateOtp();
-
-      const order = await Order.create({
-  customer: req.session.userId,
-  shop: cart.shopId,
-  items: orderItems,
-  total,
-  pickupTime: pickupTime ? new Date(pickupTime) : null,
-  status: "paid",
-  pickupOtp,
-  paymentNote: razorpay_payment_id,
-  transactionId: razorpay_payment_id,
-});
+      order.status = "paid";
+      order.paymentNote = razorpay_payment_id;
+      order.transactionId = razorpay_payment_id;
+      order.razorpayPaymentId = razorpay_payment_id;
+      await order.save();
 
       req.session.cart = {
         shopId: null,
