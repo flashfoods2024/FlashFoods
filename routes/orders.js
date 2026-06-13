@@ -8,7 +8,37 @@ import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { generateOtp } from "../utils/otp.js";
 import { createRazorpayFromShop } from "../config/razorpay.js";
+import {
+  getEasebuzzFromShop,
+  buildPaymentHash,
+  verifyResponseHash,
+} from "../config/easebuzz.js";
 export const ordersRouter = express.Router();
+
+// Build order line items + total from the session cart, validating each item
+// against the shop. Shared by the Easebuzz initiate flow. Returns null when
+// nothing orderable remains.
+async function buildOrderItemsFromCart(cart) {
+  const ids = cart.items.map((l) => l.menuItemId);
+  const menuItems = await MenuItem.find({
+    _id: { $in: ids },
+    shop: cart.shopId,
+    available: true,
+  }).lean();
+  const byId = new Map(menuItems.map((m) => [String(m._id), m]));
+
+  const orderItems = [];
+  let total = 0;
+  for (const line of cart.items) {
+    const m = byId.get(String(line.menuItemId));
+    if (!m) continue;
+    const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
+    orderItems.push({ menuItem: m._id, name: m.name, price: m.price, quantity: q });
+    total += m.price * q;
+  }
+  if (!orderItems.length) return null;
+  return { orderItems, total };
+}
 
 function getCart(req) {
   if (!req.session.cart || typeof req.session.cart !== "object") {
@@ -178,6 +208,142 @@ ordersRouter.post(
         success: false,
         message: "Payment verification failed",
       });
+    }
+  }
+);
+
+// --- Easebuzz hosted checkout -------------------------------------------
+//
+// Initiate: create the pending order up front (reusing the same pending-order
+// tracking pattern as Razorpay), then return the params the browser must POST
+// to the Easebuzz hosted payment page. The order's _id is used as the txnid so
+// the callback can reconcile against an existing record (via gatewayTxnId).
+ordersRouter.post(
+  "/easebuzz/initiate",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    try {
+      const { pickupTime } = req.body;
+      const cart = getCart(req);
+
+      if (!cart.shopId || !cart.items.length) {
+        return res.status(400).json({ error: "Cart is empty" });
+      }
+
+      const shop = await Shop.findById(cart.shopId).lean();
+      if (!shop || shop.isActive === false || shop.isOpen === false) {
+        return res.status(400).json({ error: "This shop is currently closed." });
+      }
+      if (shop.paymentGateway !== "easebuzz") {
+        return res.status(400).json({ error: "This shop is not using Easebuzz." });
+      }
+
+      const built = await buildOrderItemsFromCart(cart);
+      if (!built) {
+        return res.status(400).json({ error: "Nothing in your cart is available to order." });
+      }
+      const { orderItems, total } = built;
+
+      const { merchantKey, salt, baseUrl } = getEasebuzzFromShop(shop);
+      if (!merchantKey || !salt) {
+        return res.status(500).json({ error: "Easebuzz is not configured for this shop." });
+      }
+
+      const user = req.user || {};
+      const amount = total.toFixed(2);
+      const txnid = new mongoose.Types.ObjectId().toString();
+      const productinfo = `FlashFoods order - ${shop.name}`;
+      const firstname = String(user.name || "Customer").slice(0, 60);
+      const email = String(user.email || "customer@flashfoods.local");
+
+      // Persist the pending order before redirecting to the gateway.
+      await Order.create({
+        customer: req.session.userId,
+        shop: cart.shopId,
+        items: orderItems,
+        total,
+        pickupTime: pickupTime ? new Date(pickupTime) : null,
+        status: "pending_payment",
+        pickupOtp: generateOtp(),
+        paymentNote: "pending",
+        transactionId: "",
+        gatewayTxnId: txnid,
+      });
+
+      const hash = buildPaymentHash({
+        merchantKey,
+        salt,
+        txnid,
+        amount,
+        productinfo,
+        firstname,
+        email,
+      });
+
+      const origin = `${req.protocol}://${req.get("host")}`;
+      return res.json({
+        action: `${baseUrl}/payment/initiateLink`,
+        params: {
+          key: merchantKey,
+          txnid,
+          amount,
+          productinfo,
+          firstname,
+          email,
+          phone: "9999999999",
+          surl: `${origin}/easebuzz/callback`,
+          furl: `${origin}/easebuzz/callback`,
+          hash,
+        },
+      });
+    } catch (err) {
+      console.error("Easebuzz initiate failed:", err);
+      return res.status(500).json({ error: "Failed to initiate Easebuzz payment" });
+    }
+  }
+);
+
+// Callback: Easebuzz redirects (POST) the payment result here. Verify the
+// response hash, then reconcile the existing pending order by gatewayTxnId.
+// Only transitions orders still in pending_payment so this is idempotent.
+ordersRouter.post(
+  "/easebuzz/callback",
+  requireDb,
+  async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const txnid = payload.txnid;
+
+      const order = txnid ? await Order.findOne({ gatewayTxnId: txnid }) : null;
+      if (!order) {
+        req.flash?.("error", "Payment could not be matched to an order.");
+        return res.redirect("/orders");
+      }
+
+      const shop = await Shop.findById(order.shop)
+        .select("paymentSettings paymentGateway")
+        .lean();
+      const { merchantKey, salt } = getEasebuzzFromShop(shop);
+
+      const valid = verifyResponseHash({ merchantKey, salt, payload });
+      if (!valid) {
+        return res.redirect(`/orders/${order._id}`);
+      }
+
+      if (order.status === "pending_payment") {
+        const success = String(payload.status).toLowerCase() === "success";
+        order.status = success ? "paid" : "cancelled";
+        order.paymentNote = payload.easepayid || payload.status || "easebuzz";
+        order.transactionId = payload.easepayid || "";
+        await order.save();
+      }
+
+      return res.redirect(`/orders/${order._id}`);
+    } catch (err) {
+      console.error("Easebuzz callback failed:", err);
+      return res.redirect("/orders");
     }
   }
 );
