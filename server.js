@@ -11,6 +11,7 @@ import { authRouter } from "./routes/auth.js";
 import { shopsRouter } from "./routes/shops.js";
 import { cartRouter } from "./routes/cart.js";
 import { ordersRouter } from "./routes/orders.js";
+import { webhooksRouter } from "./routes/webhooks.js";
 import { vendorRouter } from "./routes/vendor.js";
 import { menuRouter } from "./routes/menu.js";
 import { adminRouter } from "./routes/admin.js";
@@ -32,6 +33,11 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 app.use(express.static(path.join(__dirname, "public")));
+
+// Razorpay webhooks must be mounted BEFORE express.json() so the route-level
+// express.raw() middleware receives the unparsed body for signature checks.
+app.use(webhooksRouter);
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
