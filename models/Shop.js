@@ -19,7 +19,7 @@ const shopSchema = new mongoose.Schema(
     },
     paymentGateway: {
       type: String,
-      enum: ["razorpay", "phonepe", "paytm"],
+      enum: ["razorpay", "easebuzz", "phonepe", "paytm", "bharatpe"],
       default: "razorpay",
     },
 
@@ -36,6 +36,12 @@ const shopSchema = new mongoose.Schema(
         keyId: { type: String, default: "" },
         keySecret: { type: String, default: "" },
         webhookSecret: { type: String, default: "" },
+      },
+      easebuzz: {
+        merchantKey: { type: String, default: "" },
+        salt: { type: String, default: "" },
+        // "test" (sandbox) or "prod" (live).
+        env: { type: String, enum: ["test", "prod"], default: "test" },
       },
     },
     isOpen: {

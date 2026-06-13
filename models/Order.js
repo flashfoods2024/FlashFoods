@@ -48,6 +48,11 @@ const orderSchema = new mongoose.Schema(
     // Used to make webhook delivery idempotent (no duplicate processing).
     webhookEventId: { type: String, default: "" },
 
+    // Generic gateway transaction reference for non-Razorpay gateways
+    // (e.g. Easebuzz). Lets the pending-order tracking pattern be reused
+    // without overloading the Razorpay-specific identifier fields.
+    gatewayTxnId: { type: String, default: "" },
+
     readyAt: { type: Date, default: null },
 
     refundStatus: {
@@ -69,5 +74,8 @@ orderSchema.index({ shop: 1, pickupTime: 1, createdAt: 1 });
 // Fast, unique lookup by Razorpay order id for webhook + verify flows.
 // Sparse so existing/mock orders without a razorpayOrderId are unaffected.
 orderSchema.index({ razorpayOrderId: 1 }, { unique: true, sparse: true });
+
+// Lookup by generic gateway transaction id (Easebuzz and future gateways).
+orderSchema.index({ gatewayTxnId: 1 }, { unique: true, sparse: true });
 
 export const Order = mongoose.model("Order", orderSchema);
