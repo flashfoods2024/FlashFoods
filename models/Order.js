@@ -38,6 +38,16 @@ const orderSchema = new mongoose.Schema(
 
     paymentNote: { type: String, default: "mock" },
     transactionId: { type: String, default: "" },
+
+    // Razorpay identifiers persisted at order-creation time so webhooks
+    // can reliably map an event back to an existing order.
+    razorpayOrderId: { type: String, default: "" },
+    razorpayPaymentId: { type: String, default: "" },
+
+    // Last Razorpay webhook event id processed for this order.
+    // Used to make webhook delivery idempotent (no duplicate processing).
+    webhookEventId: { type: String, default: "" },
+
     readyAt: { type: Date, default: null },
 
     refundStatus: {
@@ -55,5 +65,9 @@ orderSchema.index({ customer: 1, createdAt: -1 });
 
 // New index for priority ordering
 orderSchema.index({ shop: 1, pickupTime: 1, createdAt: 1 });
+
+// Fast, unique lookup by Razorpay order id for webhook + verify flows.
+// Sparse so existing/mock orders without a razorpayOrderId are unaffected.
+orderSchema.index({ razorpayOrderId: 1 }, { unique: true, sparse: true });
 
 export const Order = mongoose.model("Order", orderSchema);

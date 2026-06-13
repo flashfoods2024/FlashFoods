@@ -35,4 +35,15 @@ export function createRazorpayFromShop(shop) {
   };
 }
 
+// Resolve the webhook signing secret for a shop. Prefers a vendor-specific
+// secret (paymentSettings.razorpay.webhookSecret) and falls back to the
+// platform-wide RAZORPAY_WEBHOOK_SECRET env var.
+export function getWebhookSecretFromShop(shop) {
+  const vendorSecret = shop?.paymentSettings?.razorpay?.webhookSecret;
+  if (shop?.paymentConfigured && vendorSecret) {
+    return vendorSecret;
+  }
+  return process.env.RAZORPAY_WEBHOOK_SECRET || "";
+}
+
 export default defaultRazorpay;

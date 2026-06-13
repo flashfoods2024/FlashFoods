@@ -35,6 +35,7 @@ const shopSchema = new mongoose.Schema(
       razorpay: {
         keyId: { type: String, default: "" },
         keySecret: { type: String, default: "" },
+        webhookSecret: { type: String, default: "" },
       },
     },
     isOpen: {
