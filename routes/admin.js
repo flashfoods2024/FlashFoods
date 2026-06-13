@@ -9,6 +9,7 @@ import { MenuItem } from "../models/MenuItem.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { handleShopImageUpload } from "../middleware/upload.js";
+import { isGatewayConfigured } from "./vendor.js";
 import {
   formatOrderStatus,
   normalizeQuery,
@@ -610,7 +611,14 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
   }
 
   try {
-    const { paymentGateway, razorpayKeyId, razorpayKeySecret } = req.body;
+    const {
+      paymentGateway,
+      razorpayKeyId,
+      razorpayKeySecret,
+      easebuzzMerchantKey,
+      easebuzzSalt,
+      easebuzzEnv,
+    } = req.body;
 
     const shop = await Shop.findById(id);
     if (!shop) {
@@ -619,7 +627,7 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
     }
 
     if (paymentGateway !== undefined) {
-      if (!["razorpay", "phonepe", "paytm"].includes(paymentGateway)) {
+      if (!["razorpay", "easebuzz", "phonepe", "paytm", "bharatpe"].includes(paymentGateway)) {
         req.flash("error", "Invalid payment gateway.");
         return res.redirect(`/admin/shops/${id}/payment-settings`);
       }
@@ -635,9 +643,18 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
       shop.paymentSettings.razorpay.keySecret = String(razorpayKeySecret).trim();
     }
 
-    const hasRazorpayKeys =
-      shop.paymentSettings.razorpay.keyId && shop.paymentSettings.razorpay.keySecret;
-    shop.paymentConfigured = !!hasRazorpayKeys;
+    const merchantKey = String(easebuzzMerchantKey || "").trim();
+    if (merchantKey) {
+      shop.paymentSettings.easebuzz.merchantKey = merchantKey;
+    }
+    if (easebuzzSalt !== undefined && String(easebuzzSalt).trim()) {
+      shop.paymentSettings.easebuzz.salt = String(easebuzzSalt).trim();
+    }
+    if (easebuzzEnv !== undefined && ["test", "prod"].includes(easebuzzEnv)) {
+      shop.paymentSettings.easebuzz.env = easebuzzEnv;
+    }
+
+    shop.paymentConfigured = isGatewayConfigured(shop);
 
     await shop.save();
 

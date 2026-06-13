@@ -11,6 +11,15 @@ import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
 
 export const vendorRouter = express.Router();
 
+// Whether the shop's currently selected gateway has the credentials it needs.
+export function isGatewayConfigured(shop) {
+  if (shop.paymentGateway === "easebuzz") {
+    return !!(shop.paymentSettings?.easebuzz?.merchantKey && shop.paymentSettings?.easebuzz?.salt);
+  }
+  // Default: Razorpay.
+  return !!(shop.paymentSettings?.razorpay?.keyId && shop.paymentSettings?.razorpay?.keySecret);
+}
+
 vendorRouter.get("/vendor/menu", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
   const shop = await Shop.findById(req.vendorShopId).lean();
   if (!shop) {
@@ -501,7 +510,14 @@ vendorRouter.post(
   requireVendorShop,
   async (req, res) => {
     try {
-      const { paymentGateway, razorpayKeyId, razorpayKeySecret } = req.body;
+      const {
+        paymentGateway,
+        razorpayKeyId,
+        razorpayKeySecret,
+        easebuzzMerchantKey,
+        easebuzzSalt,
+        easebuzzEnv,
+      } = req.body;
 
       const shop = await Shop.findById(req.vendorShopId);
       if (!shop) {
@@ -510,7 +526,7 @@ vendorRouter.post(
       }
 
       if (paymentGateway !== undefined) {
-        if (!["razorpay", "phonepe", "paytm"].includes(paymentGateway)) {
+        if (!["razorpay", "easebuzz", "phonepe", "paytm", "bharatpe"].includes(paymentGateway)) {
           req.flash("error", "Invalid payment gateway.");
           return res.redirect("/vendor/payment/settings");
         }
@@ -526,9 +542,18 @@ vendorRouter.post(
         shop.paymentSettings.razorpay.keySecret = String(razorpayKeySecret).trim();
       }
 
-      const hasRazorpayKeys =
-        shop.paymentSettings.razorpay.keyId && shop.paymentSettings.razorpay.keySecret;
-      shop.paymentConfigured = !!hasRazorpayKeys;
+      const merchantKey = String(easebuzzMerchantKey || "").trim();
+      if (merchantKey) {
+        shop.paymentSettings.easebuzz.merchantKey = merchantKey;
+      }
+      if (easebuzzSalt !== undefined && String(easebuzzSalt).trim()) {
+        shop.paymentSettings.easebuzz.salt = String(easebuzzSalt).trim();
+      }
+      if (easebuzzEnv !== undefined && ["test", "prod"].includes(easebuzzEnv)) {
+        shop.paymentSettings.easebuzz.env = easebuzzEnv;
+      }
+
+      shop.paymentConfigured = isGatewayConfigured(shop);
 
       await shop.save();
 
