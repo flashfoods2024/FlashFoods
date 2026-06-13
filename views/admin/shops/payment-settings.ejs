@@ -14,7 +14,7 @@
 
     <label>
       <span>Payment Gateway</span>
-      <select name="paymentGateway">
+      <select name="paymentGateway" id="paymentGatewaySelect">
         <option value="razorpay" <%= shop.paymentGateway === "razorpay" ? "selected" : "" %>>Razorpay</option>
         <option value="easebuzz" <%= shop.paymentGateway === "easebuzz" ? "selected" : "" %>>Easebuzz</option>
         <option value="phonepe" disabled>PhonePe (coming soon)</option>
@@ -23,7 +23,7 @@
       </select>
     </label>
 
-    <fieldset class="fieldset">
+    <fieldset class="fieldset" data-gateway="razorpay">
       <legend>Razorpay Credentials</legend>
 
       <% if (shop.paymentConfigured) { %>
@@ -49,7 +49,7 @@
       </label>
     </fieldset>
 
-    <fieldset class="fieldset">
+    <fieldset class="fieldset" data-gateway="easebuzz">
       <legend>Easebuzz Credentials</legend>
 
       <label>
@@ -84,6 +84,24 @@
 
   </form>
 </div>
+
+<script>
+  (function () {
+    var select = document.getElementById("paymentGatewaySelect");
+    if (!select) return;
+    var sections = document.querySelectorAll("fieldset[data-gateway]");
+
+    function sync() {
+      var active = select.value;
+      sections.forEach(function (section) {
+        section.style.display = section.getAttribute("data-gateway") === active ? "" : "none";
+      });
+    }
+
+    select.addEventListener("change", sync);
+    sync();
+  })();
+</script>
 
 <%- include("../partials/layout-end") %>
 <%- include("../../partials/footer") %>
