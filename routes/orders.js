@@ -12,6 +12,8 @@ import {
   getEasebuzzFromShop,
   buildPaymentHash,
   verifyResponseHash,
+  initiatePayment,
+  easebuzzPayUrl,
 } from "../config/easebuzz.js";
 export const ordersRouter = express.Router();
 
@@ -283,21 +285,31 @@ ordersRouter.post(
       });
 
       const origin = `${req.protocol}://${req.get("host")}`;
-      return res.json({
-        action: `${baseUrl}/payment/initiateLink`,
-        params: {
-          key: merchantKey,
-          txnid,
-          amount,
-          productinfo,
-          firstname,
-          email,
-          phone: "9999999999",
-          surl: `${origin}/easebuzz/callback`,
-          furl: `${origin}/easebuzz/callback`,
-          hash,
-        },
-      });
+      const params = {
+        key: merchantKey,
+        txnid,
+        amount,
+        productinfo,
+        firstname,
+        email,
+        phone: "9999999999",
+        surl: `${origin}/easebuzz/callback`,
+        furl: `${origin}/easebuzz/callback`,
+        hash,
+      };
+
+      // Step 1: server-to-server initiate. Easebuzz returns an access key on
+      // success which we turn into the hosted payment page URL.
+      const result = await initiatePayment(params, baseUrl);
+
+      if (!result || Number(result.status) !== 1 || !result.data) {
+        console.error("Easebuzz initiateLink rejected:", result?.data || result);
+        return res.status(502).json({
+          error: typeof result?.data === "string" ? result.data : "Easebuzz declined the payment request.",
+        });
+      }
+
+      return res.json({ redirectUrl: easebuzzPayUrl(baseUrl, result.data) });
     } catch (err) {
       console.error("Easebuzz initiate failed:", err);
       return res.status(500).json({ error: "Failed to initiate Easebuzz payment" });

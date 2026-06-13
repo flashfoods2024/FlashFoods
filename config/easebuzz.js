@@ -43,6 +43,31 @@ function sha512(input) {
   return crypto.createHash("sha512").update(input).digest("hex");
 }
 
+// Step 1 of Easebuzz hosted checkout: server-to-server POST of the payment
+// params to /payment/initiateLink. On success Easebuzz returns
+// { status: 1, data: "<access_key>" }; the caller then redirects the browser
+// to `${baseUrl}/pay/<access_key>`. On failure status is 0/falsey and `data`
+// holds the error message.
+export async function initiatePayment(params, baseUrl) {
+  const body = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => body.append(k, v == null ? "" : String(v)));
+
+  const resp = await fetch(`${baseUrl}/payment/initiateLink`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+
+  // Easebuzz returns JSON for this endpoint.
+  return resp.json();
+}
+
+// Build the hosted payment page URL from the access key returned by
+// initiateLink.
+export function easebuzzPayUrl(baseUrl, accessKey) {
+  return `${baseUrl}/pay/${accessKey}`;
+}
+
 // Request hash for initiating a payment.
 // Easebuzz forward hash sequence:
 // key|txnid|amount|productinfo|firstname|email|udf1..udf10||||||salt
