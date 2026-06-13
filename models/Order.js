@@ -7,12 +7,16 @@ const orderItemSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const orderSchema = new mongoose.Schema(
   {
-    customer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    customer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", required: true },
     items: { type: [orderItemSchema], required: true },
     total: { type: Number, required: true, min: 0 },
@@ -30,7 +34,13 @@ const orderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending_payment", "paid", "ready_for_pickup", "completed", "cancelled"],
+      enum: [
+        "pending_payment",
+        "paid",
+        "ready_for_pickup",
+        "completed",
+        "cancelled",
+      ],
       default: "pending_payment",
     },
 
@@ -41,7 +51,7 @@ const orderSchema = new mongoose.Schema(
 
     // Razorpay identifiers persisted at order-creation time so webhooks
     // can reliably map an event back to an existing order.
-    razorpayOrderId: { type: String, default: "" },
+    razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String, default: "" },
 
     // Last Razorpay webhook event id processed for this order.
@@ -51,7 +61,7 @@ const orderSchema = new mongoose.Schema(
     // Generic gateway transaction reference for non-Razorpay gateways
     // (e.g. Easebuzz). Lets the pending-order tracking pattern be reused
     // without overloading the Razorpay-specific identifier fields.
-    gatewayTxnId: { type: String, default: "" },
+    gatewayTxnId: { type: String },
 
     readyAt: { type: Date, default: null },
 
@@ -61,7 +71,7 @@ const orderSchema = new mongoose.Schema(
       default: "none",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 orderSchema.index({ shop: 1, pickupOtp: 1 });
