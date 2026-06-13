@@ -6,6 +6,7 @@
   <p class="muted">New paid orders. Confirm when prepared and move them to pickup verification.</p>
 </section>
 
+<div id="pending-orders-region">
 <% if (!orders.length) { %>
   <div class="card empty-state">
     <p class="muted">No pending orders.</p>
@@ -51,5 +52,136 @@
     <% }) %>
   </div>
 <% } %>
+</div>
+
+<script>
+  (function () {
+    var region = document.getElementById("pending-orders-region");
+    if (!region) return;
+
+    var POLL_MS = 5000;
+    var ENDPOINT = "/vendor/orders/pending.json";
+    var lastSignature = null;
+    var inFlight = false;
+
+    // Escape dynamic text before injecting into markup (item names are
+    // vendor-supplied, so treat them as untrusted).
+    function esc(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    // Build a single card matching the server-rendered markup exactly so all
+    // CSS classes, the details overlay link, and the action forms behave the
+    // same as the initial render.
+    function cardHtml(order) {
+      var itemsHtml = (order.items || [])
+        .map(function (item) {
+          return (
+            "<li><span>" +
+            esc(item.name) +
+            "</span><strong>" +
+            esc(item.quantity) +
+            " x</strong></li>"
+          );
+        })
+        .join("");
+
+      var id = esc(order.id);
+      var shortId = esc(order.shortId);
+      var urgency = esc(order.pickupUrgency);
+      var pickupLabel = esc(order.pickupTimeLabel);
+      var total = Number(order.total).toFixed(2);
+
+      return (
+        '<article class="card vendor-order-card">' +
+        '<a class="vendor-order-card__overlay" href="/vendor/orders/' +
+        id +
+        '" aria-label="View order #' +
+        shortId +
+        ' details"></a>' +
+        '<div class="vendor-order-card__head">' +
+        '<div><p class="eyebrow">Order</p><h2>#' +
+        shortId +
+        "</h2></div>" +
+        '<div class="vendor-order-card__status">' +
+        '<span class="tag tag--pending">Preparing</span>' +
+        '<span class="tag tag--' +
+        urgency +
+        '">Pickup: ' +
+        pickupLabel +
+        "</span></div></div>" +
+        '<ul class="vendor-order-card__items">' +
+        itemsHtml +
+        "</ul>" +
+        '<p class="cart-total"><strong>Total:</strong> &#8377;' +
+        esc(total) +
+        "</p>" +
+        '<div class="vendor-order-card__actions">' +
+        '<form method="post" action="/vendor/orders/' +
+        id +
+        '/ready"><button class="btn btn--wide" type="submit">Mark ready</button></form>' +
+        '<form method="post" action="/vendor/orders/' +
+        id +
+        '/cancel" onsubmit="return confirm(\'Cancel this order and refund customer?\');">' +
+        '<button class="btn btn--danger btn--wide" type="submit">Cancel</button></form>' +
+        "</div></article>"
+      );
+    }
+
+    function render(orders) {
+      if (!orders.length) {
+        region.innerHTML =
+          '<div class="card empty-state"><p class="muted">No pending orders.</p></div>';
+        return;
+      }
+      region.innerHTML =
+        '<div class="vendor-order-grid">' +
+        orders.map(cardHtml).join("") +
+        "</div>";
+    }
+
+    function poll() {
+      if (inFlight || document.hidden) return;
+      inFlight = true;
+
+      fetch(ENDPOINT, {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          var orders = (data && data.orders) || [];
+          var signature = JSON.stringify(orders);
+          // Only touch the DOM when the data actually changed.
+          if (signature !== lastSignature) {
+            lastSignature = signature;
+            render(orders);
+          }
+        })
+        .catch(function (err) {
+          // Network/server hiccup: log and keep polling, leave current list.
+          console.error("Pending orders poll failed:", err);
+        })
+        .finally(function () {
+          inFlight = false;
+        });
+    }
+
+    // Refresh immediately when the tab becomes visible again.
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) poll();
+    });
+
+    setInterval(poll, POLL_MS);
+  })();
+</script>
 
 <%- include("../partials/footer") %>
