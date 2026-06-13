@@ -7,6 +7,7 @@ import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireVendor, requireVendorShop } from "../middleware/auth.js";
 import { handleMenuImageUpload } from "../middleware/upload.js";
 import { createRazorpayFromShop } from "../config/razorpay.js";
+import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
 
 export const vendorRouter = express.Router();
 
@@ -161,11 +162,15 @@ vendorRouter.delete("/vendor/menu/:id", requireDb, requireAuth, requireVendor, r
   return res.json({ success: true, message: "Menu item deleted." });
 });
 
-vendorRouter.get("/vendor/orders/pending", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
-  const orders = await Order.aggregate([
+// Shared query for vendor pending orders. Used by both the HTML route and the
+// JSON polling endpoint so the match/sort logic stays in one place.
+// Matches paid orders for the shop and orders them by pickup priority
+// (pickupTime, falling back to createdAt) then createdAt.
+async function getPendingOrders(shopId) {
+  return Order.aggregate([
     {
       $match: {
-        shop: req.vendorShopId,
+        shop: shopId,
         status: "paid",
       },
     },
@@ -186,8 +191,36 @@ vendorRouter.get("/vendor/orders/pending", requireDb, requireAuth, requireVendor
       },
     },
   ]);
+}
 
+vendorRouter.get("/vendor/orders/pending", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
+  const orders = await getPendingOrders(req.vendorShopId);
   res.render("vendor/pending-orders", { pageTitle: "Pending Orders", orders });
+});
+
+// JSON endpoint backing the 5s client-side polling on the pending orders page.
+// Returns only the fields needed to render the order cards, with pickup
+// urgency + formatted pickup time precomputed so the client does not need the
+// server-side EJS view helpers.
+vendorRouter.get("/vendor/orders/pending.json", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
+  try {
+    const orders = await getPendingOrders(req.vendorShopId);
+    const payload = orders.map((order) => ({
+      id: String(order._id),
+      shortId: String(order._id).slice(-6).toUpperCase(),
+      total: Number(order.total),
+      pickupUrgency: getPickupUrgency(order.pickupTime),
+      pickupTimeLabel: formatPickupTime(order.pickupTime),
+      items: (order.items || []).map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+      })),
+    }));
+    res.json({ orders: payload });
+  } catch (err) {
+    console.error("Failed to load pending orders JSON:", err);
+    res.status(500).json({ error: "Failed to load pending orders." });
+  }
 });
 
 vendorRouter.post("/vendor/orders/:id/ready", requireDb, requireAuth, requireVendor, requireVendorShop, async (req, res) => {
