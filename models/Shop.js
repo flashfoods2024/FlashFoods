@@ -43,6 +43,12 @@ const shopSchema = new mongoose.Schema(
         // "test" (sandbox) or "prod" (live).
         env: { type: String, enum: ["test", "prod"], default: "test" },
       },
+      phonepe: {
+        merchantId: { type: String, default: "" },
+        saltKey: { type: String, default: "" },
+        saltIndex: { type: String, default: "1" },
+        env: { type: String, enum: ["UAT", "PROD"], default: "UAT" },
+      },
     },
     isOpen: {
       type: Boolean,

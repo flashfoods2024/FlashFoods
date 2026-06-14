@@ -47,12 +47,14 @@ function formatMoney(value) {
 }
 
 async function syncVendorShopLink({ vendorId = null, shopId = null }) {
-  const vendor = vendorId && mongoose.isValidObjectId(vendorId)
-    ? await User.findById(vendorId)
-    : null;
-  const shop = shopId && mongoose.isValidObjectId(shopId)
-    ? await Shop.findById(shopId)
-    : null;
+  const vendor =
+    vendorId && mongoose.isValidObjectId(vendorId)
+      ? await User.findById(vendorId)
+      : null;
+  const shop =
+    shopId && mongoose.isValidObjectId(shopId)
+      ? await Shop.findById(shopId)
+      : null;
 
   if (vendor && vendor.role !== "vendor") {
     throw new Error("Selected user is not a vendor.");
@@ -61,7 +63,11 @@ async function syncVendorShopLink({ vendorId = null, shopId = null }) {
   const currentVendorShopId = vendor?.shop ? toHexId(vendor.shop) : null;
   const currentShopVendorId = shop?.vendor ? toHexId(shop.vendor) : null;
 
-  if (vendor && currentVendorShopId && currentVendorShopId !== toHexId(shop?._id)) {
+  if (
+    vendor &&
+    currentVendorShopId &&
+    currentVendorShopId !== toHexId(shop?._id)
+  ) {
     const previousShop = await Shop.findById(currentVendorShopId);
     if (previousShop && toHexId(previousShop.vendor) === toHexId(vendor._id)) {
       previousShop.vendor = null;
@@ -69,7 +75,11 @@ async function syncVendorShopLink({ vendorId = null, shopId = null }) {
     }
   }
 
-  if (shop && currentShopVendorId && currentShopVendorId !== toHexId(vendor?._id)) {
+  if (
+    shop &&
+    currentShopVendorId &&
+    currentShopVendorId !== toHexId(vendor?._id)
+  ) {
     const previousVendor = await User.findById(currentShopVendorId);
     if (previousVendor && toHexId(previousVendor.shop) === toHexId(shop._id)) {
       previousVendor.shop = null;
@@ -293,7 +303,10 @@ adminRouter.get("/", async (req, res) => {
 
 adminRouter.get("/shops", async (req, res) => {
   const [shops, orderCounts] = await Promise.all([
-    Shop.find().sort({ name: 1 }).populate("vendor", "name email role isActive").lean(),
+    Shop.find()
+      .sort({ name: 1 })
+      .populate("vendor", "name email role isActive")
+      .lean(),
     loadShopOrderCounts(),
   ]);
 
@@ -308,11 +321,12 @@ adminRouter.get("/shops", async (req, res) => {
       totalOrders: counts.totalOrders,
       completedOrders: counts.completedOrders,
       assignedVendorName: shop.vendor?.name || "Unassigned",
-      statusLabel: shop.isActive === false
-        ? "Disabled"
-        : shop.isOpen === false
-          ? "Closed"
-          : "Open",
+      statusLabel:
+        shop.isActive === false
+          ? "Disabled"
+          : shop.isOpen === false
+            ? "Closed"
+            : "Open",
     };
   });
 
@@ -335,51 +349,58 @@ adminRouter.get("/shops/new", async (req, res) => {
   });
 });
 
-adminRouter.post("/shops", handleShopImageUpload("/admin/shops/new"), async (req, res) => {
-  try {
-    const name = normalizeQuery(req.body?.name);
-    const slug = safeSlug(req.body?.slug || name);
-    const description = normalizeQuery(req.body?.description);
-    const isOpen = String(req.body?.isOpen || "open") !== "closed";
-    const assignedVendorId = normalizeQuery(req.body?.vendor);
+adminRouter.post(
+  "/shops",
+  handleShopImageUpload("/admin/shops/new"),
+  async (req, res) => {
+    try {
+      const name = normalizeQuery(req.body?.name);
+      const slug = safeSlug(req.body?.slug || name);
+      const description = normalizeQuery(req.body?.description);
+      const isOpen = String(req.body?.isOpen || "open") !== "closed";
+      const assignedVendorId = normalizeQuery(req.body?.vendor);
 
-    if (!name) {
-      req.flash("error", "Shop name is required.");
+      if (!name) {
+        req.flash("error", "Shop name is required.");
+        return res.redirect("/admin/shops/new");
+      }
+
+      if (!slug) {
+        req.flash("error", "Shop slug is required.");
+        return res.redirect("/admin/shops/new");
+      }
+
+      const existing = await Shop.findOne({ slug });
+      if (existing) {
+        req.flash("error", "That slug already exists.");
+        return res.redirect("/admin/shops/new");
+      }
+
+      const shop = await Shop.create({
+        name,
+        slug,
+        description,
+        image: req.file?.path || "",
+        isOpen,
+        isActive: true,
+      });
+
+      if (assignedVendorId) {
+        await syncVendorShopLink({
+          vendorId: assignedVendorId,
+          shopId: shop._id,
+        });
+      }
+
+      req.flash("success", "Shop created.");
+      return res.redirect("/admin/shops");
+    } catch (error) {
+      console.error(error);
+      req.flash("error", error.message || "Could not create shop.");
       return res.redirect("/admin/shops/new");
     }
-
-    if (!slug) {
-      req.flash("error", "Shop slug is required.");
-      return res.redirect("/admin/shops/new");
-    }
-
-    const existing = await Shop.findOne({ slug });
-    if (existing) {
-      req.flash("error", "That slug already exists.");
-      return res.redirect("/admin/shops/new");
-    }
-
-    const shop = await Shop.create({
-      name,
-      slug,
-      description,
-      image: req.file?.path || "",
-      isOpen,
-      isActive: true,
-    });
-
-    if (assignedVendorId) {
-      await syncVendorShopLink({ vendorId: assignedVendorId, shopId: shop._id });
-    }
-
-    req.flash("success", "Shop created.");
-    return res.redirect("/admin/shops");
-  } catch (error) {
-    console.error(error);
-    req.flash("error", error.message || "Could not create shop.");
-    return res.redirect("/admin/shops/new");
-  }
-});
+  },
+);
 
 adminRouter.get("/shops/:id", async (req, res) => {
   const { id } = req.params;
@@ -389,9 +410,7 @@ adminRouter.get("/shops/:id", async (req, res) => {
   }
 
   const [shop, menuItems, orderStats] = await Promise.all([
-    Shop.findById(id)
-      .populate("vendor", "name email role isActive")
-      .lean(),
+    Shop.findById(id).populate("vendor", "name email role isActive").lean(),
     MenuItem.find({ shop: id }).sort({ name: 1 }).lean(),
     Order.aggregate([
       { $match: { shop: new mongoose.Types.ObjectId(id) } },
@@ -463,70 +482,80 @@ adminRouter.get("/shops/:id/edit", async (req, res) => {
   });
 });
 
-adminRouter.post("/shops/:id/edit", handleShopImageUpload((req) => `/admin/shops/${req.params.id}/edit`), async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.isValidObjectId(id)) {
-      req.flash("error", "Shop not found.");
-      return res.redirect("/admin/shops");
-    }
-
-    const shop = await Shop.findById(id);
-    if (!shop) {
-      req.flash("error", "Shop not found.");
-      return res.redirect("/admin/shops");
-    }
-
-    const name = normalizeQuery(req.body?.name);
-    const slug = safeSlug(req.body?.slug || name);
-    const description = normalizeQuery(req.body?.description);
-    const isOpen = String(req.body?.isOpen || "open") !== "closed";
-    const assignedVendorId = normalizeQuery(req.body?.vendor);
-
-    if (!name) {
-      req.flash("error", "Shop name is required.");
-      return res.redirect(`/admin/shops/${id}/edit`);
-    }
-    if (!slug) {
-      req.flash("error", "Shop slug is required.");
-      return res.redirect(`/admin/shops/${id}/edit`);
-    }
-
-    const slugConflict = await Shop.findOne({ slug, _id: { $ne: shop._id } });
-    if (slugConflict) {
-      req.flash("error", "That slug already exists.");
-      return res.redirect(`/admin/shops/${id}/edit`);
-    }
-
-    shop.name = name;
-    shop.slug = slug;
-    shop.description = description;
-    shop.isOpen = isOpen;
-    if (req.file?.path) {
-      shop.image = req.file.path;
-    }
-    await shop.save();
-
-    if (assignedVendorId) {
-      await syncVendorShopLink({ vendorId: assignedVendorId, shopId: shop._id });
-    } else if (shop.vendor) {
-      const previousVendor = await User.findById(shop.vendor);
-      if (previousVendor && toHexId(previousVendor.shop) === toHexId(shop._id)) {
-        previousVendor.shop = null;
-        await previousVendor.save();
+adminRouter.post(
+  "/shops/:id/edit",
+  handleShopImageUpload((req) => `/admin/shops/${req.params.id}/edit`),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.isValidObjectId(id)) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/admin/shops");
       }
-      shop.vendor = null;
-      await shop.save();
-    }
 
-    req.flash("success", "Shop updated.");
-    return res.redirect("/admin/shops");
-  } catch (error) {
-    console.error(error);
-    req.flash("error", error.message || "Could not update shop.");
-    return res.redirect(`/admin/shops/${req.params.id}/edit`);
-  }
-});
+      const shop = await Shop.findById(id);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/admin/shops");
+      }
+
+      const name = normalizeQuery(req.body?.name);
+      const slug = safeSlug(req.body?.slug || name);
+      const description = normalizeQuery(req.body?.description);
+      const isOpen = String(req.body?.isOpen || "open") !== "closed";
+      const assignedVendorId = normalizeQuery(req.body?.vendor);
+
+      if (!name) {
+        req.flash("error", "Shop name is required.");
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
+      if (!slug) {
+        req.flash("error", "Shop slug is required.");
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
+
+      const slugConflict = await Shop.findOne({ slug, _id: { $ne: shop._id } });
+      if (slugConflict) {
+        req.flash("error", "That slug already exists.");
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
+
+      shop.name = name;
+      shop.slug = slug;
+      shop.description = description;
+      shop.isOpen = isOpen;
+      if (req.file?.path) {
+        shop.image = req.file.path;
+      }
+      await shop.save();
+
+      if (assignedVendorId) {
+        await syncVendorShopLink({
+          vendorId: assignedVendorId,
+          shopId: shop._id,
+        });
+      } else if (shop.vendor) {
+        const previousVendor = await User.findById(shop.vendor);
+        if (
+          previousVendor &&
+          toHexId(previousVendor.shop) === toHexId(shop._id)
+        ) {
+          previousVendor.shop = null;
+          await previousVendor.save();
+        }
+        shop.vendor = null;
+        await shop.save();
+      }
+
+      req.flash("success", "Shop updated.");
+      return res.redirect("/admin/shops");
+    } catch (error) {
+      console.error(error);
+      req.flash("error", error.message || "Could not update shop.");
+      return res.redirect(`/admin/shops/${req.params.id}/edit`);
+    }
+  },
+);
 
 adminRouter.post("/shops/:id/toggle", async (req, res) => {
   const { id } = req.params;
@@ -548,10 +577,7 @@ adminRouter.post("/shops/:id/toggle", async (req, res) => {
   }
   await shop.save();
 
-  req.flash(
-    "success",
-    shop.isActive ? "Shop enabled." : "Shop disabled."
-  );
+  req.flash("success", shop.isActive ? "Shop enabled." : "Shop disabled.");
   return res.redirect("/admin/shops");
 });
 
@@ -618,6 +644,10 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
       easebuzzMerchantKey,
       easebuzzSalt,
       easebuzzEnv,
+      phonepeMerchantId,
+      phonepeSaltKey,
+      phonepeSaltIndex,
+      phonepeEnv,
     } = req.body;
 
     const shop = await Shop.findById(id);
@@ -627,7 +657,11 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
     }
 
     if (paymentGateway !== undefined) {
-      if (!["razorpay", "easebuzz", "phonepe", "paytm", "bharatpe"].includes(paymentGateway)) {
+      if (
+        !["razorpay", "easebuzz", "phonepe", "paytm", "bharatpe"].includes(
+          paymentGateway,
+        )
+      ) {
         req.flash("error", "Invalid payment gateway.");
         return res.redirect(`/admin/shops/${id}/payment-settings`);
       }
@@ -640,7 +674,8 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
     }
 
     if (razorpayKeySecret !== undefined && String(razorpayKeySecret).trim()) {
-      shop.paymentSettings.razorpay.keySecret = String(razorpayKeySecret).trim();
+      shop.paymentSettings.razorpay.keySecret =
+        String(razorpayKeySecret).trim();
     }
 
     const merchantKey = String(easebuzzMerchantKey || "").trim();
@@ -652,6 +687,20 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
     }
     if (easebuzzEnv !== undefined && ["test", "prod"].includes(easebuzzEnv)) {
       shop.paymentSettings.easebuzz.env = easebuzzEnv;
+    }
+
+    const ppMerchantId = String(phonepeMerchantId || "").trim();
+    if (ppMerchantId) {
+      shop.paymentSettings.phonepe.merchantId = ppMerchantId;
+    }
+    if (phonepeSaltKey !== undefined && String(phonepeSaltKey).trim()) {
+      shop.paymentSettings.phonepe.saltKey = String(phonepeSaltKey).trim();
+    }
+    if (phonepeSaltIndex !== undefined && String(phonepeSaltIndex).trim()) {
+      shop.paymentSettings.phonepe.saltIndex = String(phonepeSaltIndex).trim();
+    }
+    if (phonepeEnv !== undefined && ["UAT", "PROD"].includes(phonepeEnv)) {
+      shop.paymentSettings.phonepe.env = phonepeEnv;
     }
 
     shop.paymentConfigured = isGatewayConfigured(shop);
@@ -678,7 +727,8 @@ adminRouter.get("/vendors", async (req, res) => {
 
   const rows = vendors.map((vendor) => ({
     ...vendor,
-    completedOrders: completedCounts.get(toHexId(vendor.shop?._id || vendor.shop)) || 0,
+    completedOrders:
+      completedCounts.get(toHexId(vendor.shop?._id || vendor.shop)) || 0,
     assignedShopName: vendor.shop?.name || "Unassigned",
     statusLabel: vendor.isActive === false ? "Disabled" : "Active",
   }));
@@ -730,7 +780,10 @@ adminRouter.post("/vendors", async (req, res) => {
     });
 
     if (assignedShopId) {
-      await syncVendorShopLink({ vendorId: vendor._id, shopId: assignedShopId });
+      await syncVendorShopLink({
+        vendorId: vendor._id,
+        shopId: assignedShopId,
+      });
     }
 
     req.flash("success", "Vendor created.");
@@ -764,7 +817,9 @@ adminRouter.get("/vendors/:id", async (req, res) => {
     return res.redirect("/admin/vendors");
   }
 
-  const recentOrders = await Order.find({ shop: vendor.shop?._id || vendor.shop })
+  const recentOrders = await Order.find({
+    shop: vendor.shop?._id || vendor.shop,
+  })
     .sort({ createdAt: -1 })
     .limit(8)
     .populate("customer", "name email")
@@ -794,7 +849,9 @@ adminRouter.get("/vendors/:id/edit", async (req, res) => {
   }
 
   const [vendor, shops] = await Promise.all([
-    User.findOne({ _id: id, role: "vendor" }).populate("shop", "name slug").lean(),
+    User.findOne({ _id: id, role: "vendor" })
+      .populate("shop", "name slug")
+      .lean(),
     Shop.find().sort({ name: 1 }).lean(),
   ]);
 
@@ -860,7 +917,10 @@ adminRouter.post("/vendors/:id/edit", async (req, res) => {
     await vendor.save();
 
     if (assignedShopId) {
-      await syncVendorShopLink({ vendorId: vendor._id, shopId: assignedShopId });
+      await syncVendorShopLink({
+        vendorId: vendor._id,
+        shopId: assignedShopId,
+      });
     } else if (vendor.shop) {
       await syncVendorShopLink({ vendorId: vendor._id, shopId: null });
     }
@@ -891,7 +951,10 @@ adminRouter.post("/vendors/:id/toggle", async (req, res) => {
   vendor.disabledAt = vendor.isActive ? null : new Date();
   await vendor.save();
 
-  req.flash("success", vendor.isActive ? "Vendor enabled." : "Vendor disabled.");
+  req.flash(
+    "success",
+    vendor.isActive ? "Vendor enabled." : "Vendor disabled.",
+  );
   return res.redirect("/admin/vendors");
 });
 
@@ -1014,7 +1077,10 @@ adminRouter.post("/students/:id/toggle", async (req, res) => {
   student.disabledAt = student.isActive ? null : new Date();
   await student.save();
 
-  req.flash("success", student.isActive ? "Student enabled." : "Student disabled.");
+  req.flash(
+    "success",
+    student.isActive ? "Student enabled." : "Student disabled.",
+  );
   return res.redirect("/admin/students");
 });
 
@@ -1081,164 +1147,173 @@ adminRouter.get("/orders/:id", async (req, res) => {
 });
 
 adminRouter.get("/analytics", async (req, res) => {
-  const [totalRevenueAgg, ordersToday, ordersThisWeek, ordersThisMonth, popularShop, popularItem, peakHour, topShops, topVendors] =
-    await Promise.all([
-      Order.aggregate([
-        {
-          $match: {
-            status: { $in: ["paid", "ready_for_pickup", "completed"] },
-          },
+  const [
+    totalRevenueAgg,
+    ordersToday,
+    ordersThisWeek,
+    ordersThisMonth,
+    popularShop,
+    popularItem,
+    peakHour,
+    topShops,
+    topVendors,
+  ] = await Promise.all([
+    Order.aggregate([
+      {
+        $match: {
+          status: { $in: ["paid", "ready_for_pickup", "completed"] },
         },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$total" },
-          },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$total" },
         },
-      ]),
-      Order.countDocuments({ createdAt: { $gte: startOfIstDay() } }),
-      Order.countDocuments({ createdAt: { $gte: startOfIstWeek() } }),
-      Order.countDocuments({ createdAt: { $gte: startOfIstMonth() } }),
-      Order.aggregate([
-        {
-          $group: {
-            _id: "$shop",
-            orders: { $sum: 1 },
-            revenue: { $sum: "$total" },
-          },
+      },
+    ]),
+    Order.countDocuments({ createdAt: { $gte: startOfIstDay() } }),
+    Order.countDocuments({ createdAt: { $gte: startOfIstWeek() } }),
+    Order.countDocuments({ createdAt: { $gte: startOfIstMonth() } }),
+    Order.aggregate([
+      {
+        $group: {
+          _id: "$shop",
+          orders: { $sum: 1 },
+          revenue: { $sum: "$total" },
         },
-        { $sort: { orders: -1, revenue: -1 } },
-        { $limit: 1 },
-        {
-          $lookup: {
-            from: "shops",
-            localField: "_id",
-            foreignField: "_id",
-            as: "shop",
-          },
+      },
+      { $sort: { orders: -1, revenue: -1 } },
+      { $limit: 1 },
+      {
+        $lookup: {
+          from: "shops",
+          localField: "_id",
+          foreignField: "_id",
+          as: "shop",
         },
-        {
-          $unwind: {
-            path: "$shop",
-            preserveNullAndEmptyArrays: true,
-          },
+      },
+      {
+        $unwind: {
+          path: "$shop",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-          $project: {
-            orders: 1,
-            revenue: 1,
-            name: "$shop.name",
-            slug: "$shop.slug",
-          },
+      },
+      {
+        $project: {
+          orders: 1,
+          revenue: 1,
+          name: "$shop.name",
+          slug: "$shop.slug",
         },
-      ]),
-      Order.aggregate([
-        { $unwind: "$items" },
-        {
-          $group: {
-            _id: "$items.name",
-            quantity: { $sum: "$items.quantity" },
-            revenue: {
-              $sum: {
-                $multiply: ["$items.price", "$items.quantity"],
-              },
+      },
+    ]),
+    Order.aggregate([
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.name",
+          quantity: { $sum: "$items.quantity" },
+          revenue: {
+            $sum: {
+              $multiply: ["$items.price", "$items.quantity"],
             },
           },
         },
-        { $sort: { quantity: -1, revenue: -1 } },
-        { $limit: 1 },
-      ]),
-      Order.aggregate([
-        {
-          $group: {
-            _id: {
-              $hour: {
-                date: "$createdAt",
-                timezone: "Asia/Kolkata",
-              },
+      },
+      { $sort: { quantity: -1, revenue: -1 } },
+      { $limit: 1 },
+    ]),
+    Order.aggregate([
+      {
+        $group: {
+          _id: {
+            $hour: {
+              date: "$createdAt",
+              timezone: "Asia/Kolkata",
             },
-            orders: { $sum: 1 },
           },
+          orders: { $sum: 1 },
         },
-        { $sort: { orders: -1, _id: 1 } },
-        { $limit: 1 },
-      ]),
-      Order.aggregate([
-        {
-          $group: {
-            _id: "$shop",
-            orders: { $sum: 1 },
-            revenue: { $sum: "$total" },
-          },
+      },
+      { $sort: { orders: -1, _id: 1 } },
+      { $limit: 1 },
+    ]),
+    Order.aggregate([
+      {
+        $group: {
+          _id: "$shop",
+          orders: { $sum: 1 },
+          revenue: { $sum: "$total" },
         },
-        { $sort: { orders: -1, revenue: -1 } },
-        { $limit: 5 },
-        {
-          $lookup: {
-            from: "shops",
-            localField: "_id",
-            foreignField: "_id",
-            as: "shop",
-          },
+      },
+      { $sort: { orders: -1, revenue: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: "shops",
+          localField: "_id",
+          foreignField: "_id",
+          as: "shop",
         },
-        {
-          $unwind: {
-            path: "$shop",
-            preserveNullAndEmptyArrays: true,
-          },
+      },
+      {
+        $unwind: {
+          path: "$shop",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-          $project: {
-            orders: 1,
-            revenue: 1,
-            shopName: "$shop.name",
-            shopSlug: "$shop.slug",
-          },
+      },
+      {
+        $project: {
+          orders: 1,
+          revenue: 1,
+          shopName: "$shop.name",
+          shopSlug: "$shop.slug",
         },
-      ]),
-      Order.aggregate([
-        {
-          $lookup: {
-            from: "shops",
-            localField: "shop",
-            foreignField: "_id",
-            as: "shop",
-          },
+      },
+    ]),
+    Order.aggregate([
+      {
+        $lookup: {
+          from: "shops",
+          localField: "shop",
+          foreignField: "_id",
+          as: "shop",
         },
-        {
-          $unwind: {
-            path: "$shop",
-            preserveNullAndEmptyArrays: true,
-          },
+      },
+      {
+        $unwind: {
+          path: "$shop",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-          $lookup: {
-            from: "users",
-            localField: "shop.vendor",
-            foreignField: "_id",
-            as: "vendor",
-          },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "shop.vendor",
+          foreignField: "_id",
+          as: "vendor",
         },
-        {
-          $unwind: {
-            path: "$vendor",
-            preserveNullAndEmptyArrays: true,
-          },
+      },
+      {
+        $unwind: {
+          path: "$vendor",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-          $group: {
-            _id: "$shop.vendor",
-            vendorName: { $first: "$vendor.name" },
-            vendorEmail: { $first: "$vendor.email" },
-            shopName: { $first: "$shop.name" },
-            orders: { $sum: 1 },
-            revenue: { $sum: "$total" },
-          },
+      },
+      {
+        $group: {
+          _id: "$shop.vendor",
+          vendorName: { $first: "$vendor.name" },
+          vendorEmail: { $first: "$vendor.email" },
+          shopName: { $first: "$shop.name" },
+          orders: { $sum: 1 },
+          revenue: { $sum: "$total" },
         },
-        { $sort: { orders: -1, revenue: -1 } },
-        { $limit: 5 },
-      ]),
-    ]);
+      },
+      { $sort: { orders: -1, revenue: -1 } },
+      { $limit: 5 },
+    ]),
+  ]);
 
   res.render("admin/analytics", {
     pageTitle: "Analytics",

@@ -68,13 +68,21 @@
         <button class="btn btn--ghost" type="submit">Clear cart</button>
       </form>
 
-      <% if (shop && shop.paymentGateway === "easebuzz") { %>
+      <% if (shop && shop.paymentGateway === "razorpay") { %>
+        <button class="btn" id="rzp-button">
+          Pay with Razorpay
+        </button>
+      <% } else if (shop && shop.paymentGateway === "easebuzz") { %>
         <button class="btn" id="easebuzz-button">
           Pay with Easebuzz
         </button>
+      <% } else if (shop && shop.paymentGateway === "phonepe") { %>
+        <button class="btn" disabled title="PhonePe checkout is coming soon">
+          Pay with PhonePe
+        </button>
       <% } else { %>
-        <button class="btn" id="rzp-button">
-          Pay with Razorpay
+        <button class="btn" disabled title="This payment gateway is not yet supported">
+          Checkout unavailable
         </button>
       <% } %>
     </div>
@@ -85,7 +93,9 @@
   </div>
 <% } %>
 
+<% if (shop?.paymentGateway === "razorpay") { %>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<% } %>
 
 <script>
   const pickupSelect = document.getElementById("pickupTime");

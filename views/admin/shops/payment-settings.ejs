@@ -17,7 +17,7 @@
       <select name="paymentGateway" id="paymentGatewaySelect">
         <option value="razorpay" <%= shop.paymentGateway === "razorpay" ? "selected" : "" %>>Razorpay</option>
         <option value="easebuzz" <%= shop.paymentGateway === "easebuzz" ? "selected" : "" %>>Easebuzz</option>
-        <option value="phonepe" disabled>PhonePe (coming soon)</option>
+        <option value="phonepe" <%= shop.paymentGateway === "phonepe" ? "selected" : "" %>>PhonePe</option>
         <option value="paytm" disabled>Paytm (coming soon)</option>
         <option value="bharatpe" disabled>BharatPe (coming soon)</option>
       </select>
@@ -73,6 +73,47 @@
         <select name="easebuzzEnv">
           <option value="test" <%= (shop.paymentSettings?.easebuzz?.env || "test") === "test" ? "selected" : "" %>>Test (sandbox)</option>
           <option value="prod" <%= shop.paymentSettings?.easebuzz?.env === "prod" ? "selected" : "" %>>Production (live)</option>
+        </select>
+      </label>
+    </fieldset>
+
+    <fieldset class="fieldset" data-gateway="phonepe">
+      <legend>PhonePe Credentials</legend>
+
+      <% if (shop.paymentConfigured && shop.paymentGateway === "phonepe") { %>
+        <div class="flash flash--success">PhonePe is configured and active for this shop.</div>
+      <% } else { %>
+        <div class="flash flash--info">Configure PhonePe credentials to enable payment processing for this shop.</div>
+      <% } %>
+
+      <label>
+        <span>Merchant ID</span>
+        <input name="phonepeMerchantId" type="text" maxlength="100"
+          value="<%= shop.paymentSettings?.phonepe?.merchantId || "" %>"
+          placeholder="PhonePe merchant ID" />
+      </label>
+
+      <label>
+        <span>Salt Key</span>
+        <input name="phonepeSaltKey" type="password" maxlength="200"
+          placeholder="<% if (shop.paymentSettings?.phonepe?.saltKey) { %>Leave blank to keep current salt key<% } else { %>Enter PhonePe salt key<% } %>" />
+        <% if (shop.paymentSettings?.phonepe?.saltKey) { %>
+          <p class="muted small">Leave blank to keep the existing salt key.</p>
+        <% } %>
+      </label>
+
+      <label>
+        <span>Salt Index</span>
+        <input name="phonepeSaltIndex" type="text" maxlength="10"
+          value="<%= shop.paymentSettings?.phonepe?.saltIndex || "1" %>"
+          placeholder="1" />
+      </label>
+
+      <label>
+        <span>Environment</span>
+        <select name="phonepeEnv">
+          <option value="UAT" <%= (shop.paymentSettings?.phonepe?.env || "UAT") === "UAT" ? "selected" : "" %>>UAT (sandbox)</option>
+          <option value="PROD" <%= shop.paymentSettings?.phonepe?.env === "PROD" ? "selected" : "" %>>Production (live)</option>
         </select>
       </label>
     </fieldset>

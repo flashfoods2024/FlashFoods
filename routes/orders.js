@@ -35,7 +35,12 @@ async function buildOrderItemsFromCart(cart) {
     const m = byId.get(String(line.menuItemId));
     if (!m) continue;
     const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
-    orderItems.push({ menuItem: m._id, name: m.name, price: m.price, quantity: q });
+    orderItems.push({
+      menuItem: m._id,
+      name: m.name,
+      price: m.price,
+      quantity: q,
+    });
     total += m.price * q;
   }
   if (!orderItems.length) return null;
@@ -66,7 +71,14 @@ ordersRouter.post(
 
       const shop = await Shop.findById(cart.shopId).lean();
       if (!shop || shop.isActive === false || shop.isOpen === false) {
-        return res.status(400).json({ error: "This shop is currently closed." });
+        return res
+          .status(400)
+          .json({ error: "This shop is currently closed." });
+      }
+      if (shop.paymentGateway !== "razorpay") {
+        return res
+          .status(400)
+          .json({ error: "This shop is not using Razorpay." });
       }
 
       // Build the order line items from the cart and compute the total
@@ -85,12 +97,19 @@ ordersRouter.post(
         const m = byId.get(String(line.menuItemId));
         if (!m) continue;
         const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
-        orderItems.push({ menuItem: m._id, name: m.name, price: m.price, quantity: q });
+        orderItems.push({
+          menuItem: m._id,
+          name: m.name,
+          price: m.price,
+          quantity: q,
+        });
         total += m.price * q;
       }
 
       if (!orderItems.length) {
-        return res.status(400).json({ error: "Nothing in your cart is available to order." });
+        return res
+          .status(400)
+          .json({ error: "Nothing in your cart is available to order." });
       }
 
       const { keyId, instance } = createRazorpayFromShop(shop);
@@ -123,7 +142,7 @@ ordersRouter.post(
       console.error(err);
       res.status(500).json({ error: "Failed to create Razorpay order" });
     }
-  }
+  },
 );
 
 ordersRouter.post(
@@ -134,11 +153,11 @@ ordersRouter.post(
   async (req, res) => {
     try {
       const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      pickupTime,
-} = req.body;
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        pickupTime,
+      } = req.body;
 
       const cart = getCart(req);
 
@@ -152,8 +171,15 @@ ordersRouter.post(
       const sign = razorpay_order_id + "|" + razorpay_payment_id;
 
       const paymentShop = await Shop.findById(cart.shopId)
-        .select("paymentConfigured paymentSettings")
+        .select("paymentGateway paymentConfigured paymentSettings")
         .lean();
+      if (paymentShop && paymentShop.paymentGateway !== "razorpay") {
+        return res.status(400).json({
+          success: false,
+          message: "This shop is not using Razorpay.",
+        });
+      }
+
       const { keySecret } = createRazorpayFromShop(paymentShop);
 
       const expectedSign = crypto
@@ -211,7 +237,7 @@ ordersRouter.post(
         message: "Payment verification failed",
       });
     }
-  }
+  },
 );
 
 // --- Easebuzz hosted checkout -------------------------------------------
@@ -236,21 +262,29 @@ ordersRouter.post(
 
       const shop = await Shop.findById(cart.shopId).lean();
       if (!shop || shop.isActive === false || shop.isOpen === false) {
-        return res.status(400).json({ error: "This shop is currently closed." });
+        return res
+          .status(400)
+          .json({ error: "This shop is currently closed." });
       }
       if (shop.paymentGateway !== "easebuzz") {
-        return res.status(400).json({ error: "This shop is not using Easebuzz." });
+        return res
+          .status(400)
+          .json({ error: "This shop is not using Easebuzz." });
       }
 
       const built = await buildOrderItemsFromCart(cart);
       if (!built) {
-        return res.status(400).json({ error: "Nothing in your cart is available to order." });
+        return res
+          .status(400)
+          .json({ error: "Nothing in your cart is available to order." });
       }
       const { orderItems, total } = built;
 
       const { merchantKey, salt, baseUrl } = getEasebuzzFromShop(shop);
       if (!merchantKey || !salt) {
-        return res.status(500).json({ error: "Easebuzz is not configured for this shop." });
+        return res
+          .status(500)
+          .json({ error: "Easebuzz is not configured for this shop." });
       }
 
       const user = req.user || {};
@@ -303,62 +337,66 @@ ordersRouter.post(
       const result = await initiatePayment(params, baseUrl);
 
       if (!result || Number(result.status) !== 1 || !result.data) {
-        console.error("Easebuzz initiateLink rejected:", result?.data || result);
+        console.error(
+          "Easebuzz initiateLink rejected:",
+          result?.data || result,
+        );
         return res.status(502).json({
-          error: typeof result?.data === "string" ? result.data : "Easebuzz declined the payment request.",
+          error:
+            typeof result?.data === "string"
+              ? result.data
+              : "Easebuzz declined the payment request.",
         });
       }
 
       return res.json({ redirectUrl: easebuzzPayUrl(baseUrl, result.data) });
     } catch (err) {
       console.error("Easebuzz initiate failed:", err);
-      return res.status(500).json({ error: "Failed to initiate Easebuzz payment" });
+      return res
+        .status(500)
+        .json({ error: "Failed to initiate Easebuzz payment" });
     }
-  }
+  },
 );
 
 // Callback: Easebuzz redirects (POST) the payment result here. Verify the
 // response hash, then reconcile the existing pending order by gatewayTxnId.
 // Only transitions orders still in pending_payment so this is idempotent.
-ordersRouter.post(
-  "/easebuzz/callback",
-  requireDb,
-  async (req, res) => {
-    try {
-      const payload = req.body || {};
-      const txnid = payload.txnid;
+ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const txnid = payload.txnid;
 
-      const order = txnid ? await Order.findOne({ gatewayTxnId: txnid }) : null;
-      if (!order) {
-        req.flash?.("error", "Payment could not be matched to an order.");
-        return res.redirect("/orders");
-      }
-
-      const shop = await Shop.findById(order.shop)
-        .select("paymentSettings paymentGateway")
-        .lean();
-      const { merchantKey, salt } = getEasebuzzFromShop(shop);
-
-      const valid = verifyResponseHash({ merchantKey, salt, payload });
-      if (!valid) {
-        return res.redirect(`/orders/${order._id}`);
-      }
-
-      if (order.status === "pending_payment") {
-        const success = String(payload.status).toLowerCase() === "success";
-        order.status = success ? "paid" : "cancelled";
-        order.paymentNote = payload.easepayid || payload.status || "easebuzz";
-        order.transactionId = payload.easepayid || "";
-        await order.save();
-      }
-
-      return res.redirect(`/orders/${order._id}`);
-    } catch (err) {
-      console.error("Easebuzz callback failed:", err);
+    const order = txnid ? await Order.findOne({ gatewayTxnId: txnid }) : null;
+    if (!order) {
+      req.flash?.("error", "Payment could not be matched to an order.");
       return res.redirect("/orders");
     }
+
+    const shop = await Shop.findById(order.shop)
+      .select("paymentSettings paymentGateway")
+      .lean();
+    const { merchantKey, salt } = getEasebuzzFromShop(shop);
+
+    const valid = verifyResponseHash({ merchantKey, salt, payload });
+    if (!valid) {
+      return res.redirect(`/orders/${order._id}`);
+    }
+
+    if (order.status === "pending_payment") {
+      const success = String(payload.status).toLowerCase() === "success";
+      order.status = success ? "paid" : "cancelled";
+      order.paymentNote = payload.easepayid || payload.status || "easebuzz";
+      order.transactionId = payload.easepayid || "";
+      await order.save();
+    }
+
+    return res.redirect(`/orders/${order._id}`);
+  } catch (err) {
+    console.error("Easebuzz callback failed:", err);
+    return res.redirect("/orders");
   }
-);
+});
 
 ordersRouter.post(
   "/orders/checkout",
@@ -415,18 +453,16 @@ ordersRouter.post(
     const pickupOtp = generateOtp();
 
     const order = await Order.create({
-  customer: req.session.userId,
-  shop: cart.shopId,
-  items: orderItems,
-  total,
-  pickupTime: req.body.pickupTime
-    ? new Date(req.body.pickupTime)
-    : null,
-  status: "paid",
-  pickupOtp,
-  paymentNote: "mock",
-  transactionId: "mock",
-});
+      customer: req.session.userId,
+      shop: cart.shopId,
+      items: orderItems,
+      total,
+      pickupTime: req.body.pickupTime ? new Date(req.body.pickupTime) : null,
+      status: "paid",
+      pickupOtp,
+      paymentNote: "mock",
+      transactionId: "mock",
+    });
 
     req.session.cart = { shopId: null, items: [] };
     req.flash(
