@@ -12,9 +12,15 @@ import {
   getEasebuzzFromShop,
   buildPaymentHash,
   verifyResponseHash,
-  initiatePayment,
+  initiatePayment as easebuzzInitiatePayment,
   easebuzzPayUrl,
 } from "../config/easebuzz.js";
+import {
+  getPhonepeFromShop,
+  getAuthToken,
+  createPayment,
+  getOrderStatus,
+} from "../config/phonepe.js";
 export const ordersRouter = express.Router();
 
 // Build order line items + total from the session cart, validating each item
@@ -334,7 +340,7 @@ ordersRouter.post(
 
       // Step 1: server-to-server initiate. Easebuzz returns an access key on
       // success which we turn into the hosted payment page URL.
-      const result = await initiatePayment(params, baseUrl);
+      const result = await easebuzzInitiatePayment(params, baseUrl);
 
       if (!result || Number(result.status) !== 1 || !result.data) {
         console.error(
@@ -394,6 +400,208 @@ ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
     return res.redirect(`/orders/${order._id}`);
   } catch (err) {
     console.error("Easebuzz callback failed:", err);
+    return res.redirect("/orders");
+  }
+});
+
+// --- PhonePe hosted checkout ---------------------------------------------
+//
+// Initiate: create the pending order up front (reusing the same pending-order
+// tracking pattern as Razorpay and Easebuzz), then return the PhonePe Pay API
+// redirect URL. The order's gatewayTxnId is the merchantTransactionId PhonePe
+// uses for reconciliation on callback.
+ordersRouter.post(
+  "/phonepe/initiate",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    try {
+      const { pickupTime } = req.body;
+      const cart = getCart(req);
+
+      if (!cart.shopId || !cart.items.length) {
+        return res.status(400).json({ error: "Cart is empty" });
+      }
+
+      const shop = await Shop.findById(cart.shopId).lean();
+      if (!shop || shop.isActive === false || shop.isOpen === false) {
+        return res
+          .status(400)
+          .json({ error: "This shop is currently closed." });
+      }
+      if (shop.paymentGateway !== "phonepe") {
+        return res
+          .status(400)
+          .json({ error: "This shop is not using PhonePe." });
+      }
+
+      const built = await buildOrderItemsFromCart(cart);
+      if (!built) {
+        return res
+          .status(400)
+          .json({ error: "Nothing in your cart is available to order." });
+      }
+      const { orderItems, total } = built;
+
+      const phonepe = getPhonepeFromShop(shop);
+      if (!phonepe.clientId || !phonepe.clientSecret) {
+        return res
+          .status(500)
+          .json({ error: "PhonePe is not configured for this shop." });
+      }
+
+      const user = req.user || {};
+      const txnid = new mongoose.Types.ObjectId().toString();
+      const origin = `${req.protocol}://${req.get("host")}`;
+
+      const auth = await getAuthToken({
+        clientId: phonepe.clientId,
+        clientSecret: phonepe.clientSecret,
+        clientVersion: phonepe.clientVersion,
+        env: phonepe.env,
+      });
+
+      if (!auth || !auth.access_token) {
+        console.error("PhonePe auth rejected:", auth);
+        return res.status(502).json({
+          error: auth?.message || "Failed to authenticate with PhonePe.",
+        });
+      }
+
+      // Persist the pending order before redirecting to the gateway.
+      await Order.create({
+        customer: req.session.userId,
+        shop: cart.shopId,
+        items: orderItems,
+        total,
+        pickupTime: pickupTime ? new Date(pickupTime) : null,
+        status: "pending_payment",
+        pickupOtp: generateOtp(),
+        paymentNote: "pending",
+        transactionId: "",
+        gatewayTxnId: txnid,
+      });
+
+      const result = await createPayment({
+        accessToken: auth.access_token,
+        merchantTransactionId: txnid,
+        amount: total,
+        redirectUrl: `${origin}/phonepe/callback?merchantOrderId=${txnid}`,
+        env: phonepe.env,
+      });
+
+      const redirectUrl = result?.redirectUrl;
+
+      if (!redirectUrl) {
+        console.error("PhonePe pay rejected:", result?.message || result);
+        return res.status(502).json({
+          error: result?.message || "PhonePe declined the payment request.",
+        });
+      }
+
+      return res.json({ redirectUrl });
+    } catch (err) {
+      console.error("PhonePe initiate failed:", err);
+      return res
+        .status(500)
+        .json({ error: "Failed to initiate PhonePe payment" });
+    }
+  },
+);
+
+// --- PhonePe callback ------------------------------------------------------
+//
+// After payment, PhonePe redirects the browser back to this URL. The callback
+// may arrive as GET (query params) or POST (form body) depending on the
+// sandbox/production environment. We verify payment server-to-server via the
+// Order Status API before updating the order.
+ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
+  try {
+    const merchantOrderId = req.query.merchantOrderId || "";
+
+    if (!merchantOrderId) {
+      console.error("PhonePe callback missing merchantOrderId in query");
+      req.flash("error", "PhonePe callback missing order reference.");
+      return res.redirect("/orders");
+    }
+
+    const order = await Order.findOne({ gatewayTxnId: merchantOrderId });
+    if (!order) {
+      console.error("PhonePe callback: no order for", merchantOrderId);
+      req.flash("error", "Order not found for this payment.");
+      return res.redirect("/orders");
+    }
+
+    if (order.status !== "pending_payment") {
+      return res.redirect(`/orders/${order._id}`);
+    }
+    const shop = await Shop.findById(order.shop)
+      .select("paymentSettings paymentGateway")
+      .lean();
+
+    const phonepe = getPhonepeFromShop(shop);
+    const auth = await getAuthToken({
+      clientId: phonepe.clientId,
+      clientSecret: phonepe.clientSecret,
+      clientVersion: phonepe.clientVersion,
+      env: phonepe.env,
+    });
+
+    if (!auth || !auth.access_token) {
+      console.error("PhonePe callback auth failed:", auth);
+      req.flash("error", "Payment verification failed.");
+      return res.redirect(`/orders/${order._id}`);
+    }
+    const statusResult = await getOrderStatus({
+      merchantOrderId,
+      accessToken: auth.access_token,
+      env: phonepe.env,
+    });
+    const state = statusResult?.state || "";
+
+    if (state === "COMPLETED") {
+      // Extract the PhonePe transaction ID from the first payment attempt.
+      const transactionId =
+        statusResult?.paymentDetails?.[0]?.transactionId || "";
+
+      // Update the order as paid.
+      order.status = "paid";
+      order.paymentNote = "paid";
+      order.transactionId = transactionId;
+      await order.save();
+
+      // Clear the session cart so the user can start fresh.
+      if (req.session) {
+        req.session.cart = { shopId: null, items: [] };
+      }
+
+      req.flash("success", "Payment successful! Your order has been placed.");
+      return res.redirect(`/orders/${order._id}`);
+    }
+
+    // Failure states — mark the order cancelled so it's not stuck in limbo.
+    if (["FAILED", "EXPIRED", "CANCELLED", "REVERSED"].includes(state)) {
+      order.status = "cancelled";
+      order.paymentNote = `phonepe_${state.toLowerCase()}`;
+      await order.save();
+
+      req.flash(
+        "error",
+        `Payment was ${state.toLowerCase()}. Please try again.`,
+      );
+      return res.redirect(`/orders/${order._id}`);
+    }
+
+    console.error("PhonePe unexpected state:", state, statusResult);
+    req.flash(
+      "error",
+      `Payment is in an unexpected state: ${state}. Please contact support.`,
+    );
+    return res.redirect(`/orders/${order._id}`);
+  } catch (err) {
+    console.error("PhonePe callback error:", err);
+    req.flash("error", "Failed to process payment callback.");
     return res.redirect("/orders");
   }
 });

@@ -87,26 +87,26 @@
       <% } %>
 
       <label>
-        <span>Merchant ID</span>
-        <input name="phonepeMerchantId" type="text" maxlength="100"
-          value="<%= shop.paymentSettings?.phonepe?.merchantId || "" %>"
-          placeholder="PhonePe merchant ID" />
+        <span>Client ID</span>
+        <input name="phonepeClientId" type="text" maxlength="100"
+          value="<%= shop.paymentSettings?.phonepe?.clientId || "" %>"
+          placeholder="PhonePe client ID" />
       </label>
 
       <label>
-        <span>Salt Key</span>
-        <input name="phonepeSaltKey" type="password" maxlength="200"
-          placeholder="<% if (shop.paymentSettings?.phonepe?.saltKey) { %>Leave blank to keep current salt key<% } else { %>Enter PhonePe salt key<% } %>" />
-        <% if (shop.paymentSettings?.phonepe?.saltKey) { %>
-          <p class="muted small">Leave blank to keep the existing salt key.</p>
+        <span>Client Secret</span>
+        <input name="phonepeClientSecret" type="password" maxlength="200"
+          placeholder="<% if (shop.paymentSettings?.phonepe?.clientSecret) { %>Leave blank to keep current client secret<% } else { %>Enter PhonePe client secret<% } %>" />
+        <% if (shop.paymentSettings?.phonepe?.clientSecret) { %>
+          <p class="muted small">Leave blank to keep the existing client secret.</p>
         <% } %>
       </label>
 
       <label>
-        <span>Salt Index</span>
-        <input name="phonepeSaltIndex" type="text" maxlength="10"
-          value="<%= shop.paymentSettings?.phonepe?.saltIndex || "1" %>"
-          placeholder="1" />
+        <span>Client Version</span>
+        <input name="phonepeClientVersion" type="text" maxlength="50"
+          value="<%= shop.paymentSettings?.phonepe?.clientVersion || "" %>"
+          placeholder="Client version from PhonePe dashboard" />
       </label>
 
       <label>

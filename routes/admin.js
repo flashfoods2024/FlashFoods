@@ -644,9 +644,9 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
       easebuzzMerchantKey,
       easebuzzSalt,
       easebuzzEnv,
-      phonepeMerchantId,
-      phonepeSaltKey,
-      phonepeSaltIndex,
+      phonepeClientId,
+      phonepeClientSecret,
+      phonepeClientVersion,
       phonepeEnv,
     } = req.body;
 
@@ -689,15 +689,23 @@ adminRouter.post("/shops/:id/payment-settings", async (req, res) => {
       shop.paymentSettings.easebuzz.env = easebuzzEnv;
     }
 
-    const ppMerchantId = String(phonepeMerchantId || "").trim();
-    if (ppMerchantId) {
-      shop.paymentSettings.phonepe.merchantId = ppMerchantId;
+    const ppClientId = String(phonepeClientId || "").trim();
+    if (ppClientId) {
+      shop.paymentSettings.phonepe.clientId = ppClientId;
     }
-    if (phonepeSaltKey !== undefined && String(phonepeSaltKey).trim()) {
-      shop.paymentSettings.phonepe.saltKey = String(phonepeSaltKey).trim();
+    if (
+      phonepeClientSecret !== undefined &&
+      String(phonepeClientSecret).trim()
+    ) {
+      shop.paymentSettings.phonepe.clientSecret =
+        String(phonepeClientSecret).trim();
     }
-    if (phonepeSaltIndex !== undefined && String(phonepeSaltIndex).trim()) {
-      shop.paymentSettings.phonepe.saltIndex = String(phonepeSaltIndex).trim();
+    if (
+      phonepeClientVersion !== undefined &&
+      String(phonepeClientVersion).trim()
+    ) {
+      shop.paymentSettings.phonepe.clientVersion =
+        String(phonepeClientVersion).trim();
     }
     if (phonepeEnv !== undefined && ["UAT", "PROD"].includes(phonepeEnv)) {
       shop.paymentSettings.phonepe.env = phonepeEnv;

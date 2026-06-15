@@ -44,9 +44,9 @@ const shopSchema = new mongoose.Schema(
         env: { type: String, enum: ["test", "prod"], default: "test" },
       },
       phonepe: {
-        merchantId: { type: String, default: "" },
-        saltKey: { type: String, default: "" },
-        saltIndex: { type: String, default: "1" },
+        clientId: { type: String, default: "" },
+        clientSecret: { type: String, default: "" },
+        clientVersion: { type: String, default: "" },
         env: { type: String, enum: ["UAT", "PROD"], default: "UAT" },
       },
     },

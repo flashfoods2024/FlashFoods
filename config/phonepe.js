@@ -1,77 +1,128 @@
 import dotenv from "dotenv";
-import crypto from "crypto";
 
 dotenv.config();
 
-const BASE_URLS = {
-  UAT: "https://api-preprod.phonepe.com/apis/pg",
-  PROD: "https://api.phonepe.com/apis/pg",
+const AUTH_URLS = {
+  UAT: "https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token",
+  PROD: "https://api.phonepe.com/apis/identity-manager/v1/oauth/token",
 };
 
-export function phonepeBaseUrl(env) {
-  return BASE_URLS[env] || BASE_URLS.UAT;
-}
+const PAY_URLS = {
+  UAT: "https://api-preprod.phonepe.com/apis/pg-sandbox/checkout/v2/pay",
+  PROD: "https://api.phonepe.com/apis/pg/checkout/v2/pay",
+};
+
+const ORDER_STATUS_URLS = {
+  UAT: "https://api-preprod.phonepe.com/apis/pg-sandbox/checkout/v2/order",
+  PROD: "https://api.phonepe.com/apis/pg/checkout/v2/order",
+};
 
 export function getPhonepeFromShop(shop) {
   const phonepe = shop?.paymentSettings?.phonepe;
-  const useCustom = phonepe?.merchantId && phonepe?.saltKey;
+  const useCustom = phonepe?.clientId && phonepe?.clientSecret;
 
   if (useCustom) {
     const env = phonepe.env || "UAT";
     return {
-      merchantId: phonepe.merchantId,
-      saltKey: phonepe.saltKey,
-      saltIndex: phonepe.saltIndex || "1",
+      clientId: phonepe.clientId,
+      clientSecret: phonepe.clientSecret,
+      clientVersion: phonepe.clientVersion || "",
       env,
-      baseUrl: phonepeBaseUrl(env),
     };
   }
 
   const env = process.env.PHONEPE_ENV || "UAT";
   return {
-    merchantId: process.env.PHONEPE_MERCHANT_ID || "",
-    saltKey: process.env.PHONEPE_SALT_KEY || "",
-    saltIndex: process.env.PHONEPE_SALT_INDEX || "1",
+    clientId: process.env.PHONEPE_CLIENT_ID || "",
+    clientSecret: process.env.PHONEPE_CLIENT_SECRET || "",
+    clientVersion: process.env.PHONEPE_CLIENT_VERSION || "",
     env,
-    baseUrl: phonepeBaseUrl(env),
   };
 }
 
-export function sha256(input) {
-  return crypto.createHash("sha256").update(input).digest("hex");
+export async function getAuthToken({
+  clientId,
+  clientSecret,
+  clientVersion,
+  env,
+}) {
+  const url = AUTH_URLS[env] || AUTH_URLS.UAT;
+
+  const params = new URLSearchParams();
+  params.append("grant_type", "client_credentials");
+  params.append("client_id", clientId);
+  params.append("client_version", clientVersion);
+  params.append("client_secret", clientSecret);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`PhonePe auth failed: ${response.status} ${text}`);
+  }
+
+  return response.json();
 }
 
-export function buildXVerify(payloadBase64, endpointPath, saltKey) {
-  const hash = sha256(payloadBase64 + endpointPath + saltKey);
-  return `${hash}###${saltKey}`;
-}
+export async function createPayment({
+  accessToken,
+  merchantTransactionId,
+  amount,
+  redirectUrl,
+  env,
+}) {
+  const url = PAY_URLS[env] || PAY_URLS.UAT;
 
-export function verifyCallbackXVerify(xVerifyHeader, bodyString, endpointPath, saltKey) {
-  if (!xVerifyHeader || !bodyString || !saltKey) return false;
-
-  const parts = String(xVerifyHeader).split("###");
-  if (parts.length !== 2) return false;
-
-  const expectedHash = parts[0];
-  const computedHash = sha256(bodyString + endpointPath + saltKey);
-
-  if (expectedHash.length !== computedHash.length) return false;
-  return crypto.timingSafeEqual(
-    Buffer.from(expectedHash, "utf8"),
-    Buffer.from(computedHash, "utf8"),
-  );
-}
-
-export function buildPaymentPayload({ merchantId, transactionId, amount, merchantUserId, redirectUrl, redirectMode = "POST" }) {
   const payload = {
-    merchantId,
-    merchantTransactionId: transactionId,
-    merchantUserId: merchantUserId || "",
+    merchantOrderId: merchantTransactionId,
     amount: Math.round(amount * 100),
-    redirectUrl,
-    redirectMode,
-    callbackUrl: redirectUrl,
-    paymentInstrument: { type: "PAY_PAGE" },
+    paymentFlow: {
+      type: "PG_CHECKOUT",
+      merchantUrls: {
+        redirectUrl,
+      },
+    },
   };
-  return payload;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `O-Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`PhonePe pay failed: ${response.status} ${text}`);
+  }
+
+  return response.json();
+}
+
+export async function getOrderStatus({ merchantOrderId, accessToken, env }) {
+  const baseUrl = ORDER_STATUS_URLS[env] || ORDER_STATUS_URLS.UAT;
+  const url = `${baseUrl}/${encodeURIComponent(merchantOrderId)}/status?details=false`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `O-Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`PhonePe status check failed: ${response.status} ${text}`);
+  }
+
+  return response.json();
 }
