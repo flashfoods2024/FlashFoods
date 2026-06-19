@@ -1,5 +1,6 @@
 import express from "express";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import session from "express-session";
 import flash from "connect-flash";
 import path from "path";
@@ -25,7 +26,14 @@ import {
 dotenv.config();
 
 const app = express();
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 app.use(helmet());
+app.use(limiter);
 const port = Number(process.env.PORT || 3000);
 
 const __filename = fileURLToPath(import.meta.url);

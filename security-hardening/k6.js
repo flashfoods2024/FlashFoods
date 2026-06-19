@@ -4,14 +4,14 @@ export const options = {
   scenarios: {
     burst_test: {
       executor: "constant-arrival-rate",
-      rate: 100,
+      rate: 30,
       timeUnit: "1s",
-      duration: "1m",
-      preAllocatedVUs: 6000,
+      duration: "10s",
+      preAllocatedVUs: 100,
     },
   },
 };
 
 export default function () {
-  http.get("https://app.flashfoods.freehosting.dev/");
+  http.get("http://localhost:3000/");
 }
