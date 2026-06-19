@@ -1,4 +1,5 @@
 import express from "express";
+import helmet from "helmet";
 import session from "express-session";
 import flash from "connect-flash";
 import path from "path";
@@ -24,6 +25,7 @@ import {
 dotenv.config();
 
 const app = express();
+app.use(helmet());
 const port = Number(process.env.PORT || 3000);
 
 const __filename = fileURLToPath(import.meta.url);
