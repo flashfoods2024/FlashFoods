@@ -28,7 +28,7 @@ dotenv.config();
 const app = express();
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 requests per IP
+  max: 300, // 300 requests per IP
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -56,6 +56,10 @@ app.use(
     secret: process.env.SESSION_SECRET || "dev-secret",
     resave: false,
     saveUninitialized: false,
+
+    cookie: {
+      httpOnly: true,
+    },
   }),
 );
 
