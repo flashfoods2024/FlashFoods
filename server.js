@@ -32,7 +32,11 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  }),
+);
 app.use(limiter);
 const port = Number(process.env.PORT || 3000);
 
@@ -59,6 +63,7 @@ app.use(
 
     cookie: {
       httpOnly: true,
+      // sameSite: "lax",
     },
   }),
 );
