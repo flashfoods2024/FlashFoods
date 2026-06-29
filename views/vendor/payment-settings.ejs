@@ -37,8 +37,13 @@
 
       <label>
         <span>Key Secret</span>
-        <input name="razorpayKeySecret" type="password" maxlength="100"
-          placeholder="<% if (shop.paymentSettings?.razorpay?.keySecret) { %>Leave blank to keep current secret<% } else { %>Enter your Razorpay key secret<% } %>" />
+        <div class="pw-field">
+          <input name="razorpayKeySecret" type="password" id="pw-razorpay-secret" maxlength="100"
+            placeholder="<% if (shop.paymentSettings?.razorpay?.keySecret) { %>Leave blank to keep current secret<% } else { %>Enter your Razorpay key secret<% } %>" />
+          <button type="button" class="pw-toggle" aria-label="Show password" onclick="togglePasswordVisibility('pw-razorpay-secret', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
         <% if (shop.paymentSettings?.razorpay?.keySecret) { %>
           <p class="muted small">Leave blank to keep the existing secret.</p>
         <% } %>
@@ -57,8 +62,13 @@
 
       <label>
         <span>Salt</span>
-        <input name="easebuzzSalt" type="password" maxlength="100"
-          placeholder="<% if (shop.paymentSettings?.easebuzz?.salt) { %>Leave blank to keep current salt<% } else { %>Enter your Easebuzz salt<% } %>" />
+        <div class="pw-field">
+          <input name="easebuzzSalt" type="password" id="pw-easebuzz-salt" maxlength="100"
+            placeholder="<% if (shop.paymentSettings?.easebuzz?.salt) { %>Leave blank to keep current salt<% } else { %>Enter your Easebuzz salt<% } %>" />
+          <button type="button" class="pw-toggle" aria-label="Show password" onclick="togglePasswordVisibility('pw-easebuzz-salt', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
         <% if (shop.paymentSettings?.easebuzz?.salt) { %>
           <p class="muted small">Leave blank to keep the existing salt.</p>
         <% } %>
@@ -91,8 +101,13 @@
 
       <label>
         <span>Client Secret</span>
-        <input name="phonepeClientSecret" type="password" maxlength="200"
-          placeholder="<% if (shop.paymentSettings?.phonepe?.clientSecret) { %>Leave blank to keep current client secret<% } else { %>Enter your PhonePe client secret<% } %>" />
+        <div class="pw-field">
+          <input name="phonepeClientSecret" type="password" id="pw-phonepe-secret" maxlength="200"
+            placeholder="<% if (shop.paymentSettings?.phonepe?.clientSecret) { %>Leave blank to keep current client secret<% } else { %>Enter your PhonePe client secret<% } %>" />
+          <button type="button" class="pw-toggle" aria-label="Show password" onclick="togglePasswordVisibility('pw-phonepe-secret', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
         <% if (shop.paymentSettings?.phonepe?.clientSecret) { %>
           <p class="muted small">Leave blank to keep the existing client secret.</p>
         <% } %>

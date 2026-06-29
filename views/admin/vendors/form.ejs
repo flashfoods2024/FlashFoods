@@ -21,7 +21,12 @@
     </label>
     <label>
       <span><%= mode === "edit" ? "New password (leave blank to keep existing)" : "Password" %></span>
-      <input name="password" type="password" <%= mode === "create" ? "required" : "" %> />
+      <div class="pw-field">
+        <input name="password" type="password" id="pw-admin-vendor" <%= mode === "create" ? "required" : "" %> />
+        <button type="button" class="pw-toggle" aria-label="Show password" onclick="togglePasswordVisibility('pw-admin-vendor', this)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
     </label>
     <label>
       <span>Assigned shop</span>
