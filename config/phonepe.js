@@ -17,6 +17,11 @@ const ORDER_STATUS_URLS = {
   PROD: "https://api.phonepe.com/apis/pg/checkout/v2/order",
 };
 
+const REFUND_URLS = {
+  UAT: "https://api-preprod.phonepe.com/apis/pg-sandbox/payments/v2/refund",
+  PROD: "https://api.phonepe.com/apis/pg/payments/v2/refund",
+};
+
 export function getPhonepeFromShop(shop) {
   const phonepe = shop?.paymentSettings?.phonepe;
   const useCustom = phonepe?.clientId && phonepe?.clientSecret;
@@ -125,4 +130,63 @@ export async function getOrderStatus({ merchantOrderId, accessToken, env }) {
   }
 
   return response.json();
+}
+
+export async function refundPayment({
+  accessToken,
+  merchantOrderId,
+  transactionId,
+  amount,
+  merchantRefundId,
+  env,
+}) {
+  const url = REFUND_URLS[env] || REFUND_URLS.UAT;
+
+  // The Standard Checkout refund API expects:
+  //   merchantRefundId, originalMerchantOrderId, amount
+  // The merchantOrderId value is the same txnid that was sent as
+  // merchantOrderId in the original /checkout/v2/pay request.
+  if (!merchantOrderId) {
+    throw new Error("PhonePe refund failed: merchantOrderId is empty");
+  }
+
+  const payload = {
+    merchantRefundId,
+    originalMerchantOrderId: merchantOrderId,
+    amount: Math.round(amount * 100),
+    transactionId,
+  };
+
+  // TEMP DEBUG: log the exact refund request sent to PhonePe
+  console.log("PHONEPE REFUND REQUEST:", {
+    url,
+    originalMerchantOrderId: merchantOrderId,
+    transactionId,
+    amount: Math.round(amount * 100),
+    merchantRefundId,
+    env,
+  });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `O-Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("PHONEPE REFUND ERROR RESPONSE:", {
+      status: response.status,
+      body: text,
+      requestPayload: payload,
+    });
+    throw new Error(`PhonePe refund failed: ${response.status} ${text}`);
+  }
+
+  const responseData = await response.json();
+  console.log("PHONEPE REFUND SUCCESS RESPONSE:", responseData);
+  return responseData;
 }

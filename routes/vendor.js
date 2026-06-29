@@ -11,6 +11,11 @@ import {
 } from "../middleware/auth.js";
 import { handleMenuImageUpload } from "../middleware/upload.js";
 import { createRazorpayFromShop } from "../config/razorpay.js";
+import {
+  getPhonepeFromShop,
+  getAuthToken,
+  refundPayment,
+} from "../config/phonepe.js";
 import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
 
 export const vendorRouter = express.Router();
@@ -34,6 +39,51 @@ export function isGatewayConfigured(shop) {
     shop.paymentSettings?.razorpay?.keyId &&
     shop.paymentSettings?.razorpay?.keySecret
   );
+}
+
+// ---------------------------------------------------------------------------
+// Gateway refund helpers (called by the cancel route below)
+// ---------------------------------------------------------------------------
+
+async function refundViaRazorpay(order, shop) {
+  const { instance } = createRazorpayFromShop(shop);
+  const paymentId = order.razorpayPaymentId;
+
+  const payment = await instance.payments.fetch(paymentId);
+  if (payment.status !== "captured") {
+    throw new Error("Only captured payments can be refunded.");
+  }
+
+  return instance.payments.refund(paymentId, {
+    amount: Math.round(order.total * 100),
+    speed: "normal",
+    notes: { reason: "Vendor cancelled order" },
+  });
+}
+
+async function refundViaPhonePe(order, shop) {
+  const phonepe = getPhonepeFromShop(shop);
+  const auth = await getAuthToken({
+    clientId: phonepe.clientId,
+    clientSecret: phonepe.clientSecret,
+    clientVersion: phonepe.clientVersion,
+    env: phonepe.env,
+  });
+
+  if (!auth || !auth.access_token) {
+    throw new Error("Failed to authenticate with PhonePe.");
+  }
+
+  const merchantRefundId = `${order.gatewayTxnId}_refund_${Date.now()}`;
+
+  return refundPayment({
+    accessToken: auth.access_token,
+    merchantOrderId: order.gatewayTxnId,
+    transactionId: order.transactionId,
+    amount: order.total,
+    merchantRefundId,
+    env: phonepe.env,
+  });
 }
 
 vendorRouter.get(
@@ -405,40 +455,53 @@ vendorRouter.post(
         return res.redirect("/vendor/orders/pending");
       }
 
-      if (!order.paymentNote?.startsWith("pay_")) {
-        req.flash("error", "Invalid payment ID.");
-        return res.redirect("/vendor/orders/pending");
-      }
-
       const shop = await Shop.findById(req.vendorShopId)
-        .select("paymentConfigured paymentSettings")
+        .select("paymentGateway paymentConfigured paymentSettings")
         .lean();
-      const { instance } = createRazorpayFromShop(shop);
 
-      const payment = await instance.payments.fetch(order.paymentNote);
+      const gateway = shop?.paymentGateway || "razorpay";
 
-      if (payment.status !== "captured") {
-        req.flash("error", "Only captured payments can be refunded.");
+      // Mock/offline orders — no real payment to refund, just cancel.
+      if (order.paymentNote === "mock") {
+        order.status = "cancelled";
+        order.refundStatus = "completed";
+        await order.save();
+        req.flash("success", "Order cancelled.");
         return res.redirect("/vendor/orders/pending");
       }
 
       order.refundStatus = "pending";
       await order.save();
 
-      const refund = await instance.payments.refund(order.paymentNote, {
-        amount: Math.round(order.total * 100),
-        speed: "normal",
-        notes: {
-          reason: "Vendor cancelled order",
-        },
-      });
+      if (gateway === "razorpay") {
+        if (!order.razorpayPaymentId) {
+          order.refundStatus = "failed";
+          await order.save();
+          req.flash("error", "Invalid payment ID.");
+          return res.redirect("/vendor/orders/pending");
+        }
+        const refund = await refundViaRazorpay(order, shop);
+        console.log("Razorpay refund successful:", refund.id);
+      } else if (gateway === "phonepe") {
+        if (!order.transactionId || !order.gatewayTxnId) {
+          order.refundStatus = "failed";
+          await order.save();
+          req.flash("error", "Invalid payment ID.");
+          return res.redirect("/vendor/orders/pending");
+        }
+        const result = await refundViaPhonePe(order, shop);
+        console.log("PhonePe refund response:", result?.code || result);
+      } else {
+        order.refundStatus = "failed";
+        await order.save();
+        req.flash("error", "Refunds not supported for this payment method.");
+        return res.redirect("/vendor/orders/pending");
+      }
 
       order.status = "cancelled";
       order.refundStatus = "completed";
 
       await order.save();
-
-      console.log("Refund successful:", refund.id);
 
       req.flash("success", "Order cancelled and refund initiated.");
 
@@ -458,7 +521,7 @@ vendorRouter.post(
 
       req.flash(
         "error",
-        "Refund failed. Please process manually from Razorpay dashboard.",
+        "Refund failed. Please process manually from the payment dashboard.",
       );
 
       return res.redirect("/vendor/orders/pending");
