@@ -66,6 +66,7 @@ export function formatOrderStatus(status) {
   const labels = {
     pending_payment: "Pending payment",
     paid: "Paid / Preparing",
+    accepted: "Accepted",
     ready_for_pickup: "Ready for pickup",
     completed: "Completed",
     cancelled: "Cancelled",

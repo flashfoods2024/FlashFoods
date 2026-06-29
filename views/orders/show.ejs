@@ -6,11 +6,11 @@
   <span>...<%= String(order._id).slice(-6) %></span>
 </div>
 
-<% const studentLabel = order.status === "pending_payment" ? "Payment pending" : order.status === "paid" ? "Paid - waiting for canteen" : order.status === "ready_for_pickup" ? "Ready for pickup" : order.status === "completed" ? "Completed" : order.status; %>
-<% const tagClass = order.status === "completed" ? "ok" : order.status === "ready_for_pickup" ? "pending" : order.status === "paid" ? "pending" : "muted"; %>
+<% const studentLabel = order.status === "pending_payment" ? "Payment pending" : order.status === "paid" ? "Paid - waiting for canteen" : order.status === "accepted" ? "Order Accepted" : order.status === "ready_for_pickup" ? "Ready for pickup" : order.status === "completed" ? "Completed" : order.status; %>
+<% const tagClass = order.status === "completed" ? "ok" : order.status === "ready_for_pickup" ? "pending" : order.status === "accepted" ? "pending" : order.status === "paid" ? "pending" : "muted"; %>
 <% const displayLabel = order.status === "cancelled" ? "Order Cancelled" : studentLabel; %>
 <% const displayTagClass = order.status === "cancelled" ? "warn" : tagClass; %>
-<% const stepIndex = order.status === "completed" ? 4 : order.status === "ready_for_pickup" ? 3 : order.pickupTime ? 2 : order.status === "pending_payment" ? 1 : 0; %>
+<% const stepIndex = order.status === "completed" ? 5 : order.status === "ready_for_pickup" ? 4 : order.status === "accepted" ? 3 : order.pickupTime ? 2 : order.status === "pending_payment" ? 1 : 0; %>
 
 <div class="card order-detail">
   <div class="order-detail__head">
@@ -30,8 +30,9 @@
       <% [
         ["Order Placed", 1],
         ["Pickup Scheduled", 2],
-        ["Ready For Pickup", 3],
-        ["Collected By Customer", 4],
+        ["Order Accepted", 3],
+        ["Ready For Pickup", 4],
+        ["Collected By Customer", 5],
       ].forEach(([label, index]) => { %>
         <li class="progress-tracker__step <%= stepIndex >= index ? "is-complete" : "" %> <%= stepIndex === index ? "is-current" : "" %>">
           <span class="progress-tracker__dot"><% if (stepIndex >= index) { %>&#10003;<% } else { %><%= index %><% } %></span>
@@ -43,6 +44,8 @@
 
   <% if (order.status === "paid") { %>
     <p class="muted">The canteen is preparing your order. When they mark it ready, your pickup code will appear here.</p>
+  <% } else if (order.status === "accepted") { %>
+    <p class="muted">Your order has been accepted by the canteen and is now being prepared.</p>
   <% } else if (order.status === "ready_for_pickup") { %>
     <div class="otp-box">
       <p class="otp-box__label">Pickup code</p>

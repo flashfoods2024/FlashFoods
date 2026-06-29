@@ -4,6 +4,7 @@
 <% const statusLabels = {
   pending_payment: "Payment Pending",
   paid: "Paid",
+  accepted: "Accepted",
   ready_for_pickup: "Ready for Pickup",
   completed: "Completed",
   cancelled: "Cancelled",
@@ -20,17 +21,20 @@
     ? "Refunded"
     : "Payment Confirmed"; %>
 <% const timelineStage = order.collectedAt
-  ? 4
+  ? 5
   : order.status === "ready_for_pickup"
-    ? 3
-    : order.pickupTime
-      ? 2
-      : 1; %>
+    ? 4
+    : order.status === "accepted"
+      ? 3
+      : order.pickupTime
+        ? 2
+        : 1; %>
 <% const timeline = [
   ["Order Placed", 1],
   ["Pickup Scheduled", 2],
-  ["Ready For Pickup", 3],
-  ["Collected By Customer", 4],
+  ["Order Accepted", 3],
+  ["Ready For Pickup", 4],
+  ["Collected By Customer", 5],
 ]; %>
 
 <div class="breadcrumb">

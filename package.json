@@ -31,5 +31,18 @@
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.9.1",
     "nodemon": "^3.1.14"
-  }
+  },
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flashfoods2024/FlashFoods.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/flashfoods2024/FlashFoods/issues"
+  },
+  "homepage": "https://github.com/flashfoods2024/FlashFoods#readme"
 }

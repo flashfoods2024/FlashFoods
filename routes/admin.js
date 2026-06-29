@@ -224,8 +224,11 @@ function matchesOrderFilter(order, filterValue) {
   if (filterValue === "week") {
     return createdAt >= startOfIstWeek();
   }
-  if (filterValue === "paid" || filterValue === "preparing") {
+  if (filterValue === "paid") {
     return order.status === "paid";
+  }
+  if (filterValue === "preparing") {
+    return ["paid", "accepted"].includes(order.status);
   }
   if (filterValue === "ready") {
     return order.status === "ready_for_pickup";
@@ -266,7 +269,7 @@ adminRouter.get("/", async (req, res) => {
     Order.countDocuments(),
     Order.countDocuments({ createdAt: { $gte: startOfIstDay() } }),
     Order.countDocuments({ status: "completed" }),
-    Order.countDocuments({ status: "paid" }),
+    Order.countDocuments({ status: { $in: ["paid", "accepted"] } }),
     Order.find()
       .sort({ createdAt: -1 })
       .limit(8)
@@ -426,7 +429,7 @@ adminRouter.get("/shops/:id", async (req, res) => {
           revenue: {
             $sum: {
               $cond: [
-                { $in: ["$status", ["paid", "ready_for_pickup", "completed"]] },
+                { $in: ["$status", ["paid", "accepted", "ready_for_pickup", "completed"]] },
                 "$total",
                 0,
               ],
@@ -1169,7 +1172,7 @@ adminRouter.get("/analytics", async (req, res) => {
     Order.aggregate([
       {
         $match: {
-          status: { $in: ["paid", "ready_for_pickup", "completed"] },
+          status: { $in: ["paid", "accepted", "ready_for_pickup", "completed"] },
         },
       },
       {

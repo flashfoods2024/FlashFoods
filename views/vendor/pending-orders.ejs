@@ -37,9 +37,15 @@
         </ul>
         <p class="cart-total"><strong>Total:</strong> &#8377;<%= Number(order.total).toFixed(2) %></p>
         <div class="vendor-order-card__actions">
-          <form method="post" action="/vendor/orders/<%= order._id %>/ready">
-            <button class="btn btn--wide" type="submit">Mark ready</button>
-          </form>
+          <% if (order.status === "paid") { %>
+            <form method="post" action="/vendor/orders/<%= order._id %>/accept">
+              <button class="btn btn--wide" type="submit">Accept Order</button>
+            </form>
+          <% } else if (order.status === "accepted") { %>
+            <form method="post" action="/vendor/orders/<%= order._id %>/ready">
+              <button class="btn btn--wide" type="submit">Mark ready</button>
+            </form>
+          <% } %>
           <form
             method="post"
             action="/vendor/orders/<%= order._id %>/cancel"
@@ -93,9 +99,25 @@
 
       var id = esc(order.id);
       var shortId = esc(order.shortId);
+      var st = order.status;
       var urgency = esc(order.pickupUrgency);
       var pickupLabel = esc(order.pickupTimeLabel);
       var total = Number(order.total).toFixed(2);
+
+      var actionHtml;
+      if (st === "paid") {
+        actionHtml =
+          '<form method="post" action="/vendor/orders/' +
+          id +
+          '/accept"><button class="btn btn--wide" type="submit">Accept Order</button></form>';
+      } else if (st === "accepted") {
+        actionHtml =
+          '<form method="post" action="/vendor/orders/' +
+          id +
+          '/ready"><button class="btn btn--wide" type="submit">Mark ready</button></form>';
+      } else {
+        actionHtml = "";
+      }
 
       return (
         '<article class="card vendor-order-card">' +
@@ -122,9 +144,7 @@
         esc(total) +
         "</p>" +
         '<div class="vendor-order-card__actions">' +
-        '<form method="post" action="/vendor/orders/' +
-        id +
-        '/ready"><button class="btn btn--wide" type="submit">Mark ready</button></form>' +
+        actionHtml +
         '<form method="post" action="/vendor/orders/' +
         id +
         '/cancel" onsubmit="return confirm(\'Cancel this order and refund customer?\');">' +

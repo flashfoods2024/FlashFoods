@@ -230,14 +230,14 @@ vendorRouter.delete(
 
 // Shared query for vendor pending orders. Used by both the HTML route and the
 // JSON polling endpoint so the match/sort logic stays in one place.
-// Matches paid orders for the shop and orders them by pickup priority
+// Matches paid & accepted orders for the shop and orders them by pickup priority
 // (pickupTime, falling back to createdAt) then createdAt.
 async function getPendingOrders(shopId) {
   return Order.aggregate([
     {
       $match: {
         shop: shopId,
-        status: "paid",
+        status: { $in: ["paid", "accepted"] },
       },
     },
     {
@@ -290,6 +290,7 @@ vendorRouter.get(
       const payload = orders.map((order) => ({
         id: String(order._id),
         shortId: String(order._id).slice(-6).toUpperCase(),
+        status: order.status,
         total: Number(order.total),
         pickupUrgency: getPickupUrgency(order.pickupTime),
         pickupTimeLabel: formatPickupTime(order.pickupTime),
@@ -325,7 +326,7 @@ vendorRouter.post(
       return res.redirect("/vendor/orders/pending");
     }
 
-    if (order.status !== "paid") {
+    if (order.status !== "accepted") {
       req.flash("error", "That order is not awaiting confirmation.");
       return res.redirect("/vendor/orders/pending");
     }
@@ -338,6 +339,38 @@ vendorRouter.post(
       "success",
       "Order marked ready. Student can pick up with their code.",
     );
+    return res.redirect("/vendor/orders/pending");
+  },
+);
+
+vendorRouter.post(
+  "/vendor/orders/:id/accept",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      req.flash("error", "Invalid order.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    const order = await Order.findById(id);
+    if (!order || String(order.shop) !== req.vendorShopIdStr) {
+      req.flash("error", "Order not found.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    if (order.status !== "paid") {
+      req.flash("error", "Only paid orders can be accepted.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    order.status = "accepted";
+    await order.save();
+
+    req.flash("success", "Order accepted. Mark it ready when prepared.");
     return res.redirect("/vendor/orders/pending");
   },
 );
