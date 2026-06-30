@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema(
     shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", default: null },
     isActive: { type: Boolean, default: true },
     disabledAt: { type: Date, default: null },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true }
 );

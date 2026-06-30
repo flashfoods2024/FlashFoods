@@ -78,7 +78,10 @@
 
       <main class="container">
         <% if (flash?.success?.length) { %>
-          <div class="flash flash--success"><%= flash.success[0] %></div>
+          <div class="flash flash--success">
+            <%= flash.success[0] %>
+            <% if (locals.flashSubtext) { %><br><%= flashSubtext %><% } %>
+          </div>
         <% } %>
 
         <% if (flash?.error?.length) { %>

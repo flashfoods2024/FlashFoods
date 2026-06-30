@@ -1,16 +1,25 @@
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_PORT, 10) || 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+let _transporter = null;
+
+function getTransporter() {
+  if (!_transporter) {
+    _transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT, 10) || 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  }
+  return _transporter;
+}
 
 export async function sendPasswordResetEmail(email, resetUrl) {
+  const transporter = getTransporter();
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h1 style="color: #e74c3c;">FlashFoods</h1>
@@ -34,4 +43,9 @@ export async function sendPasswordResetEmail(email, resetUrl) {
   } catch (err) {
     console.error('Failed to send password reset email:', err);
   }
+}
+
+export async function verifyTransporter() {
+  const transporter = getTransporter();
+  return transporter.verify();
 }
