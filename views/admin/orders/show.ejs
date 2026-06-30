@@ -37,6 +37,11 @@
     <div><span>Vendor</span><strong><%= order.shop?.vendor?.name || "Unassigned" %></strong></div>
     <div><span>Transaction ID</span><strong class="mono"><%= order.transactionId || order.paymentNote || "Not available" %></strong></div>
     <div><span>Refund status</span><strong><%= order.refundStatus %></strong></div>
+    <% if (order.adjustedAt) { %>
+      <div><span>Original Total</span><strong><%= formatMoney(order.originalTotal) %></strong></div>
+      <div><span>Refund Amount</span><strong><%= formatMoney(order.refundAmount) %></strong></div>
+      <div><span>Adjustment Reason</span><strong><%= order.adjustmentReason || "N/A" %></strong></div>
+    <% } %>
     <div><span>Pickup time</span><strong><%= order.pickupTime ? new Date(order.pickupTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not specified" %></strong></div>
     <div><span>Ready time</span><strong><%= order.readyAt ? new Date(order.readyAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not ready yet" %></strong></div>
     <div><span>Collected time</span><strong><%= order.collectedAt ? new Date(order.collectedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not collected yet" %></strong></div>
@@ -48,10 +53,11 @@
   <h2 class="h2">Items</h2>
   <ul class="admin-item-list">
     <% order.items.forEach((line) => { %>
-      <li>
+      <li class="<%= line.status === 'removed' ? 'item-removed' : '' %>">
         <div>
           <strong><%= line.name %></strong>
           <div class="muted small">Qty <%= line.quantity %> x <%= formatMoney(line.price) %></div>
+          <% if (line.status === "removed") { %><div class="muted small">(unavailable - removed)</div><% } %>
         </div>
         <strong><%= formatMoney(line.price * line.quantity) %></strong>
       </li>

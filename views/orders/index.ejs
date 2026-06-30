@@ -9,16 +9,20 @@
 <% } else { %>
   <ul class="order-list">
     <% orders.forEach((o) => { %>
-      <% const label = o.status === "pending_payment" ? "Payment pending" : o.status === "paid" ? "Paid — waiting for canteen" : o.status === "accepted" ? "Order Accepted" : o.status === "ready_for_pickup" ? "Ready for pickup" : o.status === "completed" ? "Completed" : o.status === "cancelled" ? "Cancelled" : o.status; %>
-      <% const tagClass = o.status === "completed" ? "ok" : o.status === "ready_for_pickup" || o.status === "accepted" || o.status === "paid" ? "pending" : o.status === "cancelled" ? "warn" : "muted"; %>
+      <% const isAdjusted = !!(o.adjustedAt); %>
+      <% const label = o.status === "completed" ? "Completed" : o.status === "cancelled" ? "Cancelled" : isAdjusted ? "Order Updated" : o.status === "pending_payment" ? "Payment pending" : o.status === "paid" ? "Paid — waiting for canteen" : o.status === "accepted" ? "Order Accepted" : o.status === "ready_for_pickup" ? "Ready for pickup" : o.status; %>
+      <% const tagClass = o.status === "completed" ? "ok" : o.status === "cancelled" ? "warn" : isAdjusted ? "warn" : o.status === "ready_for_pickup" || o.status === "accepted" || o.status === "paid" ? "pending" : "muted"; %>
       <li class="card order-list__item">
         <div class="order-list__meta">
           <a href="/orders/<%= o._id %>">Order …<%= String(o._id).slice(-6) %></a>
           <span class="tag tag--<%= tagClass %>"><%= label %></span>
         </div>
-        <p class="muted small"><%= o.shop?.name || "Canteen" %> · ₹<%= o.total.toFixed(2) %> · <%= new Date(o.createdAt).toLocaleString("en-IN", {
+        <p class="muted small"><%= o.shop?.name || "Canteen" %> · ₹<%= (o.updatedTotal || o.total).toFixed(2) %> · <%= new Date(o.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
+        <% if (isAdjusted) { %>
+          <p class="muted small">Refund: ₹<%= (o.refundAmount || 0).toFixed(2) %></p>
+        <% } %>
         <p class="pickup-meta pickup-meta--compact"><strong>Pickup:</strong> <%= formatPickupTime(o.pickupTime) %></p>
       </li>
     <% }) %>

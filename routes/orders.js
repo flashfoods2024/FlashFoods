@@ -706,12 +706,17 @@ ordersRouter.get(
       return res.status(404).json({ error: "Order not found." });
     }
 
-    const order = await Order.findById(id).select("customer status").lean();
+    const order = await Order.findById(id).select("customer status adjustedAt refundAmount").lean();
     if (!order || String(order.customer) !== String(req.session.userId)) {
       return res.status(404).json({ error: "Order not found." });
     }
 
-    return res.json({ status: order.status });
+    const adjusted = !!(order.adjustedAt);
+    return res.json({
+      status: order.status,
+      adjusted,
+      refundAmount: adjusted ? (order.refundAmount || 0) : undefined,
+    });
   },
 );
 

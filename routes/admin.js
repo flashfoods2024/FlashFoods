@@ -206,6 +206,8 @@ function matchesOrderSearch(order, searchValue) {
     order.shop?.vendor?.email,
     order.paymentNote,
     order.transactionId,
+    order.adjustmentReason,
+    order.refundStatus,
   ]
     .filter(Boolean)
     .join(" ")
@@ -1220,6 +1222,7 @@ adminRouter.get("/analytics", async (req, res) => {
     ]),
     Order.aggregate([
       { $unwind: "$items" },
+      { $match: { "items.status": { $ne: "removed" } } },
       {
         $group: {
           _id: "$items.name",

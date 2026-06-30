@@ -1,0 +1,141 @@
+<%- include("../partials/header", { pageTitle }) %>
+
+<% const orderNumber = `#${String(order._id).slice(-6).toUpperCase()}`; %>
+
+<div class="breadcrumb">
+  <a href="/vendor/orders/pending">Pending Orders</a>
+  <span class="muted"> / </span>
+  <span>Adjust <%= orderNumber %></span>
+</div>
+
+<section class="hero hero--compact">
+  <p class="eyebrow">Order adjustment</p>
+  <h1>Adjust <%= orderNumber %></h1>
+  <p class="muted">Remove items that are unavailable. The removed items will be refunded to the customer.</p>
+</section>
+
+<section class="card">
+  <div class="order-detail__head">
+    <div>
+      <p class="eyebrow">Customer</p>
+      <h2><%= order.customer?.name || "Customer" %></h2>
+    </div>
+    <p class="muted"><%= order.customer?.email || "" %></p>
+  </div>
+
+  <form id="adjust-form" method="post" action="/vendor/orders/<%= order._id %>/adjust">
+    <h2 class="h2">Items</h2>
+    <table class="table adjust-items-table">
+      <thead>
+        <tr>
+          <th style="width:40px">Keep</th>
+          <th>Item</th>
+          <th style="width:80px">Qty</th>
+          <th style="width:100px">Price</th>
+          <th style="width:120px">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% order.items.forEach(function(item, idx) { %>
+          <tr class="adjust-item-row" data-index="<%= idx %>" data-price="<%= item.price %>" data-quantity="<%= item.quantity %>">
+            <td>
+              <input
+                type="checkbox"
+                class="adjust-item-check"
+                name="keep_items"
+                value="<%= idx %>"
+                checked
+                data-index="<%= idx %>"
+              />
+            </td>
+            <td><%= item.name %></td>
+            <td><%= item.quantity %></td>
+            <td>&#8377;<%= Number(item.price).toFixed(2) %></td>
+            <td class="item-subtotal">&#8377;<%= (item.price * item.quantity).toFixed(2) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <div class="adjust-summary">
+      <div class="adjust-summary__row">
+        <span>Original Total</span>
+        <strong id="original-total">&#8377;<%= Number(order.total).toFixed(2) %></strong>
+      </div>
+      <div class="adjust-summary__row">
+        <span>Updated Total</span>
+        <strong id="updated-total">&#8377;<%= Number(order.total).toFixed(2) %></strong>
+      </div>
+      <div class="adjust-summary__row adjust-summary__row--refund">
+        <span>Refund Amount</span>
+        <strong id="refund-amount">&#8377;0.00</strong>
+      </div>
+    </div>
+
+    <h2 class="h2">Reason for adjustment</h2>
+    <select name="adjustmentReason" required class="input" style="width:100%;margin-bottom:12px">
+      <option value="">-- Select a reason --</option>
+      <option value="Out of Stock">Out of Stock</option>
+      <option value="Preparation Issue">Preparation Issue</option>
+      <option value="Ingredient Unavailable">Ingredient Unavailable</option>
+      <option value="Kitchen Issue">Kitchen Issue</option>
+      <option value="Other">Other</option>
+    </select>
+
+    <div class="vendor-order-card__actions">
+      <button type="submit" class="btn btn--wide" id="confirm-adjust-btn">Confirm Adjustment</button>
+      <a href="/vendor/orders/pending" class="btn btn--outline btn--wide">Cancel</a>
+    </div>
+  </form>
+</section>
+
+<script>
+  (function () {
+    var form = document.getElementById("adjust-form");
+    var checks = document.querySelectorAll(".adjust-item-check");
+    var originalTotalEl = document.getElementById("original-total");
+    var updatedTotalEl = document.getElementById("updated-total");
+    var refundAmountEl = document.getElementById("refund-amount");
+    var confirmBtn = document.getElementById("confirm-adjust-btn");
+
+    var originalTotal = <%= Number(order.total) %>;
+
+    function updateTotals() {
+      var updatedTotal = 0;
+      checks.forEach(function (chk) {
+        if (chk.checked) {
+          var row = chk.closest("tr");
+          if (row) {
+            var price = parseFloat(row.getAttribute("data-price")) || 0;
+            var qty = parseInt(row.getAttribute("data-quantity"), 10) || 0;
+            updatedTotal += price * qty;
+          }
+        }
+      });
+      var refund = originalTotal - updatedTotal;
+      updatedTotalEl.textContent = "\u20B9" + updatedTotal.toFixed(2);
+      refundAmountEl.textContent = "\u20B9" + Math.max(0, refund).toFixed(2);
+    }
+
+    checks.forEach(function (chk) {
+      chk.addEventListener("change", updateTotals);
+    });
+
+    form.addEventListener("submit", function (e) {
+      var checkedCount = 0;
+      checks.forEach(function (chk) {
+        if (chk.checked) checkedCount++;
+      });
+      if (checkedCount === 0) {
+        e.preventDefault();
+        if (confirm("All items will be removed. Did you mean to Cancel the entire order instead?")) {
+          form.submit();
+        }
+      }
+    });
+
+    updateTotals();
+  })();
+</script>
+
+<%- include("../partials/footer") %>

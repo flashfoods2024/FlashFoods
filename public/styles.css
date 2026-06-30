@@ -887,11 +887,20 @@ fieldset.fieldset legend {
 }
 
 .vendor-order-card__actions {
-  display: grid;
-  grid-template-columns: 1fr 120px;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   position: relative;
   z-index: 2;
+}
+
+.vendor-order-card__actions > * {
+  flex: 1 1 130px;
+  min-width: 0;
+}
+
+.vendor-order-card__actions > a {
+  display: block;
 }
 
 .vendor-section {
@@ -1172,7 +1181,13 @@ fieldset.fieldset legend {
   }
 
   .vendor-order-card__actions {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .vendor-order-card__actions > *,
+  .vendor-order-card__actions > a {
+    flex: none;
+    width: 100%;
   }
 
   .vendor-menu-edit {
@@ -1492,4 +1507,75 @@ fieldset.fieldset legend {
   .admin-grid--two {
     grid-template-columns: 1fr;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Adjust Order page                                                   */
+/* ------------------------------------------------------------------ */
+
+.adjust-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.adjust-items-table th,
+.adjust-items-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.adjust-items-table th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.adjust-item-row:hover {
+  background: var(--bg-alt);
+}
+
+.adjust-summary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.adjust-summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.adjust-summary__row--refund {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 12px;
+  color: var(--danger);
+}
+
+.adjust-summary__row--refund strong {
+  font-size: 1.1rem;
+}
+
+.adjust-notice {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+
+.adjust-notice p {
+  margin: 4px 0;
+}
+
+.item-removed {
+  text-decoration: line-through;
+  opacity: 0.6;
 }

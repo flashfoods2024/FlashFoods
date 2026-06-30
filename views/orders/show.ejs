@@ -11,6 +11,10 @@
 <% const displayLabel = order.status === "cancelled" ? "Order Cancelled" : studentLabel; %>
 <% const displayTagClass = order.status === "cancelled" ? "warn" : tagClass; %>
 <% const stepIndex = order.status === "completed" ? 5 : order.status === "ready_for_pickup" ? 4 : order.status === "accepted" ? 3 : order.pickupTime ? 2 : order.status === "pending_payment" ? 1 : 0; %>
+<% const isAdjusted = !!(order.adjustedAt); %>
+<% const removedItems = isAdjusted ? order.items.filter(function(i) { return i.status === "removed"; }) : []; %>
+<% displayLabelAdj = (isAdjusted && order.status !== "completed" && order.status !== "cancelled") ? "Order Updated" : displayLabel; %>
+<% displayTagClassAdj = (isAdjusted && order.status !== "completed" && order.status !== "cancelled") ? "warn" : displayTagClass; %>
 
 <div class="card order-detail">
   <div class="order-detail__head">
@@ -18,12 +22,26 @@
       <p class="eyebrow">Order ...<%= String(order._id).slice(-6) %></p>
       <h1>Order details</h1>
     </div>
-    <span class="tag tag--<%= displayTagClass %>"><%= displayLabel %></span>
+    <span class="tag tag--<%= displayTagClassAdj %>"><%= displayLabelAdj %></span>
   </div>
   <p class="muted"><%= order.shop?.name || "Canteen" %> &middot; <%= new Date(order.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
   <p class="pickup-meta"><strong>Pickup time:</strong> <%= formatPickupTime(order.pickupTime) %></p>
+
+  <% if (isAdjusted) { %>
+    <div class="adjust-notice">
+      <p><strong>Order Updated</strong></p>
+      <% if (removedItems.length > 0) { %>
+        <p class="muted">Unavailable: <%= removedItems.map(function(i) { return i.name; }).join(", ") %></p>
+      <% } %>
+      <p class="muted">Refund Amount: &#8377;<%= Number(order.refundAmount || 0).toFixed(2) %></p>
+      <p class="muted">Updated Total: &#8377;<%= Number(order.updatedTotal || order.total).toFixed(2) %></p>
+      <% if (order.adjustmentReason) { %>
+        <p class="muted">Reason: <%= order.adjustmentReason %></p>
+      <% } %>
+    </div>
+  <% } %>
 
   <% if (order.status !== "cancelled") { %>
     <ol class="progress-tracker" aria-label="Order progress">
@@ -68,16 +86,20 @@
   <h2 class="h2">Items</h2>
   <ul class="plain-list">
     <% order.items.forEach((line) => { %>
-      <li><%= line.quantity %> x <%= line.name %> - &#8377;<%= (line.price * line.quantity).toFixed(2) %></li>
+      <li class="<%= line.status === 'removed' ? 'item-removed' : '' %>">
+        <%= line.quantity %> x <%= line.name %> - &#8377;<%= (line.price * line.quantity).toFixed(2) %>
+        <% if (line.status === "removed") { %><span class="muted small"> (unavailable)</span><% } %>
+      </li>
     <% }) %>
   </ul>
-  <p class="cart-total"><strong>Total:</strong> &#8377;<%= order.total.toFixed(2) %></p>
+  <p class="cart-total"><strong>Total:</strong> &#8377;<%= (order.updatedTotal || order.total).toFixed(2) %></p>
 </div>
 
 <script>
   (function () {
     var orderId = "<%= order._id %>";
     var currentStatus = "<%= order.status %>";
+    var wasAdjusted = <%= isAdjusted %>;
 
     var intervalId = setInterval(async function () {
       try {
@@ -88,7 +110,7 @@
         if (!res.ok) return;
 
         var data = await res.json();
-        if (data.status && data.status !== currentStatus) {
+        if ((data.status && data.status !== currentStatus) || (data.adjusted && !wasAdjusted)) {
           window.location.reload();
         }
       } catch (e) {

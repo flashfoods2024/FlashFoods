@@ -15,6 +15,7 @@
   completed: "Refund Completed",
   failed: "Refund Failed",
 }; %>
+<% const isAdjusted = !!(order.adjustedAt); %>
 <% const paymentStatus = order.status === "pending_payment"
   ? "Payment Pending"
   : order.status === "cancelled" && order.refundStatus === "completed"
@@ -95,6 +96,24 @@
       <span>Refund Status</span>
       <strong><%= refundLabels[order.refundStatus] || "No refund" %></strong>
     </div>
+    <% if (isAdjusted) { %>
+      <div>
+        <span>Original Total</span>
+        <strong>&#8377;<%= Number(order.originalTotal).toFixed(2) %></strong>
+      </div>
+      <div>
+        <span>Adjusted Total</span>
+        <strong>&#8377;<%= Number(order.updatedTotal || order.total).toFixed(2) %></strong>
+      </div>
+      <div>
+        <span>Refund Amount</span>
+        <strong>&#8377;<%= Number(order.refundAmount || 0).toFixed(2) %></strong>
+      </div>
+      <div>
+        <span>Adjustment Reason</span>
+        <strong><%= order.adjustmentReason || "N/A" %></strong>
+      </div>
+    <% } %>
     <div>
       <span>Order Placed Time</span>
       <strong><%= formatLocalDateTime(order.createdAt) %></strong>
@@ -108,9 +127,10 @@
   <h2 class="h2">Items Ordered</h2>
   <ul class="vendor-detail-items">
     <% order.items.forEach((item) => { %>
-      <li>
+      <li class="<%= item.status === 'removed' ? 'item-removed' : '' %>">
         <span><%= item.name %></span>
         <strong>&times;<%= item.quantity %></strong>
+        <% if (item.status === "removed") { %><span class="muted small"> (removed)</span><% } %>
       </li>
     <% }) %>
   </ul>

@@ -6,6 +6,11 @@ const orderItemSchema = new mongoose.Schema(
     name: { type: String, required: true },
     price: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
+    status: {
+      type: String,
+      enum: ["active", "removed"],
+      default: "active",
+    },
   },
   { _id: false },
 );
@@ -70,6 +75,17 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["none", "pending", "completed", "failed"],
       default: "none",
+    },
+
+    // Adjustment fields — populated when vendor removes items from a paid/accepted order
+    originalTotal: { type: Number },
+    updatedTotal: { type: Number },
+    refundAmount: { type: Number },
+    adjustedAt: { type: Date },
+    adjustedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    adjustmentReason: {
+      type: String,
+      enum: ["Out of Stock", "Preparation Issue", "Ingredient Unavailable", "Kitchen Issue", "Other"],
     },
   },
   { timestamps: true },

@@ -42,7 +42,7 @@ export function isGatewayConfigured(shop) {
 }
 
 // ---------------------------------------------------------------------------
-// Gateway refund helpers (called by the cancel route below)
+// Gateway refund helpers (called by the cancel & adjust routes below)
 // ---------------------------------------------------------------------------
 
 async function refundViaRazorpay(order, shop) {
@@ -81,6 +81,49 @@ async function refundViaPhonePe(order, shop) {
     merchantOrderId: order.gatewayTxnId,
     transactionId: order.transactionId,
     amount: order.total,
+    merchantRefundId,
+    env: phonepe.env,
+  });
+}
+
+// Partial refund helpers — used by the adjust route to refund only the
+// removed items (refundAmount), not the entire order.
+async function partialRefundViaRazorpay(order, shop, refundAmount) {
+  const { instance } = createRazorpayFromShop(shop);
+  const paymentId = order.razorpayPaymentId;
+
+  const payment = await instance.payments.fetch(paymentId);
+  if (payment.status !== "captured") {
+    throw new Error("Only captured payments can be refunded.");
+  }
+
+  return instance.payments.refund(paymentId, {
+    amount: Math.round(refundAmount * 100),
+    speed: "normal",
+    notes: { reason: `Adjustment refund: ${order.adjustmentReason || "Items removed"}` },
+  });
+}
+
+async function partialRefundViaPhonePe(order, shop, refundAmount) {
+  const phonepe = getPhonepeFromShop(shop);
+  const auth = await getAuthToken({
+    clientId: phonepe.clientId,
+    clientSecret: phonepe.clientSecret,
+    clientVersion: phonepe.clientVersion,
+    env: phonepe.env,
+  });
+
+  if (!auth || !auth.access_token) {
+    throw new Error("Failed to authenticate with PhonePe.");
+  }
+
+  const merchantRefundId = `${order.gatewayTxnId}_adj_${Date.now()}`;
+
+  return refundPayment({
+    accessToken: auth.access_token,
+    merchantOrderId: order.gatewayTxnId,
+    transactionId: order.transactionId,
+    amount: refundAmount,
     merchantRefundId,
     env: phonepe.env,
   });
@@ -344,10 +387,12 @@ vendorRouter.get(
         total: Number(order.total),
         pickupUrgency: getPickupUrgency(order.pickupTime),
         pickupTimeLabel: formatPickupTime(order.pickupTime),
-        items: (order.items || []).map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-        })),
+        items: (order.items || [])
+          .filter((item) => item.status !== "removed")
+          .map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+          })),
       }));
       res.json({ orders: payload });
     } catch (err) {
@@ -605,6 +650,164 @@ vendorRouter.post(
       `Pickup verified for ${order.customer?.name || "customer"}.`,
     );
     return res.redirect("/vendor/verify");
+  },
+);
+
+vendorRouter.get(
+  "/vendor/orders/:id/adjust",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      req.flash("error", "Invalid order.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    const order = await Order.findById(id)
+      .populate("customer", "name email")
+      .lean();
+
+    if (
+      !order ||
+      String(order.shop?._id || order.shop) !== req.vendorShopIdStr
+    ) {
+      req.flash("error", "Order not found.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    if (!["paid", "accepted"].includes(order.status)) {
+      req.flash("error", "Only paid or accepted orders can be adjusted.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    res.render("vendor/adjust-order", {
+      pageTitle: `Adjust Order #${String(order._id).slice(-6).toUpperCase()}`,
+      order,
+    });
+  },
+);
+
+vendorRouter.post(
+  "/vendor/orders/:id/adjust",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      req.flash("error", "Invalid order.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    const order = await Order.findById(id);
+    if (!order || String(order.shop) !== req.vendorShopIdStr) {
+      req.flash("error", "Order not found.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    if (!["paid", "accepted"].includes(order.status)) {
+      req.flash("error", "Only paid or accepted orders can be adjusted.");
+      return res.redirect("/vendor/orders/pending");
+    }
+
+    const rawKeep = req.body.keep_items;
+    const keepArr = Array.isArray(rawKeep) ? rawKeep : [rawKeep].filter(Boolean);
+    const keepIndices = keepArr
+      .map((v) => parseInt(v, 10))
+      .filter((n) => !isNaN(n) && n >= 0);
+
+    const adjustmentReason = String(req.body.adjustmentReason || "").trim();
+    if (!adjustmentReason) {
+      req.flash("error", "Please select a reason for the adjustment.");
+      return res.redirect(`/vendor/orders/${id}/adjust`);
+    }
+
+    if (keepIndices.length === 0) {
+      req.flash("error", "All items would be removed. Use Cancel Order instead.");
+      return res.redirect(`/vendor/orders/${id}/adjust`);
+    }
+
+    if (keepIndices.length === order.items.length) {
+      req.flash("error", "No items were removed. No adjustment needed.");
+      return res.redirect(`/vendor/orders/${id}/adjust`);
+    }
+
+    let originalTotal = Number(order.total);
+    let updatedTotal = 0;
+
+    for (let i = 0; i < order.items.length; i++) {
+      const item = order.items[i];
+      if (keepIndices.includes(i)) {
+        item.status = "active";
+        updatedTotal += Number(item.price) * Number(item.quantity);
+      } else {
+        item.status = "removed";
+      }
+    }
+
+    const refundAmount = originalTotal - updatedTotal;
+
+    order.originalTotal = originalTotal;
+    order.updatedTotal = updatedTotal;
+    order.refundAmount = refundAmount;
+    order.total = updatedTotal;
+    order.adjustedAt = new Date();
+    order.adjustedBy = req.user._id;
+    order.adjustmentReason = adjustmentReason;
+    order.refundStatus = "none";
+
+    // --- Payment refund --------------------------------------------------
+    if (refundAmount > 0) {
+      const shop = await Shop.findById(req.vendorShopId)
+        .select("paymentGateway paymentConfigured paymentSettings")
+        .lean();
+
+      const gateway = shop?.paymentGateway || "razorpay";
+
+      if (order.paymentNote === "mock") {
+        // Mock/offline orders — no real payment to refund.
+        order.refundStatus = "completed";
+      } else {
+        try {
+          if (gateway === "razorpay") {
+            if (!order.razorpayPaymentId) {
+              throw new Error("Invalid payment ID for partial refund.");
+            }
+            const refund = await partialRefundViaRazorpay(order, shop, refundAmount);
+            console.log("Razorpay partial refund successful:", refund.id);
+            order.refundStatus = "completed";
+          } else if (gateway === "phonepe") {
+            if (!order.transactionId || !order.gatewayTxnId) {
+              throw new Error("Invalid payment ID for partial refund.");
+            }
+            const result = await partialRefundViaPhonePe(order, shop, refundAmount);
+            console.log("PhonePe partial refund response:", result?.code || result);
+            order.refundStatus = "completed";
+          } else {
+            // Unsupported gateway — mark pending so vendor processes manually.
+            order.refundStatus = "pending";
+          }
+        } catch (err) {
+          console.error("Partial refund error:", err);
+          order.refundStatus = "pending";
+        }
+      }
+    } else {
+      order.refundStatus = "completed";
+    }
+
+    await order.save();
+
+    if (order.refundStatus === "pending") {
+      req.flash("error", "Order adjusted but refund could not be processed automatically. Please process manually from the payment dashboard.");
+    } else {
+      req.flash("success", `Order adjusted. Refund of ₹${refundAmount.toFixed(2)} processed.`);
+    }
+    return res.redirect("/vendor/orders/pending");
   },
 );
 
