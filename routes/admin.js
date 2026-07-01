@@ -7,8 +7,8 @@ import { User } from "../models/User.js";
 import { Shop } from "../models/Shop.js";
 import { MenuItem } from "../models/MenuItem.js";
 import { requireDb } from "../middleware/requireDb.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.js";
-import { handleShopImageUpload } from "../middleware/upload.js";
+import { requireAuth, requireAdmin, resolveAdminVendorShop } from "../middleware/auth.js";
+import { handleShopImageUpload, handleAdminMenuImageUpload } from "../middleware/upload.js";
 import { isGatewayConfigured } from "./vendor.js";
 import {
   formatOrderStatus,
@@ -1158,6 +1158,246 @@ adminRouter.get("/orders/:id", async (req, res) => {
     formatMoney,
   });
 });
+
+// ---------------------------------------------------------------------------
+// Manage Menus – Admin can manage every vendor's menu
+// ---------------------------------------------------------------------------
+
+adminRouter.get("/menus", async (req, res) => {
+  const [vendors, menuCounts] = await Promise.all([
+    User.find({ role: "vendor" })
+      .sort({ name: 1 })
+      .populate("shop", "name slug isActive isOpen")
+      .lean(),
+    MenuItem.aggregate([
+      { $group: { _id: "$shop", count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const countsMap = new Map();
+  menuCounts.forEach((row) => {
+    countsMap.set(toHexId(row._id), row.count);
+  });
+
+  const rows = vendors.map((vendor) => ({
+    ...vendor,
+    menuCount: countsMap.get(toHexId(vendor.shop?._id || vendor.shop)) || 0,
+    assignedShopName: vendor.shop?.name || "Unassigned",
+    statusLabel: vendor.isActive === false ? "Disabled" : "Active",
+    shopStatusLabel:
+      vendor.shop?.isActive === false
+        ? "Disabled"
+        : vendor.shop?.isOpen === false
+          ? "Closed"
+          : "Open",
+  }));
+
+  res.render("admin/menus/index", {
+    pageTitle: "Manage Menus",
+    activeSection: "menus",
+    vendors: rows,
+  });
+});
+
+adminRouter.get(
+  "/vendors/:vendorId/menu",
+  resolveAdminVendorShop,
+  async (req, res) => {
+    const menuItems = await MenuItem.find({ shop: req.vendorShopId })
+      .sort({ name: 1 })
+      .lean();
+    res.render("admin/vendors/menu", {
+      pageTitle: `Menu – ${req.targetVendor.name}`,
+      activeSection: "menus",
+      vendor: req.targetVendor,
+      shop: req.targetShop,
+      menuItems,
+    });
+  },
+);
+
+adminRouter.post(
+  "/vendors/:vendorId/menu",
+  resolveAdminVendorShop,
+  handleAdminMenuImageUpload(
+    (req) => `/admin/vendors/${req.params.vendorId}/menu`,
+  ),
+  async (req, res) => {
+    const shop = await Shop.findById(req.vendorShopId).lean();
+    if (!shop || shop.isActive === false) {
+      req.flash("error", "This shop is disabled by an admin.");
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    }
+    const name = String((req.body && req.body.name) || "").trim();
+    const description = String((req.body && req.body.description) || "").trim();
+    const price = Number((req.body && req.body.price) || 0);
+    const image = req.file?.path || "";
+
+    if (!name) {
+      req.flash("error", "Name is required.");
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      req.flash("error", "Price must be greater than 0.");
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    }
+
+    await MenuItem.create({
+      shop: req.vendorShopId,
+      name,
+      description,
+      price,
+      image,
+    });
+
+    req.flash("success", "Menu item created.");
+    return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+  },
+);
+
+adminRouter.patch(
+  "/vendors/:vendorId/menu/:id",
+  resolveAdminVendorShop,
+  handleAdminMenuImageUpload(
+    (req) => `/admin/vendors/${req.params.vendorId}/menu`,
+  ),
+  async (req, res) => {
+    const activeShop = await Shop.findById(req.vendorShopId).lean();
+    if (!activeShop || activeShop.isActive === false) {
+      return res
+        .status(403)
+        .json({ error: "This shop is disabled by an admin." });
+    }
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid menu item id." });
+    }
+
+    const item = await MenuItem.findOne({ _id: id, shop: req.vendorShopId });
+    if (!item) {
+      return res.status(404).json({ error: "Menu item not found." });
+    }
+
+    const name = String((req.body && req.body.name) || "").trim();
+    const description = String((req.body && req.body.description) || "").trim();
+    const price = Number((req.body && req.body.price) || 0);
+
+    if (!name) {
+      return res.status(400).json({ error: "Name is required." });
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({ error: "Price must be greater than 0." });
+    }
+
+    item.name = name;
+    item.description = description;
+    item.price = price;
+    if (req.file?.path) {
+      item.image = req.file.path;
+    }
+    await item.save();
+
+    return res.json({
+      success: true,
+      message: "Menu item updated.",
+      item: {
+        _id: String(item._id),
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        image: item.image,
+        available: item.available,
+      },
+    });
+  },
+);
+
+adminRouter.delete(
+  "/vendors/:vendorId/menu/:id",
+  resolveAdminVendorShop,
+  async (req, res) => {
+    const activeShop = await Shop.findById(req.vendorShopId).lean();
+    if (!activeShop || activeShop.isActive === false) {
+      return res
+        .status(403)
+        .json({ error: "This shop is disabled by an admin." });
+    }
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid menu item id." });
+    }
+
+    const result = await MenuItem.deleteOne({
+      _id: id,
+      shop: req.vendorShopId,
+    });
+    if (!result.deletedCount) {
+      return res.status(404).json({ error: "Menu item not found." });
+    }
+
+    return res.json({ success: true, message: "Menu item deleted." });
+  },
+);
+
+adminRouter.patch(
+  "/vendors/:vendorId/menu/:id/toggle",
+  resolveAdminVendorShop,
+  async (req, res) => {
+    const activeShop = await Shop.findById(req.vendorShopId).lean();
+    if (!activeShop || activeShop.isActive === false) {
+      return res
+        .status(403)
+        .json({ error: "This shop is disabled by an admin." });
+    }
+
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid menu item id." });
+    }
+
+    const item = await MenuItem.findOne({ _id: id, shop: req.vendorShopId });
+    if (!item) {
+      return res.status(404).json({ error: "Menu item not found." });
+    }
+
+    item.available = !item.available;
+    await item.save();
+
+    return res.json({
+      item: {
+        _id: String(item._id),
+        name: item.name,
+        price: item.price,
+        available: item.available,
+      },
+    });
+  },
+);
+
+adminRouter.post(
+  "/vendors/:vendorId/shop/toggle",
+  resolveAdminVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+      }
+      shop.isOpen = !shop.isOpen;
+      await shop.save();
+      req.flash(
+        "success",
+        shop.isOpen ? "Shop opened successfully." : "Shop closed successfully.",
+      );
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    } catch (error) {
+      console.error(error);
+      req.flash("error", "Failed to update shop status.");
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    }
+  },
+);
 
 adminRouter.get("/analytics", async (req, res) => {
   const [

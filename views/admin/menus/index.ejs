@@ -1,0 +1,50 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Menu management</p>
+    <h1>Manage Menus</h1>
+    <p class="muted">Browse every vendor's menu. Click "Manage Menu" to add, edit, or remove items.</p>
+  </div>
+</section>
+
+<div class="card admin-panel">
+  <% if (!vendors.length) { %>
+    <p class="muted">No vendors available.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table class="table admin-table">
+        <thead>
+          <tr>
+            <th>Vendor Name</th>
+            <th>Email</th>
+            <th>Assigned Shop</th>
+            <th>Menu Items</th>
+            <th>Shop Status</th>
+            <th>Vendor Status</th>
+            <th style="width: 1%; white-space: nowrap;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% vendors.forEach((vendor) => { %>
+            <tr>
+              <td><strong><%= vendor.name %></strong></td>
+              <td><%= vendor.email %></td>
+              <td><%= vendor.assignedShopName %></td>
+              <td><%= vendor.menuCount %></td>
+              <td><span class="tag tag--<%= vendor.shop?.isActive === false ? "danger" : vendor.shop?.isOpen === false ? "warn" : "ok" %>"><%= vendor.shopStatusLabel %></span></td>
+              <td><span class="tag tag--<%= vendor.isActive === false ? "danger" : "ok" %>"><%= vendor.statusLabel %></span></td>
+              <td>
+                <a class="btn btn--small" href="/admin/vendors/<%= vendor._id %>/menu">Manage Menu</a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>

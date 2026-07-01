@@ -69,6 +69,18 @@ export function handleMenuImageUpload(req, res, next) {
   return handleImageUpload(uploadMenuImage, "/vendor/menu")(req, res, next);
 }
 
+/**
+ * Version of handleMenuImageUpload that redirects to a custom path on error.
+ * Used by admin menu routes to redirect back to the correct admin page.
+ */
+export function handleAdminMenuImageUpload(redirectPath = "/vendor/menu") {
+  return function (req, res, next) {
+    const resolvedPath =
+      typeof redirectPath === "function" ? redirectPath(req) : redirectPath;
+    return handleImageUpload(uploadMenuImage, resolvedPath)(req, res, next);
+  };
+}
+
 export function handleShopImageUpload(redirectPath = "/admin/shops/new") {
   return function (req, res, next) {
     const resolvedPath =

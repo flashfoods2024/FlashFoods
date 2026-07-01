@@ -1,0 +1,29 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<%# Admin context banner showing which vendor's menu is being edited %>
+<div class="card" style="border-left: 4px solid var(--c-primary, #4361ee);">
+  <div class="row row--split" style="align-items: center;">
+    <div>
+      <p style="margin: 0; font-weight: 600;">
+        Editing menu for: <%= vendor.name %>
+      </p>
+      <p style="margin: 4px 0 0; font-size: 0.9em; color: var(--c-muted, #888);">
+        <%= vendor.email %> &middot; <%= shop.name || "Unassigned shop" %>
+      </p>
+    </div>
+    <a class="btn btn--small btn--outline" href="/admin/menus">&larr; Back to Manage Menus</a>
+  </div>
+</div>
+
+<%- include("../../partials/menu-manager", {
+  shop,
+  menuItems,
+  createAction: "/admin/vendors/" + vendor._id + "/menu",
+  apiUrl: "/admin/vendors/" + vendor._id + "/menu",
+  showShopToggle: true,
+  shopToggleAction: "/admin/vendors/" + vendor._id + "/shop/toggle",
+}) %>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>

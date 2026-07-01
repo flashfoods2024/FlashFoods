@@ -1,4 +1,6 @@
 import { User } from "../models/User.js";
+import { Shop } from "../models/Shop.js";
+import mongoose from "mongoose";
 
 /** Loads DB user onto req.user when session has userId (no redirect). Run after session. */
 export async function attachUser(req, res, next) {
@@ -81,4 +83,40 @@ export function requireVendorShop(req, res, next) {
   req.vendorShopId = req.user.shop;
   req.vendorShopIdStr = String(req.user.shop);
   return next();
+}
+
+/**
+ * Admin-only middleware: loads the target vendor's shop by vendorId param
+ * and sets req.vendorShopId / req.vendorShopIdStr.
+ * Also sets req.targetVendor and req.targetShop for display in the admin banner.
+ */
+export async function resolveAdminVendorShop(req, res, next) {
+  const { vendorId } = req.params;
+  if (!mongoose.isValidObjectId(vendorId)) {
+    req.flash("error", "Vendor not found.");
+    return res.redirect("/admin/menus");
+  }
+
+  try {
+    const vendor = await User.findOne({ _id: vendorId, role: "vendor" })
+      .populate("shop")
+      .lean();
+    if (!vendor) {
+      req.flash("error", "Vendor not found.");
+      return res.redirect("/admin/menus");
+    }
+    if (!vendor.shop) {
+      req.flash("error", "This vendor does not have an assigned shop.");
+      return res.redirect("/admin/menus");
+    }
+
+    const shopId = vendor.shop._id || vendor.shop;
+    req.vendorShopId = shopId;
+    req.vendorShopIdStr = String(shopId);
+    req.targetVendor = vendor;
+    req.targetShop = vendor.shop;
+    return next();
+  } catch (err) {
+    return next(err);
+  }
 }

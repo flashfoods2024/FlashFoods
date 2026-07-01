@@ -1,0 +1,362 @@
+<%#
+  Required locals:
+    shop          – Shop object (must have isOpen, _id, isActive)
+    menuItems     – Array of MenuItem objects
+    createAction  – POST URL for the "add new item" form
+    apiUrl        – Base URL for menu item API (/:id for update, /:id for delete)
+
+  Optional locals:
+    toggleApiUrl  – Base URL for toggle availability (/:id/toggle). Defaults to apiUrl.
+    showShopToggle – if truthy, renders the shop open/close toggle button
+    shopToggleAction – POST URL for the shop toggle form (required when showShopToggle is true)
+%>
+<div class="card">
+  <div class="row row--split">
+    <span class="tag <%= shop.isOpen ? "tag--ok" : "tag--warn" %>">
+      <%= shop.isOpen ? "Shop Open" : "Shop Closed" %>
+    </span>
+    <% if (locals.showShopToggle) { %>
+      <form method="post" action="<%= shopToggleAction %>">
+        <button class="btn" type="submit">
+          <%= shop.isOpen ? "Close Shop" : "Open Shop" %>
+        </button>
+      </form>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="h2">Add new item</h2>
+  <form method="post" action="<%= createAction %>" class="form" enctype="multipart/form-data">
+    <label>
+      <span>Name</span>
+      <input name="name" type="text" maxlength="80" required />
+    </label>
+    <label>
+      <span>Description (optional)</span>
+      <input name="description" type="text" maxlength="160" />
+    </label>
+    <label>
+      <span>Price (&#8377;)</span>
+      <input name="price" type="number" min="1" step="0.01" required />
+    </label>
+    <label>
+      <span>Food image</span>
+      <input name="image" type="file" accept="image/*" />
+    </label>
+    <button class="btn" type="submit">Create item</button>
+  </form>
+</div>
+
+<% if (!menuItems.length) { %>
+  <div class="card"><p class="muted">No menu items yet.</p></div>
+<% } else { %>
+  <div class="card" style="overflow-x: auto;">
+    <table class="table vendor-menu-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Availability</th>
+          <th style="width: 1%; white-space: nowrap;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% menuItems.forEach((item) => { %>
+          <tr data-item-row data-item-id="<%= item._id %>">
+            <td>
+              <div class="vendor-menu-item">
+                <img
+                  class="food-thumb"
+                  data-display-image
+                  src="<%= item.image || "/food-placeholder.svg" %>"
+                  alt="<%= item.name %>"
+                  loading="lazy"
+                />
+                <div class="vendor-menu-item__fields">
+                  <%# View mode %>
+                  <div data-view-container>
+                    <div class="vendor-menu-item__name" data-view-name><%= item.name %></div>
+                    <div class="vendor-menu-item__desc" data-view-desc><%= item.description || "" %></div>
+                    <div class="vendor-menu-item__price" data-view-price>&#8377;<%= Number(item.price).toFixed(2) %></div>
+                  </div>
+                  <%# Edit mode (hidden by default) %>
+                  <div data-edit-container style="display:none">
+                    <label>
+                      <span class="sr-only">Name</span>
+                      <input data-edit-name type="text" value="<%= item.name %>" required />
+                    </label>
+                    <label>
+                      <span class="sr-only">Description</span>
+                      <input data-edit-desc type="text" value="<%= item.description || "" %>" placeholder="Description (optional)" />
+                    </label>
+                    <label>
+                      <span class="sr-only">Price</span>
+                      <input data-edit-price type="number" min="1" step="0.01" value="<%= Number(item.price).toFixed(2) %>" required />
+                    </label>
+                    <label>
+                      <span class="sr-only">Food image</span>
+                      <input data-edit-image type="file" accept="image/*" />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="tag vendor-menu-table__badge <%= item.available ? "tag--ok" : "tag--muted" %>" data-availability-badge>
+                <%= item.available ? "Available" : "Unavailable" %>
+              </span>
+            </td>
+            <td>
+              <%# View mode actions %>
+              <div class="row" style="gap: 8px;" data-actions-view>
+                <button
+                  type="button"
+                  class="btn btn--small"
+                  data-edit-item
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--small btn--ghost"
+                  data-toggle-availability
+                  data-item-id="<%= item._id %>"
+                >
+                  <%= item.available ? "Mark unavailable" : "Mark available" %>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--small btn--ghost"
+                  data-delete-item
+                  data-item-id="<%= item._id %>"
+                >
+                  Delete
+                </button>
+              </div>
+              <%# Edit mode actions (hidden by default) %>
+              <div class="row" data-actions-edit style="gap: 8px; display: none;">
+                <button
+                  type="button"
+                  class="btn btn--small"
+                  data-save-item
+                  data-item-id="<%= item._id %>"
+                >
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--small btn--ghost"
+                  data-cancel-edit
+                >
+                  Cancel
+                </button>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<style>
+.vendor-menu-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.vendor-menu-item__fields {
+  flex: 1;
+  min-width: 0;
+}
+.vendor-menu-item__name {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.vendor-menu-item__desc {
+  font-size: 0.9em;
+  color: var(--c-muted, #888);
+  margin-bottom: 2px;
+}
+.vendor-menu-item__price {
+  font-weight: 600;
+  color: var(--c-primary, #4361ee);
+}
+[data-edit-container] label {
+  display: block;
+  margin-bottom: 6px;
+}
+[data-edit-container] input {
+  width: 100%;
+}
+</style>
+
+<script>
+(function () {
+  var API_URL = "<%= apiUrl %>";
+  var TOGGLE_URL = "<%= typeof toggleApiUrl !== 'undefined' ? toggleApiUrl : apiUrl %>";
+
+  function setBusy(btn, busy) {
+    btn.disabled = !!busy;
+    if (busy) btn.setAttribute("aria-busy", "true");
+    else btn.removeAttribute("aria-busy");
+  }
+
+  async function jsonFetch(url, opts) {
+    var res = await fetch(url, Object.assign({ credentials: "same-origin" }, opts || {}));
+    var body = await res.json().catch(function () { return {}; });
+    if (!res.ok) {
+      var msg = body && body.error ? body.error : "Request failed.";
+      var err = new Error(msg);
+      err.status = res.status;
+      throw err;
+    }
+    return body;
+  }
+
+  function enterEditMode(row) {
+    row.querySelector("[data-view-container]").style.display = "none";
+    row.querySelector("[data-edit-container]").style.display = "";
+    row.querySelector("[data-actions-view]").style.display = "none";
+    row.querySelector("[data-actions-edit]").style.display = "";
+  }
+
+  function exitEditMode(row) {
+    var viewName = row.querySelector("[data-view-name]");
+    var viewDesc = row.querySelector("[data-view-desc]");
+    var viewPrice = row.querySelector("[data-view-price]");
+
+    row.querySelector("[data-edit-name]").value = viewName.textContent.trim();
+    row.querySelector("[data-edit-desc]").value = viewDesc.textContent.trim();
+    row.querySelector("[data-edit-price]").value = viewPrice.textContent.replace(/[^0-9.]/g, "").trim();
+    row.querySelector("[data-edit-image]").value = "";
+
+    row.querySelector("[data-view-container]").style.display = "";
+    row.querySelector("[data-edit-container]").style.display = "none";
+    row.querySelector("[data-actions-view]").style.display = "";
+    row.querySelector("[data-actions-edit]").style.display = "none";
+  }
+
+  document.querySelectorAll("[data-edit-item]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var row = btn.closest("[data-item-row]");
+      if (row) enterEditMode(row);
+    });
+  });
+
+  document.querySelectorAll("[data-cancel-edit]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var row = btn.closest("[data-item-row]");
+      if (row) exitEditMode(row);
+    });
+  });
+
+  document.querySelectorAll("[data-toggle-availability]").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      var id = btn.getAttribute("data-item-id");
+      if (!id || btn.disabled) return;
+      setBusy(btn, true);
+      try {
+        var body = await jsonFetch(TOGGLE_URL + "/" + encodeURIComponent(id) + "/toggle", {
+          method: "PATCH",
+          headers: { Accept: "application/json" },
+        });
+        var item = body.item;
+        var row = btn.closest("[data-item-row]");
+        var badge = row && row.querySelector("[data-availability-badge]");
+        if (badge && item) {
+          badge.textContent = item.available ? "Available" : "Unavailable";
+          badge.classList.toggle("tag--ok", item.available);
+          badge.classList.toggle("tag--muted", !item.available);
+        }
+        if (item) {
+          btn.textContent = item.available ? "Mark unavailable" : "Mark available";
+        }
+      } catch (e) {
+        alert(e.message || "Could not update item.");
+      } finally {
+        setBusy(btn, false);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-save-item]").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      var id = btn.getAttribute("data-item-id");
+      var row = btn.closest("[data-item-row]");
+      if (!id || !row || btn.disabled) return;
+
+      var nameEl = row.querySelector("[data-edit-name]");
+      var descEl = row.querySelector("[data-edit-desc]");
+      var priceEl = row.querySelector("[data-edit-price]");
+      var imageEl = row.querySelector("[data-edit-image]");
+
+      var name = (nameEl && nameEl.value ? String(nameEl.value) : "").trim();
+      var description = (descEl && descEl.value ? String(descEl.value) : "").trim();
+      var price = priceEl && priceEl.value ? String(Number(priceEl.value)) : "0";
+
+      if (!name) {
+        alert("Name is required.");
+        return;
+      }
+      if (!price || isNaN(Number(price)) || Number(price) <= 0) {
+        alert("Price must be greater than 0.");
+        return;
+      }
+
+      var payload = new FormData();
+      payload.append("name", name);
+      payload.append("description", description);
+      payload.append("price", price);
+      if (imageEl && imageEl.files && imageEl.files[0]) {
+        payload.append("image", imageEl.files[0]);
+      }
+
+      setBusy(btn, true);
+      try {
+        var body = await jsonFetch(API_URL + "/" + encodeURIComponent(id), {
+          method: "PATCH",
+          headers: { Accept: "application/json" },
+          body: payload,
+        });
+        var item = body.item;
+        var preview = row.querySelector("[data-display-image]");
+        if (preview && item.image) {
+          preview.src = item.image;
+        }
+        row.querySelector("[data-view-name]").textContent = item.name;
+        row.querySelector("[data-view-desc]").textContent = item.description || "";
+        row.querySelector("[data-view-price]").textContent = "\u20B9" + Number(item.price).toFixed(2);
+
+        exitEditMode(row);
+      } catch (e) {
+        alert(e.message || "Could not save item.");
+      } finally {
+        setBusy(btn, false);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-delete-item]").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      var id = btn.getAttribute("data-item-id");
+      var row = btn.closest("[data-item-row]");
+      if (!id || !row || btn.disabled) return;
+      if (!confirm("Delete this menu item?")) return;
+
+      setBusy(btn, true);
+      try {
+        await jsonFetch(API_URL + "/" + encodeURIComponent(id), {
+          method: "DELETE",
+          headers: { Accept: "application/json" },
+        });
+        row.remove();
+      } catch (e) {
+        alert(e.message || "Could not delete item.");
+      } finally {
+        setBusy(btn, false);
+      }
+    });
+  });
+})();
+</script>
