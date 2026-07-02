@@ -9,6 +9,8 @@ import { MenuItem } from "../models/MenuItem.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireAdmin, resolveAdminVendorShop } from "../middleware/auth.js";
 import { handleShopImageUpload, handleAdminMenuImageUpload } from "../middleware/upload.js";
+import { uploadImportFile } from "../menu-import/upload.js";
+import { stageImport, getImport } from "../menu-import/importer.js";
 import { isGatewayConfigured } from "./vendor.js";
 import {
   formatOrderStatus,
@@ -1395,6 +1397,64 @@ adminRouter.post(
       console.error(error);
       req.flash("error", "Failed to update shop status.");
       return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Smart Menu Import – staging only, no MongoDB writes
+// ---------------------------------------------------------------------------
+
+adminRouter.get(
+  "/vendors/:vendorId/menu/import",
+  resolveAdminVendorShop,
+  async (req, res) => {
+    res.render("admin/vendors/menu-import", {
+      pageTitle: `Import Menu – ${req.targetVendor.name}`,
+      activeSection: "menus",
+      vendor: req.targetVendor,
+      shop: req.targetShop,
+    });
+  },
+);
+
+adminRouter.post(
+  "/vendors/:vendorId/menu/import",
+  resolveAdminVendorShop,
+  (req, res, next) => {
+    uploadImportFile.single("importFile")(req, res, (err) => {
+      if (err) {
+        req.flash("error", err.message || "Upload failed.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        req.flash("error", "No file was uploaded.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+      }
+
+      const { importId } = await stageImport(
+        req.file,
+        req.params.vendorId,
+        req.vendorShopIdStr,
+      );
+
+      res.render("admin/vendors/menu-import-processing", {
+        pageTitle: "Processing Menu",
+        activeSection: "menus",
+        vendor: req.targetVendor,
+        shop: req.targetShop,
+        importId,
+        fileName: req.file.originalname,
+      });
+    } catch (err) {
+      console.error("Import staging error:", err);
+      req.flash("error", err.message || "Failed to stage import.");
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
     }
   },
 );

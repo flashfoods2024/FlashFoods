@@ -1,0 +1,54 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Menu import</p>
+    <h1>Import Menu &mdash; <%= vendor.name %></h1>
+    <p class="muted">
+      Upload a menu image, PDF, or document. The system will extract menu items
+      so you can review and confirm before saving.
+    </p>
+  </div>
+</section>
+
+<div class="card" style="border-left: 4px solid var(--c-primary, #4361ee);">
+  <div class="row row--split">
+    <div>
+      <p style="margin: 0; font-size: 0.9em; color: var(--c-muted, #888);">
+        <%= vendor.name %> &middot; <%= vendor.email %> &middot; <%= shop.name %>
+      </p>
+    </div>
+    <a class="btn btn--small btn--outline" href="/admin/vendors/<%= vendor._id %>/menu">&larr; Back to menu</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="h2">Upload file</h2>
+  <p class="muted">Supported formats: PNG, JPG, WebP, PDF (max 10 MB)</p>
+  <form
+    method="post"
+    action="/admin/vendors/<%= vendor._id %>/menu/import"
+    class="form"
+    enctype="multipart/form-data"
+  >
+    <label>
+      <span>Choose file</span>
+      <input name="importFile" type="file" accept=".png,.jpg,.jpeg,.webp,.pdf" required />
+    </label>
+    <button class="btn" type="submit">Upload &amp; Process</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="h2">How it works</h2>
+  <ol style="line-height: 1.8;">
+    <li><strong>Upload</strong> &ndash; Select a menu image, scan, or PDF.</li>
+    <li><strong>Process</strong> &ndash; The system reads and extracts menu items from the file.</li>
+    <li><strong>Review</strong> &ndash; Check extracted items for accuracy before saving.</li>
+    <li><strong>Confirm</strong> &ndash; Approve the import to add items to this vendor's menu.</li>
+  </ol>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>

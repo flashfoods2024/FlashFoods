@@ -12,7 +12,10 @@
         <%= vendor.email %> &middot; <%= shop.name || "Unassigned shop" %>
       </p>
     </div>
-    <a class="btn btn--small btn--outline" href="/admin/menus">&larr; Back to Manage Menus</a>
+    <div class="row" style="gap: 8px;">
+      <a class="btn btn--small" href="/admin/vendors/<%= vendor._id %>/menu/import">Import Menu</a>
+      <a class="btn btn--small btn--outline" href="/admin/menus">&larr; Back to Manage Menus</a>
+    </div>
   </div>
 </div>
 
