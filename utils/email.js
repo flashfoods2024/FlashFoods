@@ -1,56 +1,15 @@
-import nodemailer from 'nodemailer';
-import { resolve4 } from 'dns/promises';
-import { isIP } from 'net';
+import { Resend } from 'resend';
 
-let _transporter = null;
-let _transporterPromise = null;
+let _resend = null;
 
-async function getTransporter() {
-  if (_transporter) return _transporter;
-
-  if (!_transporterPromise) {
-    _transporterPromise = _initTransporter();
+function getResend() {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY);
   }
-
-  return _transporterPromise;
-}
-
-async function _initTransporter() {
-  try {
-    const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
-    let smtpHost = host;
-    let servername;
-
-    if (isIP(host)) {
-      smtpHost = host;
-    } else {
-      servername = host;
-      const addresses = await resolve4(host);
-      if (addresses && addresses.length > 0) {
-        smtpHost = addresses[0];
-      }
-    }
-
-    _transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: parseInt(process.env.EMAIL_PORT, 10) || 587,
-      secure: (parseInt(process.env.EMAIL_PORT, 10) || 587) === 465,
-      servername,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-    return _transporter;
-  } catch (err) {
-    _transporterPromise = null;
-    throw err;
-  }
+  return _resend;
 }
 
 export async function sendPasswordResetEmail(email, resetUrl) {
-  const transporter = await getTransporter();
-
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h1 style="color: #e74c3c;">FlashFoods</h1>
@@ -64,19 +23,20 @@ export async function sendPasswordResetEmail(email, resetUrl) {
   `;
 
   try {
-    await transporter.sendMail({
-      from: `"FlashFoods" <${process.env.EMAIL_USER}>`,
+    const { data, error } = await getResend().emails.send({
+      from: 'FlashFoods <noreply@flashfoods.in>',
       to: email,
       subject: 'FlashFoods - Password Reset Request',
       html,
       text: `Reset your FlashFoods password: ${resetUrl}\n\nThis link expires in 15 minutes.\n\nIf you didn't request this, ignore this email.`,
     });
+
+    if (error) {
+      console.error('Failed to send password reset email:', error);
+    }
+
+    return data;
   } catch (err) {
     console.error('Failed to send password reset email:', err);
   }
-}
-
-export async function verifyTransporter() {
-  const transporter = await getTransporter();
-  return transporter.verify();
 }
