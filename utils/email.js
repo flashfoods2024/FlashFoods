@@ -1,24 +1,55 @@
 import nodemailer from 'nodemailer';
+import { resolve4 } from 'dns/promises';
+import { isIP } from 'net';
 
 let _transporter = null;
+let _transporterPromise = null;
 
-function getTransporter() {
-  if (!_transporter) {
+async function getTransporter() {
+  if (_transporter) return _transporter;
+
+  if (!_transporterPromise) {
+    _transporterPromise = _initTransporter();
+  }
+
+  return _transporterPromise;
+}
+
+async function _initTransporter() {
+  try {
+    const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+    let smtpHost = host;
+    let servername;
+
+    if (isIP(host)) {
+      smtpHost = host;
+    } else {
+      servername = host;
+      const addresses = await resolve4(host);
+      if (addresses && addresses.length > 0) {
+        smtpHost = addresses[0];
+      }
+    }
+
     _transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      host: smtpHost,
       port: parseInt(process.env.EMAIL_PORT, 10) || 587,
       secure: false,
+      servername,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
     });
+    return _transporter;
+  } catch (err) {
+    _transporterPromise = null;
+    throw err;
   }
-  return _transporter;
 }
 
 export async function sendPasswordResetEmail(email, resetUrl) {
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -46,6 +77,6 @@ export async function sendPasswordResetEmail(email, resetUrl) {
 }
 
 export async function verifyTransporter() {
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
   return transporter.verify();
 }
