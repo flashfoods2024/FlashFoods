@@ -34,7 +34,7 @@ async function _initTransporter() {
     _transporter = nodemailer.createTransport({
       host: smtpHost,
       port: parseInt(process.env.EMAIL_PORT, 10) || 587,
-      secure: false,
+      secure: (parseInt(process.env.EMAIL_PORT, 10) || 587) === 465,
       servername,
       auth: {
         user: process.env.EMAIL_USER,
