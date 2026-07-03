@@ -3,17 +3,24 @@ import Razorpay from "razorpay";
 
 dotenv.config();
 
-const defaultRazorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+let _defaultRazorpay = null;
+
+function getDefaultRazorpay() {
+  if (!_defaultRazorpay) {
+    _defaultRazorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return _defaultRazorpay;
+}
 
 export function createRazorpayFromShop(shop) {
   if (!shop) {
     return {
       keyId: process.env.RAZORPAY_KEY_ID,
       keySecret: process.env.RAZORPAY_KEY_SECRET,
-      instance: defaultRazorpay,
+      instance: getDefaultRazorpay(),
     };
   }
 
@@ -31,7 +38,7 @@ export function createRazorpayFromShop(shop) {
   return {
     keyId: process.env.RAZORPAY_KEY_ID,
     keySecret: process.env.RAZORPAY_KEY_SECRET,
-    instance: defaultRazorpay,
+    instance: getDefaultRazorpay(),
   };
 }
 
@@ -46,4 +53,4 @@ export function getWebhookSecretFromShop(shop) {
   return process.env.RAZORPAY_WEBHOOK_SECRET || "";
 }
 
-export default defaultRazorpay;
+export default getDefaultRazorpay;

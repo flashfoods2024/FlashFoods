@@ -98,7 +98,8 @@ authRouter.post("/forgot-password", requireDb, async (req, res) => {
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
-    const resetUrl = `${process.env.APP_URL || ""}/reset-password/${resetToken}`;
+    const appUrl = (process.env.APP_URL || "").replace(/\/+$/, "");
+    const resetUrl = `${appUrl}/reset-password/${resetToken}`;
     await sendPasswordResetEmail(user.email, resetUrl);
   }
 
