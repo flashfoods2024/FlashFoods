@@ -102,12 +102,11 @@ input[type="file"] {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  min-height: 72px;
 }
 
 .topbar__brand-row {
   display: contents;
-  padding: 20px 2px 20px 2px;
+  padding: 0px 2px 0px 2px;
 }
 
 .brand {
@@ -1059,7 +1058,6 @@ fieldset.fieldset legend {
     flex-direction: column;
     align-items: stretch;
     gap: 0;
-    min-height: 64px;
   }
 
   .topbar__brand-row {
@@ -1119,7 +1117,7 @@ fieldset.fieldset legend {
 
 @media (max-width: 768px) {
   .container {
-    padding: 20px 2px 20px 2px;
+    padding: 0px 2px 0px 2px;
   }
 
   .hero--home {
