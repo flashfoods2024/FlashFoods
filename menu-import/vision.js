@@ -3,8 +3,11 @@ import path from "path";
 import { safeParse } from "./json-recovery.js";
 import { DebugSession } from "./debug.js";
 
+// const GEMINI_API_URL =
+//   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
 
 const SUPPORTED_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -18,53 +21,20 @@ const MIME_MAP = {
   ".webp": "image/webp",
 };
 
-const EXTRACTION_PROMPT = `You are a restaurant menu extraction system. Read this menu image and extract every item exactly as shown.
+const EXTRACTION_PROMPT = `Extract every menu item from this restaurant menu image.
 
-Return ONLY valid JSON. Do not include markdown, code fences, or any text outside the JSON object.
+Return ONLY valid JSON using this exact structure:
+{"items":[{"name":"","description":"","category":"","foodType":"veg|non-veg|egg|unknown","variants":[{"label":"Regular","price":0}],"confidence":0.95}]}
 
-Use this exact structure:
-{
-  "items": [
-    {
-      "name": "Item name exactly as shown on menu",
-      "description": "Item description as shown, or empty string if none",
-      "category": "Category/section heading as shown on menu",
-      "foodType": "must be one of: veg, non-veg, egg, unknown",
-      "variants": [
-        {
-          "label": "Size or portion label exactly as shown (e.g. Half, Full, S, M, L, Regular, Large, Mini, Jumbo)",
-          "price": 0.00
-        }
-      ],
-      "confidence": 0.95
-    }
-  ],
-  "rawText": "Every piece of text visible in the menu image, preserving original layout and line breaks"
-}
-
-FOOD TYPE RULES:
-- Look for veg/non-veg indicators: green/red dots, (V)/(NV) markers, leaf/non-veg symbols, explicit "Veg"/"Non-Veg" labels, coloured backgrounds.
-- If the menu clearly marks a type, use it.
-- If the menu does NOT indicate food type for an item, return "unknown".
-- NEVER guess. If there is no indicator, return "unknown".
-
-VARIANT RULES:
-- Many menus list multiple prices per item separated by slashes or portion labels (e.g. "Half 45 / Full 85", "S 5 / M 7 / L 10", "45 / 85").
-- Detect ALL pricing variants. Return each as a separate entry in the variants array with its label and numeric price.
-- If a menu shows only a single price with no portion/size label, return one variant with label "Regular" and that price.
-- If a menu shows multiple prices without explicit labels (e.g. "45 / 85"), assign labels based on context — often "Half" and "Full" in Indian menus, or "Regular" and "Large" otherwise.
-- Extract the EXACT label text as shown. Do not normalize labels.
-- Do NOT assume any currency — return only the numeric price value.
-- If no price is visible at all, use price 0.
-
-OTHER RULES:
+RULES:
 - Extract EVERY item. Do not skip any.
-- If no description, use "".
-- Use the category/section heading exactly as shown. Do not invent categories.
-- If no categories are shown on the menu, group similar items and assign a logical category name.
+- foodType: use only "veg", "non-veg", "egg", or "unknown". NEVER guess — use "unknown" if not indicated.
+- variants: if the menu shows multiple sizes/prices (e.g. Half/Full, S/M/L), add one variant per size. If only one price, use label "Regular".
+- description: use "" if none shown.
+- category: use the section heading exactly as shown. If no headings, group similar items.
+- confidence: 0.0–1.0 based on readability.
 - Preserve original spelling and capitalization.
-- Set confidence (0.0–1.0) per item based on how clearly you can read it.
-- If the image contains no menu items, return {"items": [], "rawText": ""}.`;
+- If no menu items are visible, return {"items":[]}.`;
 
 function getMimeType(ext) {
   return MIME_MAP[ext] || "image/jpeg";
@@ -220,7 +190,7 @@ export async function extractMenu(filePath) {
     generationConfig: {
       temperature: 0.1,
       topP: 0.95,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 65536,
     },
   };
 
@@ -340,6 +310,15 @@ export async function extractMenu(filePath) {
 
     console.log("[MARK-vision] safeParse start");
     const result = safeParse(responseText);
+    console.log("safeParse parsed keys:", Object.keys(result.parsed || {}));
+console.log("items type:", typeof result.parsed.items);
+console.log("isArray:", Array.isArray(result.parsed.items));
+console.log("items length:", result.parsed.items?.length);
+console.log(
+  "first item:",
+  JSON.stringify(result.parsed.items?.[0], null, 2)
+);
+
     console.log("[MARK-vision] safeParse done — success:", result.success, "recovery:", result.recovery);
     debug.setReportField("parserStage", result.recovery || "direct");
     if (result.success) {
@@ -367,17 +346,16 @@ export async function extractMenu(filePath) {
 
     console.log("[MARK-vision] validateAndNormalizeItems start");
     const items = validateAndNormalizeItems(result.parsed.items);
-    const rawText = String(result.parsed.rawText || "");
     console.log("[MARK-vision] validateAndNormalizeItems done — items count:", items.length);
 
-    if (items.length === 0 && !rawText) {
+    if (items.length === 0) {
       console.log("[MARK-vision] no items and no rawText");
       debug.setReportField("failureReason", "No menu items or text found in the uploaded image.");
       return {
         items: [],
         rawText: "",
         metadata: {
-          error: "No menu items or text found in the uploaded image.",
+          error: "No menu items found in the uploaded image.",
           provider: "gemini-vision",
         },
       };
@@ -394,7 +372,7 @@ export async function extractMenu(filePath) {
 
     return {
       items,
-      rawText,
+      rawText: "",
       metadata: {
         provider: "gemini-vision",
         itemCount: items.length,

@@ -1,0 +1,135 @@
+{
+  "items": [
+    {
+      "name": "Gobi Manchurian",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Gobi Chilli",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Gobi 65",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Baby corn Manchurian",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Baby corn Chilli",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Baby corn 65",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Paneer Manchurian",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Paneer Chilli",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Paneer 65",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149.0
+        }
+      ],
+      "confidence": 1.0
+    },
+    {
+      "name": "Honey Chilli Potato",
+      "description": "",
+      "category": "Starters",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129.0
+        }
+      ],
+      "confidence": 1.0
+    }
+  ],
+  "rawText": "Gobi Manchurian 129/-\nGobi Chilli 129/-\nGobi 65 129/-\nBaby corn Manchurian 139/-\nBaby corn Chilli 139/-\nBaby corn 65 139/-\nPaneer Manchurian 149/-\nPaneer Chilli 149/-\nPaneer 65 149/-\nHoney Chilli Potato 129/-"
+}

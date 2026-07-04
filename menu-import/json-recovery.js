@@ -77,29 +77,16 @@ function recoverJson(badJson) {
 
 function scoreCandidate(parsed) {
   if (parsed === null || typeof parsed !== "object") return 0;
-  if (Array.isArray(parsed)) return 1;
+  if (Array.isArray(parsed)) return 0;
 
-  let score = 1;
+  // ONLY accept objects that have an "items" array (the expected root schema).
+  // A bare menu item like {name:"…", category:"…"} MUST be rejected so that
+  // safeParse never returns a nested object as if it were the root.
+  if (!Array.isArray(parsed.items)) return 0;
 
-  if (Array.isArray(parsed.items)) {
-    score += 100;
-    score += Math.min(parsed.items.length, 50);
-  } else if ("items" in parsed) {
-    score += 30;
-  }
-
-  if (typeof parsed.rawText === "string") {
-    score += 15;
-    if (parsed.rawText.length > 0) {
-      score += Math.min(parsed.rawText.length / 100, 10);
-    }
-  }
-
-  if (parsed.metadata && typeof parsed.metadata === "object") {
-    score += 5;
-  }
-
-  return Math.max(0, score);
+  let score = 100;
+  score += Math.min(parsed.items.length, 200);
+  return score;
 }
 
 function collectCandidates(text) {
@@ -125,8 +112,60 @@ function collectCandidates(text) {
   return candidates;
 }
 
+/**
+ * Scans truncated text for every complete brace-delimited JSON object that
+ * looks like a menu item (it has a truthy string "name").  Returns a single
+ * candidate with the synthetic root:  {"items": [all found items]}.
+ *
+ * This handles the MAX_TOKENS case where Gemini stops mid-output and the
+ * root object's closing braces are missing.  Individual item objects
+ * inside the items array ARE complete, so we recover them.
+ */
+function buildCompositeCandidate(text) {
+  const items = [];
+  let pos = 0;
+  while ((pos = text.indexOf("{", pos)) !== -1) {
+    const end = findMatchingBrace(text, pos);
+    if (end === -1) { pos++; continue; }
+    const chunk = text.substring(pos, end + 1);
+    try {
+      const parsed = JSON.parse(chunk);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed) &&
+        !Array.isArray(parsed.items) &&
+        typeof parsed.name === "string" &&
+        parsed.name.trim().length > 0
+      ) {
+        items.push(parsed);
+      }
+    } catch {
+      // not valid JSON – skip
+    }
+    pos = end + 1;
+  }
+
+  if (items.length === 0) return null;
+
+  const synthetic = JSON.stringify({ items });
+  log("built composite candidate with", items.length, "items");
+  return { text: synthetic, source: "composite" };
+}
+
 function findBestCandidate(text) {
   const candidates = collectCandidates(text);
+
+  // If none of the standard candidates has an items array, try to build
+  // a composite from every complete menu-item shape found in the text.
+  const hasValidRoot = candidates.some((c) => {
+    try { const p = JSON.parse(recoverJson(c.text) || c.text); return Array.isArray(p?.items); }
+    catch { return false; }
+  });
+  if (!hasValidRoot) {
+    const composite = buildCompositeCandidate(text);
+    if (composite) candidates.push(composite);
+  }
 
   let best = null;
   let bestScore = -1;
