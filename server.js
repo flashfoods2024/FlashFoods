@@ -33,6 +33,27 @@ console.log(
   "RESEND_API_KEY:",
   process.env.RESEND_API_KEY ? "SET" : "MISSING"
 );
+
+// ---------------------------------------------------------------------------
+// Global process-level error handlers
+// ---------------------------------------------------------------------------
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("=== UNHANDLED PROMISE REJECTION ===");
+  console.error("Reason:", reason);
+  if (reason instanceof Error) {
+    console.error("Stack trace:", reason.stack);
+  } else {
+    console.error("(Reason is not an Error object; no stack trace available)");
+  }
+  console.error("Promise:", promise);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("=== UNCAUGHT EXCEPTION ===");
+  console.error("Error:", err.message);
+  console.error("Stack trace:", err.stack);
+  process.exit(1);
+});
 const app = express();
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -134,6 +155,31 @@ app.use(ordersRouter);
 app.use(menuRouter);
 app.use(vendorRouter);
 app.use("/admin", adminRouter);
+
+// ---------------------------------------------------------------------------
+// Global Express error handler (must be last app.use)
+// ---------------------------------------------------------------------------
+app.use((err, req, res, _next) => {
+  console.error("=== GLOBAL EXPRESS ERROR HANDLER ===");
+  console.error("Request:", req.method, req.originalUrl);
+  console.error("Error:", err.message || err);
+  if (err instanceof Error) {
+    console.error("Stack trace:", err.stack);
+  } else {
+    console.error("(Error is not an Error instance)");
+  }
+
+  // Avoid sending HTML in API routes; fall back to generic 500 for page routes
+  if (req.path.startsWith("/api/")) {
+    return res.status(500).json({ error: "Internal server error." });
+  }
+
+  req.flash("error", "Something went wrong. Please try again.");
+  const fallback =
+    req.headers.referer ||
+    (req.user?.role === "admin" ? "/admin/dashboard" : "/");
+  res.status(500).redirect(fallback);
+});
 
 try {
   await connectDb();

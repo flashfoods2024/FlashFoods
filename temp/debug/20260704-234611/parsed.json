@@ -1,0 +1,13 @@
+{
+  "name": "Lemon Chicken Bowl",
+  "description": "",
+  "category": "RICE AND NOODLES BOWLS",
+  "foodType": "non-veg",
+  "variants": [
+    {
+      "label": "Regular",
+      "price": 189
+    }
+  ],
+  "confidence": 0.98
+}

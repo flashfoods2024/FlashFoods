@@ -1,0 +1,19 @@
+{
+  "watch": [
+    "server.js",
+    "routes",
+    "models",
+    "middleware",
+    "menu-import",
+    "utils",
+    "views",
+    "config"
+  ],
+  "ignore": [
+    "temp/**",
+    "node_modules/**",
+    "playwright-report/**",
+    "test-results/**"
+  ],
+  "ext": "js,mjs,cjs,json,ejs"
+}

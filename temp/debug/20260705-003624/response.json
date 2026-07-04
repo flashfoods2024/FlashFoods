@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "```json\n{\n  \"items\": [\n    {\n      \"name\": \"Lemon Chicken Bowl\",\n      \"description\": \"\",\n      \"category\": \"RICE AND NOODLES BOWLS\",\n      \"foodType\": \"non-veg\",\n      \"variants\": [\n        {\n          \"label\": \"Regular\",\n          \"price\": 189.00\n        }\n      ],\n      \"confidence\": 0.95\n    },\n    {\n      \"name\": \"Drums Of Heaven Bowl\",\n      \"description\": \"\",\n      \"category\": \"RICE AND NOODLES BOWLS\",\n      \"foodType\": \"non-veg\",\n      \"variants\": [\n        {\n          \"label\": \"Regular\",\n          \"price\": 189.00\n        }\n      ],\n      \"confidence\": 0.95\n    },\n    {\n      \"name\": \"Grill Chicken Bowl\",\n      \"description\": \"\",\n      \"category\": \"RICE AND NOODLES BOWLS\",\n      \"foodType\": \"non-veg\",\n      \"variants\": [\n        {\n          \"label\": \"Regular\",\n          \"price\": 179.00\n        }\n      ],\n      \"confidence\": 0.95\n    },\n    {\n      \"name\": \"Chicken Manchurian Bowl\",\n      \"description\": \"\",\n      \"category\": \"RICE AND NOODLES BOWLS"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "MAX_TOKENS",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 904,
+    "candidatesTokenCount": 326,
+    "totalTokenCount": 9092,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 646
+      },
+      {
+        "modality": "IMAGE",
+        "tokenCount": 258
+      }
+    ],
+    "thoughtsTokenCount": 7862,
+    "serviceTier": "standard"
+  },
+  "modelVersion": "gemini-2.5-flash",
+  "responseId": "sVlJauv7ON78juMPxayXoA0"
+}

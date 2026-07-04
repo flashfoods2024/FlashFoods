@@ -1,0 +1,9 @@
+=== Gemini Extraction Debug Report ===
+
+finishReason: STOP
+usageMetadata: {"promptTokenCount":1710,"candidatesTokenCount":361,"totalTokenCount":3524,"promptTokensDetails":[{"modality":"IMAGE","tokenCount":1064},{"modality":"TEXT","tokenCount":646}],"thoughtsTokenCount":1453,"serviceTier":"standard"}
+responseLength: 1032 chars
+parserStage: direct
+recoveryMethod: N/A
+success: true
+failureReason: N/A

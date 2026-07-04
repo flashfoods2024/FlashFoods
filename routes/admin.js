@@ -1433,65 +1433,122 @@ adminRouter.post(
     });
   },
   async (req, res) => {
-    try {
+      // ---- Guard: file present ----
       if (!req.file) {
+        console.log("[MARK] no file uploaded — redirecting");
         req.flash("error", "No file was uploaded.");
         return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
       }
+      console.log("[MARK] file received:", req.file.originalname, req.file.path);
 
-      const { importId } = await stageImport(
-        req.file,
-        req.params.vendorId,
-        req.vendorShopIdStr,
-      );
+      // ---- Step 1: stageImport ----
+      let importId;
+      try {
+        console.log("[MARK] stageImport start");
+        const staged = await stageImport(
+          req.file,
+          req.params.vendorId,
+          req.vendorShopIdStr,
+        );
+        importId = staged.importId;
+        console.log("[MARK] stageImport done — importId:", importId);
+      } catch (err) {
+        console.error("=== [IMPORT] stageImport failed ===");
+        console.error("Error message:", err.message || err);
+        console.error("Full stack:", err instanceof Error ? err.stack : "(no stack)");
+        req.flash("error", err.message || "Failed to process import.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+      }
 
-      markProcessing(importId);
+      // ---- Step 2: markProcessing ----
+      try {
+        console.log("[MARK] markProcessing start");
+        markProcessing(importId);
+        console.log("[MARK] markProcessing done");
+      } catch (err) {
+        console.error("=== [IMPORT] markProcessing failed ===");
+        console.error("Error message:", err.message || err);
+        console.error("Full stack:", err instanceof Error ? err.stack : "(no stack)");
+        req.flash("error", err.message || "Failed to process import.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+      }
 
-      const result = await extractMenu(req.file.path);
+      // ---- Step 3: extractMenu (Gemini fetch) ----
+      let result;
+      try {
+        console.log("[MARK] extractMenu start");
+        result = await extractMenu(req.file.path);
+        console.log("[MARK] extractMenu done — items:", result.items.length, "error:", result.metadata?.error);
+      } catch (err) {
+        console.error("=== [IMPORT] extractMenu (Gemini) failed ===");
+        console.error("Error message:", err.message || err);
+        console.error("Full stack:", err instanceof Error ? err.stack : "(no stack)");
+        // Mark the session as errored so it can be cleaned up later
+        try { markError(importId, err.message || "Gemini extraction failed."); } catch {}
+        req.flash("error", err.message || "Failed to process import.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+      }
 
       const hasItems = result.items.length > 0;
       const errorMsg = result.metadata?.error || null;
 
-      if (hasItems) {
-        updateSession(importId, {
-          status: "ready",
-          visionResult: {
-            items: result.items,
-            rawText: result.rawText,
-            metadata: result.metadata,
-          },
-        });
-      } else {
-        updateSession(importId, {
-          status: hasItems ? "ready" : "error",
-          visionResult: {
-            items: [],
-            rawText: result.rawText,
-            metadata: result.metadata,
-          },
-          errors: errorMsg ? [errorMsg] : [],
-        });
+      // ---- Step 4: updateSession ----
+      try {
+        console.log("[MARK] updateSession start");
+        if (hasItems) {
+          updateSession(importId, {
+            status: "ready",
+            visionResult: {
+              items: result.items,
+              rawText: result.rawText,
+              metadata: result.metadata,
+            },
+          });
+        } else {
+          updateSession(importId, {
+            status: hasItems ? "ready" : "error",
+            visionResult: {
+              items: [],
+              rawText: result.rawText,
+              metadata: result.metadata,
+            },
+            errors: errorMsg ? [errorMsg] : [],
+          });
+        }
+        console.log("[MARK] updateSession done");
+      } catch (err) {
+        console.error("=== [IMPORT] updateSession failed ===");
+        console.error("Error message:", err.message || err);
+        console.error("Full stack:", err instanceof Error ? err.stack : "(no stack)");
+        req.flash("error", err.message || "Failed to process import.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
       }
 
-      res.render("admin/vendors/menu-import-preview", {
-        pageTitle: hasItems ? "Review Extracted Items" : "Extraction Failed",
-        activeSection: "menus",
-        vendor: req.targetVendor,
-        shop: req.targetShop,
-        importId,
-        fileName: req.file.originalname,
-        items: result.items,
-        rawText: result.rawText,
-        avgConfidence: result.metadata.averageConfidence || 0,
-        itemCount: result.metadata.itemCount || 0,
-        visionError: errorMsg,
-        provider: result.metadata.provider || "gemini-vision",
-      });
-    } catch (err) {
-      console.error("Import processing error:", err);
-      req.flash("error", err.message || "Failed to process import.");
-      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
-    }
+      // ---- Step 5: render ----
+      try {
+        console.log("[MARK] res.render start");
+        res.render("admin/vendors/menu-import-preview", {
+          pageTitle: hasItems ? "Review Extracted Items" : "Extraction Failed",
+          activeSection: "menus",
+          vendor: req.targetVendor,
+          shop: req.targetShop,
+          importId,
+          fileName: req.file.originalname,
+          items: result.items,
+          rawText: result.rawText,
+          avgConfidence: result.metadata.averageConfidence || 0,
+          itemCount: result.metadata.itemCount || 0,
+          visionError: errorMsg,
+          provider: result.metadata.provider || "gemini-vision",
+        });
+        console.log("[MARK] res.render done — response sent");
+      } catch (err) {
+        console.error("=== [IMPORT] render preview failed ===");
+        console.error("Error message:", err.message || err);
+        console.error("Full stack:", err instanceof Error ? err.stack : "(no stack)");
+        req.flash("error", err.message || "Failed to display preview.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+      }
   },
 );
 
