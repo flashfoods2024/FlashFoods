@@ -10,7 +10,9 @@ import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireAdmin, resolveAdminVendorShop } from "../middleware/auth.js";
 import { handleShopImageUpload, handleAdminMenuImageUpload } from "../middleware/upload.js";
 import { uploadImportFile } from "../menu-import/upload.js";
-import { stageImport, getImport } from "../menu-import/importer.js";
+import { stageImport, markProcessing, markError, discardImport } from "../menu-import/importer.js";
+import { updateSession, getSession } from "../menu-import/store.js";
+import { extractMenu } from "../menu-import/vision.js";
 import { isGatewayConfigured } from "./vendor.js";
 import {
   formatOrderStatus,
@@ -1402,7 +1404,7 @@ adminRouter.post(
 );
 
 // ---------------------------------------------------------------------------
-// Smart Menu Import – staging only, no MongoDB writes
+// Smart Menu Import – Gemini Vision AI → structured items → editable preview
 // ---------------------------------------------------------------------------
 
 adminRouter.get(
@@ -1443,17 +1445,141 @@ adminRouter.post(
         req.vendorShopIdStr,
       );
 
-      res.render("admin/vendors/menu-import-processing", {
-        pageTitle: "Processing Menu",
+      markProcessing(importId);
+
+      const result = await extractMenu(req.file.path);
+
+      const hasItems = result.items.length > 0;
+      const errorMsg = result.metadata?.error || null;
+
+      if (hasItems) {
+        updateSession(importId, {
+          status: "ready",
+          visionResult: {
+            items: result.items,
+            rawText: result.rawText,
+            metadata: result.metadata,
+          },
+        });
+      } else {
+        updateSession(importId, {
+          status: hasItems ? "ready" : "error",
+          visionResult: {
+            items: [],
+            rawText: result.rawText,
+            metadata: result.metadata,
+          },
+          errors: errorMsg ? [errorMsg] : [],
+        });
+      }
+
+      res.render("admin/vendors/menu-import-preview", {
+        pageTitle: hasItems ? "Review Extracted Items" : "Extraction Failed",
         activeSection: "menus",
         vendor: req.targetVendor,
         shop: req.targetShop,
         importId,
         fileName: req.file.originalname,
+        items: result.items,
+        rawText: result.rawText,
+        avgConfidence: result.metadata.averageConfidence || 0,
+        itemCount: result.metadata.itemCount || 0,
+        visionError: errorMsg,
+        provider: result.metadata.provider || "gemini-vision",
       });
     } catch (err) {
-      console.error("Import staging error:", err);
-      req.flash("error", err.message || "Failed to stage import.");
+      console.error("Import processing error:", err);
+      req.flash("error", err.message || "Failed to process import.");
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+    }
+  },
+);
+
+adminRouter.post(
+  "/vendors/:vendorId/menu/import/confirm",
+  resolveAdminVendorShop,
+  async (req, res) => {
+    try {
+      const { importId } = req.body;
+      if (!importId) {
+        req.flash("error", "Import session not found.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+      }
+
+      const session = getSession(importId);
+      if (!session) {
+        req.flash("error", "Import session has expired.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+      }
+
+      const shop = await Shop.findById(req.vendorShopId).lean();
+      if (!shop || shop.isActive === false) {
+        req.flash("error", "This shop is disabled by an admin.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+      }
+
+      const rawItems = req.body.items;
+      if (!rawItems || (Array.isArray(rawItems) && rawItems.length === 0)) {
+        req.flash("error", "No items to import.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+      }
+
+      const items = Array.isArray(rawItems) ? rawItems : [rawItems];
+
+      const docs = [];
+      for (const item of items) {
+        const name = String(item.name || "").trim();
+        const description = String(item.description || "").trim();
+        const foodType = String(item.foodType || "unknown").trim().toLowerCase();
+        const rawVariants = item.variants;
+
+        if (!name) continue;
+
+        const variants = [];
+        if (Array.isArray(rawVariants)) {
+          for (const v of rawVariants) {
+            const label = String(v.label || "Regular").trim() || "Regular";
+            const price = Number(v.price) || 0;
+            if (price > 0) {
+              variants.push({ label, price });
+            }
+          }
+        }
+
+        if (variants.length === 0) continue;
+
+        const price = variants[0].price;
+
+        const validFoodTypes = ["veg", "non-veg", "egg", "unknown"];
+        const normalizedFoodType = validFoodTypes.includes(foodType)
+          ? foodType
+          : "unknown";
+
+        docs.push({
+          shop: req.vendorShopId,
+          name,
+          description,
+          price,
+          foodType: normalizedFoodType,
+          variants,
+          available: true,
+        });
+      }
+
+      if (docs.length === 0) {
+        req.flash("error", "No valid items to import.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
+      }
+
+      await MenuItem.insertMany(docs);
+
+      discardImport(importId);
+
+      req.flash("success", `${docs.length} menu item(s) imported successfully.`);
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    } catch (err) {
+      console.error("Import confirm error:", err);
+      req.flash("error", err.message || "Failed to import menu items.");
       return res.redirect(`/admin/vendors/${req.params.vendorId}/menu/import`);
     }
   },

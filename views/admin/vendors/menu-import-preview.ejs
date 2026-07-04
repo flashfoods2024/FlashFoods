@@ -1,0 +1,251 @@
+<%- include("../../partials/header", { pageTitle }) %>
+<%- include("../partials/layout-start", { activeSection }) %>
+
+<section class="admin-page-head">
+  <div>
+    <p class="eyebrow">Menu import</p>
+    <% if (visionError) { %>
+      <h1>Extraction Failed</h1>
+      <p class="muted"><strong><%= fileName %></strong> could not be processed.</p>
+    <% } else if (items.length === 0) { %>
+      <h1>No Items Found</h1>
+      <p class="muted">No menu items were detected in <strong><%= fileName %></strong>.</p>
+    <% } else { %>
+      <h1>Review Extracted Items</h1>
+      <p class="muted">
+        <strong><%= itemCount %></strong> item(s) extracted from
+        <strong><%= fileName %></strong> via <strong><%= provider %></strong>.
+        Edit any field before importing.
+      </p>
+    <% } %>
+  </div>
+</section>
+
+<div class="card" style="border-left: 4px solid var(--c-primary, #4361ee);">
+  <div class="row row--split">
+    <div>
+      <p style="margin: 0; font-size: 0.9em; color: var(--c-muted, #888);">
+        <%= vendor.name %> &middot; <%= vendor.email %> &middot; <%= shop.name %>
+      </p>
+    </div>
+    <a class="btn btn--small btn--outline" href="/admin/vendors/<%= vendor._id %>/menu">&larr; Back to menu</a>
+  </div>
+</div>
+
+<% if (visionError) { %>
+  <div class="card" style="border-left: 4px solid #e63946;">
+    <h2 style="color: #e63946;">Extraction Failed</h2>
+    <p><%= visionError %></p>
+    <% if (rawText) { %>
+      <details style="margin-top: 12px;">
+        <summary style="cursor: pointer; font-weight: 600;">Raw extracted text</summary>
+        <pre style="
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 6px;
+          padding: 16px;
+          font-size: 0.85em;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          max-height: 400px;
+          overflow-y: auto;
+          margin-top: 8px;
+        "><%= rawText %></pre>
+      </details>
+    <% } %>
+    <a class="btn" href="/admin/vendors/<%= vendor._id %>/menu/import" style="margin-top: 16px;">
+      Try again
+    </a>
+  </div>
+<% } else if (items.length === 0) { %>
+  <div class="card" style="text-align: center; padding: 48px 24px;">
+    <div style="font-size: 48px; margin-bottom: 16px;">&#128269;</div>
+    <h2 style="margin: 0 0 8px;">No menu items found</h2>
+    <p class="muted" style="max-width: 400px; margin: 0 auto;">
+      The uploaded file was processed but no menu items were detected. The image may not contain a menu, or the menu format could not be read.
+    </p>
+    <% if (rawText) { %>
+      <details style="margin-top: 16px; text-align: left;">
+        <summary style="cursor: pointer; font-weight: 600;">Raw extracted text</summary>
+        <pre style="
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 6px;
+          padding: 16px;
+          font-size: 0.85em;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          max-height: 400px;
+          overflow-y: auto;
+          margin-top: 8px;
+        "><%= rawText %></pre>
+      </details>
+    <% } %>
+    <a class="btn" href="/admin/vendors/<%= vendor._id %>/menu/import" style="margin-top: 16px;">
+      Try again
+    </a>
+  </div>
+<% } else { %>
+  <form method="post" action="/admin/vendors/<%= vendor._id %>/menu/import/confirm">
+    <input type="hidden" name="importId" value="<%= importId %>" />
+
+    <div class="card">
+      <div class="row row--split" style="align-items: center; margin-bottom: 12px;">
+        <h2 class="h2" style="margin: 0;">Extracted Items</h2>
+        <span class="tag">
+          Avg Confidence: <%= (avgConfidence * 100).toFixed(1) %>%
+        </span>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="table" style="min-width: 900px;">
+          <thead>
+            <tr>
+              <th style="width: 32px;">#</th>
+              <th>Name</th>
+              <th>Description</th>
+              <th style="width: 100px;">Food Type</th>
+              <th style="min-width: 180px;">Price Variants</th>
+              <th>Category</th>
+              <th style="width: 80px;">Conf.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% items.forEach(function(item, i) { %>
+              <tr>
+                <td style="text-align: center; color: var(--muted, #888); vertical-align: top; padding-top: 12px;"><%= i + 1 %></td>
+                <td>
+                  <input
+                    name="items[<%= i %>][name]"
+                    type="text"
+                    value="<%= item.name %>"
+                    required
+                    style="width: 100%; min-width: 120px;"
+                  />
+                </td>
+                <td>
+                  <input
+                    name="items[<%= i %>][description]"
+                    type="text"
+                    value="<%= item.description %>"
+                    placeholder="(optional)"
+                    style="width: 100%; min-width: 130px;"
+                  />
+                </td>
+                <td>
+                  <% var types = ["veg", "non-veg", "egg", "unknown"]; %>
+                  <% types.forEach(function(t) { %>
+                    <label style="display: block; white-space: nowrap; font-size: 0.85em; margin-bottom: 3px;">
+                      <input
+                        type="radio"
+                        name="items[<%= i %>][foodType]"
+                        value="<%= t %>"
+                        <%= item.foodType === t ? "checked" : "" %>
+                      />
+                      <%= t.charAt(0).toUpperCase() + t.slice(1) %>
+                    </label>
+                  <% }); %>
+                </td>
+                <td>
+                  <% if (item.variants && item.variants.length > 0) { %>
+                    <% item.variants.forEach(function(v, j) { %>
+                      <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px;">
+                        <input
+                          name="items[<%= i %>][variants][<%= j %>][label]"
+                          type="text"
+                          value="<%= v.label %>"
+                          placeholder="Label"
+                          style="width: 70px; font-size: 0.85em;"
+                        />
+                        <span style="color: var(--muted, #888); font-size: 0.85em;">&#8377;</span>
+                        <input
+                          name="items[<%= i %>][variants][<%= j %>][price]"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value="<%= Number(v.price).toFixed(2) %>"
+                          required
+                          style="width: 80px; font-size: 0.85em;"
+                        />
+                      </div>
+                    <% }); %>
+                  <% } else { %>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                      <input
+                        name="items[<%= i %>][variants][0][label]"
+                        type="hidden"
+                        value="Regular"
+                      />
+                      <span style="font-size: 0.85em;">Regular</span>
+                      <span style="color: var(--muted, #888); font-size: 0.85em;">&#8377;</span>
+                      <input
+                        name="items[<%= i %>][variants][0][price]"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value="0.00"
+                        required
+                        style="width: 80px; font-size: 0.85em;"
+                      />
+                    </div>
+                  <% } %>
+                </td>
+                <td>
+                  <input
+                    name="items[<%= i %>][category]"
+                    type="text"
+                    value="<%= item.category %>"
+                    style="width: 100%; min-width: 100px;"
+                  />
+                </td>
+                <td style="text-align: center;">
+                  <span class="tag tag--<%= item.confidence >= 0.8 ? 'ok' : item.confidence >= 0.5 ? 'warn' : 'danger' %>" style="font-size: 0.8em;">
+                    <%= (item.confidence * 100).toFixed(0) %>%
+                  </span>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row" style="margin-top: 20px; gap: 8px;">
+        <button class="btn" type="submit">Import All Items</button>
+        <a class="btn btn--outline" href="/admin/vendors/<%= vendor._id %>/menu/import">Upload different file</a>
+        <a class="btn btn--ghost" href="/admin/vendors/<%= vendor._id %>/menu">Cancel</a>
+      </div>
+    </div>
+  </form>
+
+  <% if (rawText) { %>
+    <div class="card">
+      <details>
+        <summary style="cursor: pointer; font-weight: 600;">Raw extracted text</summary>
+        <pre style="
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 6px;
+          padding: 16px;
+          font-size: 0.85em;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          max-height: 400px;
+          overflow-y: auto;
+          margin-top: 8px;
+        "><%= rawText %></pre>
+      </details>
+    </div>
+  <% } %>
+<% } %>
+
+<div class="card">
+  <p class="muted" style="font-size: 0.85em;">
+    Import ID: <code><%= importId %></code> &middot; File: <code><%= fileName %></code>
+  </p>
+</div>
+
+<%- include("../partials/layout-end") %>
+<%- include("../../partials/footer") %>

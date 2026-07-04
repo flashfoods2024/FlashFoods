@@ -11,3 +11,4 @@ export {
 export { validateImportFile, validateParsedItems } from "./validator.js";
 export { buildPreview } from "./preview.js";
 export { setSession, getSession, updateSession, removeSession } from "./store.js";
+export { extractMenu } from "./vision.js";

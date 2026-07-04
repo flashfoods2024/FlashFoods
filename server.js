@@ -24,9 +24,15 @@ import {
 } from "./utils/time.js";
 
 dotenv.config();
-console.log("EMAIL_USER:", process.env.EMAIL_USER);
-console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "FOUND" : "MISSING");
+console.log(
+  "GEMINI_API_KEY:",
+  process.env.GEMINI_API_KEY ? "SET" : "MISSING"
+);
 
+console.log(
+  "RESEND_API_KEY:",
+  process.env.RESEND_API_KEY ? "SET" : "MISSING"
+);
 const app = express();
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

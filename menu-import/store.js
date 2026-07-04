@@ -19,6 +19,9 @@ const sessions = new Map();
  *   .shopId      – The shop the items will be added to
  *   .status      – 'uploaded' | 'validating' | 'ready' | 'processing' | 'complete' | 'error'
  *   .parsed      – Array of parsed items (populated by OCR/parser later)
+ *   .preview     – Preview-friendly item structure (populated by preview.js)
+ *   .ocrResult   – { text, confidence, metadata } from OCR extraction (legacy)
+ *   .visionResult – { items, rawText, metadata } from Vision AI extraction
  *   .errors      – Array of validation/parse errors
  *   .createdAt   – ISO timestamp
  */
