@@ -1,9 +1,0 @@
-=== Gemini Extraction Debug Report ===
-
-finishReason: N/A
-usageMetadata: N/A
-responseLength: N/A
-parserStage: N/A
-recoveryMethod: N/A
-success: false
-failureReason: Request timed out.

@@ -1,9 +1,0 @@
-=== Gemini Extraction Debug Report ===
-
-finishReason: MAX_TOKENS
-usageMetadata: {"promptTokenCount":1726,"candidatesTokenCount":1949,"totalTokenCount":9914,"promptTokensDetails":[{"modality":"IMAGE","tokenCount":1080},{"modality":"TEXT","tokenCount":646}],"thoughtsTokenCount":6239,"serviceTier":"standard"}
-responseLength: 5805 chars
-parserStage: brace-extract
-recoveryMethod: N/A
-success: false
-failureReason: No menu items or text found in the uploaded image.
