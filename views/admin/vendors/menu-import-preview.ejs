@@ -1,6 +1,378 @@
 <%- include("../../partials/header", { pageTitle }) %>
 <%- include("../partials/layout-start", { activeSection }) %>
 
+<%
+// ── compute stats ──────────────────────────────────────────────
+var nameCounts = {};
+items.forEach(function(it) {
+  var n = String(it.name || '').toLowerCase().trim();
+  nameCounts[n] = (nameCounts[n] || 0) + 1;
+});
+var stats = { total: items.length, ready: 0, review: 0, noprice: 0, duplicate: 0, avgConf: 0 };
+var sumConf = 0;
+items.forEach(function(it) {
+  var hasPrice = it.variants && it.variants.some(function(v) { return Number(v.price) > 0; });
+  var isDup = nameCounts[String(it.name || '').toLowerCase().trim()] > 1;
+  if (isDup) stats.duplicate++;
+  if (!hasPrice) stats.noprice++;
+  if (it.foodType === 'unknown' || !hasPrice || it.confidence < 0.7 || isDup) stats.review++;
+  else stats.ready++;
+  sumConf += it.confidence || 0;
+});
+stats.avgConf = items.length > 0 ? (sumConf / items.length * 100) : 0;
+
+// compute row status
+function rowStatus(it) {
+  var hasPrice = it.variants && it.variants.some(function(v) { return Number(v.price) > 0; });
+  var isDup = nameCounts[String(it.name || '').toLowerCase().trim()] > 1;
+  if (!hasPrice) return 'noprice';
+  if (isDup) return 'duplicate';
+  if (it.foodType === 'unknown') return 'review';
+  if (it.confidence < 0.7) return 'lowconf';
+  return 'ready';
+}
+%>
+
+<style>
+/* ── import preview page styles ───────────────────────────── */
+.import-stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.import-stat {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.import-stat__value {
+  font-size: 22px;
+  font-weight: 950;
+  line-height: 1.1;
+  color: var(--text);
+}
+.import-stat__label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.import-stat--accent { border-left: 3px solid var(--orange); }
+.import-stat--success { border-left: 3px solid var(--green); }
+.import-stat--warn { border-left: 3px solid #f59e0b; }
+.import-stat--danger { border-left: 3px solid var(--danger); }
+
+/* ── sticky action bar ─────────────────────────────────────── */
+.import-actions {
+  position: sticky;
+  top: 92px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(31,31,31,0.06);
+  backdrop-filter: blur(8px);
+}
+.import-actions__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.import-actions__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.import-search-wrap {
+  position: relative;
+  flex: 0 1 220px;
+}
+.import-search-wrap input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px 6px 30px;
+  font-size: 13px;
+}
+.import-search-wrap::before {
+  content: '\1F50D';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ── filter tabs ────────────────────────────────────────────── */
+.import-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.filter-btn:hover { border-color: var(--orange); color: var(--text); }
+.filter-btn.is-active { background: var(--orange); color: #fff; border-color: var(--orange); }
+.filter-btn--count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.08);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 0 5px;
+  margin-left: 4px;
+}
+.filter-btn.is-active .filter-btn--count { background: rgba(255,255,255,0.25); }
+
+/* ── batch actions bar ──────────────────────────────────────── */
+.batch-bar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: var(--orange-soft);
+  border: 1px solid #ffd4ad;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 700;
+}
+.batch-bar.is-visible { display: flex; }
+.batch-bar select { min-height: 34px; font-size: 13px; width: auto; min-width: 120px; }
+.batch-bar .btn { min-height: 34px; font-size: 12px; padding: 6px 12px; }
+
+/* ── compact table ──────────────────────────────────────────── */
+.import-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 1100px;
+}
+.import-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.import-table th {
+  background: #f9f6f2;
+  padding: 8px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  text-align: left;
+  vertical-align: middle;
+}
+.import-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid #f0eeeb;
+  vertical-align: middle;
+  height: 44px;
+}
+.import-table tbody tr { transition: background 0.1s; }
+.import-table tbody tr:hover { background: #fdf8f2; }
+
+/* row highlighting */
+.import-table tbody tr.row--review { background: #fffbeb; }
+.import-table tbody tr.row--review:hover { background: #fef3c7; }
+.import-table tbody tr.row--duplicate { background: #fff7ed; }
+.import-table tbody tr.row--duplicate:hover { background: #ffedd5; }
+.import-table tbody tr.row--noprice { background: #fef2f2; }
+.import-table tbody tr.row--noprice:hover { background: #fee2e2; }
+.import-table tbody tr.row--lowconf { background: #fff1f0; }
+.import-table tbody tr.row--lowconf:hover { background: #ffe4e0; }
+.import-table tbody tr.row--deleted { display: none; }
+
+.import-table input[type="text"],
+.import-table input[type="number"] {
+  width: 100%;
+  min-height: 30px;
+  padding: 3px 6px;
+  font-size: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.12s, background 0.12s;
+  box-sizing: border-box;
+}
+.import-table input[type="text"]:hover,
+.import-table input[type="number"]:hover {
+  border-color: #ddd;
+  background: #fff;
+}
+.import-table input[type="text"]:focus,
+.import-table input[type="number"]:focus {
+  border-color: var(--orange);
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(255,122,0,0.08);
+}
+.import-table input[type="text"]::placeholder { color: #bbb; }
+
+.import-table .cell--center { text-align: center; }
+.import-table .cell--right { text-align: right; }
+
+/* ── food type pills ────────────────────────────────────────── */
+.ft-pills {
+  display: flex;
+  gap: 2px;
+}
+.ft-pill {
+  min-height: 24px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 800;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.1s;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.ft-pill:hover { border-color: #bbb; color: var(--text); }
+.ft-pill.is-active { border-width: 2px; }
+.ft-pill--veg.is-active { background: #dcfce7; border-color: #22c55e; color: #166534; }
+.ft-pill--non-veg.is-active { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+.ft-pill--egg.is-active { background: #fef9c3; border-color: #eab308; color: #854d0e; }
+.ft-pill--unknown.is-active { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
+
+/* ── variants inline ────────────────────────────────────────── */
+.variant-group { display: flex; flex-direction: column; gap: 3px; }
+.variant-row { display: flex; gap: 3px; align-items: center; }
+.variant-row input[type="text"] { width: 48px; flex: none; }
+.variant-row input[type="number"] { width: 60px; flex: none; }
+.variant-row .v-remove {
+  min-height: 22px; width: 22px; padding: 0;
+  border: none; background: none; color: #bbb; cursor: pointer;
+  font-size: 14px; line-height: 1; border-radius: 4px;
+}
+.variant-row .v-remove:hover { color: var(--danger); background: var(--danger-soft); }
+.add-variant {
+  min-height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700;
+  border: 1px dashed #ccc; border-radius: 4px; background: none;
+  color: var(--muted); cursor: pointer; width: fit-content;
+}
+.add-variant:hover { border-color: var(--orange); color: var(--orange); }
+
+/* ── confidence badge ───────────────────────────────────────── */
+.conf-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.conf-badge--high { background: var(--green-soft); color: #166534; }
+.conf-badge--mid { background: #fef3c7; color: #92400e; }
+.conf-badge--low { background: var(--danger-soft); color: #991b1b; }
+
+/* ── status badge ───────────────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.status-badge--ready { background: var(--green-soft); color: #166534; }
+.status-badge--review { background: #fef9c3; color: #854d0e; }
+.status-badge--duplicate { background: #fff7ed; color: #c2410c; }
+.status-badge--noprice,
+.status-badge--lowconf { background: var(--danger-soft); color: #991b1b; }
+
+/* ── checkbox styling ───────────────────────────────────────── */
+.import-table input[type="checkbox"] {
+  width: 16px; height: 16px; margin: 0; cursor: pointer;
+  accent-color: var(--orange);
+}
+
+/* ── row actions ────────────────────────────────────────────── */
+.row-actions { display: flex; gap: 2px; }
+.row-actions button {
+  min-height: 26px; width: 26px; padding: 0;
+  border: 1px solid transparent; border-radius: 4px;
+  background: none; color: #bbb; cursor: pointer; font-size: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.row-actions button:hover { border-color: #eee; color: var(--muted); }
+.row-actions .del-btn:hover { border-color: var(--danger-soft); color: var(--danger); background: var(--danger-soft); }
+
+/* ── raw text panel ─────────────────────────────────────────── */
+.raw-panel { margin-top: 14px; }
+.raw-panel summary { font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted); padding: 8px 0; }
+.raw-panel pre {
+  background: #f9f6f2; border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto;
+}
+
+/* ── hidden row ─────────────────────────────────────────────── */
+.import-table .is-hidden { display: none; }
+
+/* ── responsive ─────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .import-stats { grid-template-columns: repeat(3, 1fr); }
+  .import-actions { flex-wrap: wrap; }
+  .import-actions__right { width: 100%; }
+  .import-search-wrap { flex: 1; }
+}
+@media (max-width: 600px) {
+  .import-stats { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
 <section class="admin-page-head">
   <div>
     <p class="eyebrow">Menu import</p>
@@ -12,19 +384,18 @@
       <p class="muted">No menu items were detected in <strong><%= fileName %></strong>.</p>
     <% } else { %>
       <h1>Review Extracted Items</h1>
-      <p class="muted">
+      <p class="muted" style="margin-bottom:0;">
         <strong><%= itemCount %></strong> item(s) extracted from
         <strong><%= fileName %></strong> via <strong><%= provider %></strong>.
-        Edit any field before importing.
       </p>
     <% } %>
   </div>
 </section>
 
-<div class="card" style="border-left: 4px solid var(--c-primary, #4361ee);">
-  <div class="row row--split">
+<div class="card" style="border-left: 4px solid var(--orange); margin-bottom:14px;">
+  <div class="row row--split" style="margin:0;">
     <div>
-      <p style="margin: 0; font-size: 0.9em; color: var(--c-muted, #888);">
+      <p style="margin:0;font-size:0.85em;color:var(--muted);">
         <%= vendor.name %> &middot; <%= vendor.email %> &middot; <%= shop.name %>
       </p>
     </div>
@@ -34,218 +405,618 @@
 
 <% if (visionError) { %>
   <div class="card" style="border-left: 4px solid #e63946;">
-    <h2 style="color: #e63946;">Extraction Failed</h2>
+    <h2 style="color:#e63946;">Extraction Failed</h2>
     <p><%= visionError %></p>
     <% if (rawText) { %>
-      <details style="margin-top: 12px;">
-        <summary style="cursor: pointer; font-weight: 600;">Raw extracted text</summary>
-        <pre style="
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
-          border-radius: 6px;
-          padding: 16px;
-          font-size: 0.85em;
-          line-height: 1.5;
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          max-height: 400px;
-          overflow-y: auto;
-          margin-top: 8px;
-        "><%= rawText %></pre>
+      <details style="margin-top:12px;">
+        <summary style="cursor:pointer;font-weight:600;">Raw extracted text</summary>
+        <pre style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:16px;font-size:0.85em;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;max-height:400px;overflow-y:auto;margin-top:8px;"><%= rawText %></pre>
       </details>
     <% } %>
-    <a class="btn" href="/admin/vendors/<%= vendor._id %>/menu/import" style="margin-top: 16px;">
-      Try again
-    </a>
+    <a class="btn" href="/admin/vendors/<%= vendor._id %>/menu/import" style="margin-top:16px;">Try again</a>
   </div>
 <% } else if (items.length === 0) { %>
-  <div class="card" style="text-align: center; padding: 48px 24px;">
-    <div style="font-size: 48px; margin-bottom: 16px;">&#128269;</div>
-    <h2 style="margin: 0 0 8px;">No menu items found</h2>
-    <p class="muted" style="max-width: 400px; margin: 0 auto;">
-      The uploaded file was processed but no menu items were detected. The image may not contain a menu, or the menu format could not be read.
-    </p>
+  <div class="card" style="text-align:center;padding:48px 24px;">
+    <div style="font-size:48px;margin-bottom:16px;">&#128269;</div>
+    <h2 style="margin:0 0 8px;">No menu items found</h2>
+    <p class="muted" style="max-width:400px;margin:0 auto;">The uploaded file was processed but no menu items were detected.</p>
     <% if (rawText) { %>
-      <details style="margin-top: 16px; text-align: left;">
-        <summary style="cursor: pointer; font-weight: 600;">Raw extracted text</summary>
-        <pre style="
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
-          border-radius: 6px;
-          padding: 16px;
-          font-size: 0.85em;
-          line-height: 1.5;
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          max-height: 400px;
-          overflow-y: auto;
-          margin-top: 8px;
-        "><%= rawText %></pre>
+      <details style="margin-top:16px;text-align:left;">
+        <summary style="cursor:pointer;font-weight:600;">Raw extracted text</summary>
+        <pre style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:16px;font-size:0.85em;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;max-height:400px;overflow-y:auto;margin-top:8px;"><%= rawText %></pre>
       </details>
     <% } %>
-    <a class="btn" href="/admin/vendors/<%= vendor._id %>/menu/import" style="margin-top: 16px;">
-      Try again
-    </a>
+    <a class="btn" href="/admin/vendors/<%= vendor._id %>/menu/import" style="margin-top:16px;">Try again</a>
   </div>
 <% } else { %>
-  <form method="post" action="/admin/vendors/<%= vendor._id %>/menu/import/confirm">
-    <input type="hidden" name="importId" value="<%= importId %>" />
 
-    <div class="card">
-      <div class="row row--split" style="align-items: center; margin-bottom: 12px;">
-        <h2 class="h2" style="margin: 0;">Extracted Items</h2>
-        <span class="tag">
-          Avg Confidence: <%= (avgConfidence * 100).toFixed(1) %>%
+<form method="post" action="/admin/vendors/<%= vendor._id %>/menu/import/confirm" id="import-form">
+<input type="hidden" name="importId" value="<%= importId %>" />
+
+<!-- ── DASHBOARD STATS ── -->
+<div class="import-stats">
+  <div class="import-stat import-stat--accent">
+    <span class="import-stat__value"><%= stats.total %></span>
+    <span class="import-stat__label">Total Items</span>
+  </div>
+  <div class="import-stat import-stat--success">
+    <span class="import-stat__value"><%= stats.ready %></span>
+    <span class="import-stat__label">Ready to Import</span>
+  </div>
+  <div class="import-stat import-stat--warn">
+    <span class="import-stat__value"><%= stats.review %></span>
+    <span class="import-stat__label">Need Review</span>
+  </div>
+  <div class="import-stat import-stat--danger">
+    <span class="import-stat__value"><%= stats.noprice %></span>
+    <span class="import-stat__label">Missing Price</span>
+  </div>
+  <div class="import-stat import-stat--warn">
+    <span class="import-stat__value"><%= stats.duplicate %></span>
+    <span class="import-stat__label">Duplicates</span>
+  </div>
+  <div class="import-stat">
+    <span class="import-stat__value"><%= stats.avgConf.toFixed(0) %>%</span>
+    <span class="import-stat__label">Avg Confidence</span>
+  </div>
+</div>
+
+<!-- ── STICKY ACTION BAR ── -->
+<div class="import-actions" id="action-bar">
+  <div class="import-actions__left">
+    <button class="btn btn--small" type="submit" id="import-btn" style="min-height:36px;font-size:13px;">
+      Import <span id="import-count"><%= stats.ready %></span> Items
+    </button>
+    <button class="btn btn--small btn--outline" type="button" id="review-btn" style="min-height:36px;font-size:13px;">
+      Review Issues (<%= stats.review %>)
+    </button>
+    <a class="btn btn--small btn--ghost" href="/admin/vendors/<%= vendor._id %>/menu/import" style="min-height:36px;font-size:13px;">
+      Discard
+    </a>
+  </div>
+  <div class="import-actions__right">
+    <div class="import-search-wrap">
+      <input type="text" id="import-search" placeholder="Search items..." autocomplete="off" />
+    </div>
+  </div>
+</div>
+
+<!-- ── FILTER TABS ── -->
+<div class="import-filters" id="filter-bar">
+  <button class="filter-btn is-active" data-filter="all">
+    All <span class="filter-btn--count"><%= stats.total %></span>
+  </button>
+  <button class="filter-btn" data-filter="review">
+    Need Review <span class="filter-btn--count"><%= stats.review %></span>
+  </button>
+  <button class="filter-btn" data-filter="duplicate">
+    Duplicates <span class="filter-btn--count"><%= stats.duplicate %></span>
+  </button>
+  <button class="filter-btn" data-filter="noprice">
+    Missing Price <span class="filter-btn--count"><%= stats.noprice %></span>
+  </button>
+  <button class="filter-btn" data-filter="lowconf">
+    Low Confidence <span class="filter-btn--count"><%= items.filter(function(it){return it.confidence<0.7}).length %></span>
+  </button>
+  <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+  <button class="filter-btn" data-filter="veg">Veg</button>
+  <button class="filter-btn" data-filter="non-veg">Non-Veg</button>
+  <button class="filter-btn" data-filter="egg">Egg</button>
+  <button class="filter-btn" data-filter="unknown">Unknown</button>
+  <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+  <button class="filter-btn" data-filter="ready">Ready</button>
+</div>
+
+<!-- ── BATCH ACTIONS BAR ── -->
+<div class="batch-bar" id="batch-bar">
+  <span id="batch-count">0</span> selected
+  <select id="batch-action">
+    <option value="">Batch action...</option>
+    <option value="veg">Set Food Type → Veg</option>
+    <option value="non-veg">Set Food Type → Non-Veg</option>
+    <option value="egg">Set Food Type → Egg</option>
+    <option value="unknown">Set Food Type → Unknown</option>
+    <option value="delete">Delete selected</option>
+  </select>
+  <button class="btn btn--small btn--outline" type="button" id="batch-apply" style="min-height:34px;font-size:12px;">Apply</button>
+  <button class="btn btn--small btn--ghost" type="button" id="batch-clear" style="min-height:34px;font-size:12px;">Clear</button>
+</div>
+
+<!-- ── TABLE ── -->
+<div class="import-table-wrap">
+<table class="import-table" id="import-table">
+  <thead>
+    <tr>
+      <th style="width:30px;"><input type="checkbox" id="select-all" /></th>
+      <th style="width:32px;">#</th>
+      <th style="min-width:140px;">Name</th>
+      <th style="width:100px;">Category</th>
+      <th style="width:130px;">Food Type</th>
+      <th style="min-width:160px;">Price / Variants</th>
+      <th style="width:60px;">Conf.</th>
+      <th style="width:90px;">Status</th>
+      <th style="width:40px;"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <% items.forEach(function(item, i) {
+      var status = rowStatus(item);
+      var confClass = item.confidence >= 0.9 ? 'high' : item.confidence >= 0.7 ? 'mid' : 'low';
+    %>
+    <tr class="row--<%= status %>" data-index="<%= i %>" data-name="<%= item.name.toLowerCase() %>" data-category="<%= (item.category||'').toLowerCase() %>" data-foodtype="<%= item.foodType %>" data-confidence="<%= item.confidence %>" data-status="<%= status %>">
+      <td class="cell--center"><input type="checkbox" class="row-select" data-index="<%= i %>" /></td>
+      <td class="cell--center" style="color:var(--muted);font-size:11px;"><%= i+1 %></td>
+      <td>
+        <input name="items[<%= i %>][name]" type="text" value="<%= item.name %>" required />
+      </td>
+      <td>
+        <input name="items[<%= i %>][category]" type="text" value="<%= item.category %>" placeholder="Uncategorized" />
+      </td>
+      <td>
+        <div class="ft-pills" data-index="<%= i %>">
+          <% ['veg','non-veg','egg','unknown'].forEach(function(t) { %>
+            <button type="button" class="ft-pill ft-pill--<%= t %><%= item.foodType === t ? ' is-active' : '' %>" data-value="<%= t %>">
+              <%= {veg:'Veg', 'non-veg':'NV', egg:'Egg', unknown:'?'}[t] %>
+            </button>
+          <% }) %>
+        </div>
+        <input type="hidden" name="items[<%= i %>][foodType]" value="<%= item.foodType %>" />
+      </td>
+      <td>
+        <div class="variant-group" data-index="<%= i %>">
+          <% if (item.variants && item.variants.length > 0) {
+            item.variants.forEach(function(v, j) { %>
+              <div class="variant-row">
+                <input name="items[<%= i %>][variants][<%= j %>][label]" type="text" value="<%= v.label %>" placeholder="Label" />
+                <input name="items[<%= i %>][variants][<%= j %>][price]" type="number" step="0.01" min="0" value="<%= Number(v.price).toFixed(2) %>" required />
+                <button type="button" class="v-remove" title="Remove variant">&times;</button>
+              </div>
+          <% }); } else { %>
+            <div class="variant-row">
+              <input name="items[<%= i %>][variants][0][label]" type="hidden" value="Regular" />
+              <span style="font-size:11px;color:var(--muted);">Regular</span>
+              <input name="items[<%= i %>][variants][0][price]" type="number" step="0.01" min="0" value="0.00" required style="width:60px;" />
+              <button type="button" class="v-remove" title="Remove variant">&times;</button>
+            </div>
+          <% } %>
+          <button type="button" class="add-variant" data-index="<%= i %>">+ Add Variant</button>
+        </div>
+      </td>
+      <td class="cell--center">
+        <span class="conf-badge conf-badge--<%= confClass %>"><%= (item.confidence * 100).toFixed(0) %>%</span>
+      </td>
+      <td>
+        <span class="status-badge status-badge--<%= status %>">
+          <% if (status === 'ready') { %>Ready<% }
+          else if (status === 'review') { %>Needs Review<% }
+          else if (status === 'duplicate') { %>Duplicate<% }
+          else if (status === 'noprice') { %>No Price<% }
+          else if (status === 'lowconf') { %>Low Conf<% } %>
         </span>
-      </div>
+      </td>
+      <td>
+        <div class="row-actions">
+          <button type="button" class="del-btn" data-index="<%= i %>" title="Delete item">&times;</button>
+        </div>
+      </td>
+    </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
 
-      <div style="overflow-x: auto;">
-        <table class="table" style="min-width: 900px;">
-          <thead>
-            <tr>
-              <th style="width: 32px;">#</th>
-              <th>Name</th>
-              <th>Description</th>
-              <th style="width: 100px;">Food Type</th>
-              <th style="min-width: 180px;">Price Variants</th>
-              <th>Category</th>
-              <th style="width: 80px;">Conf.</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% items.forEach(function(item, i) { %>
-              <tr>
-                <td style="text-align: center; color: var(--muted, #888); vertical-align: top; padding-top: 12px;"><%= i + 1 %></td>
-                <td>
-                  <input
-                    name="items[<%= i %>][name]"
-                    type="text"
-                    value="<%= item.name %>"
-                    required
-                    style="width: 100%; min-width: 120px;"
-                  />
-                </td>
-                <td>
-                  <input
-                    name="items[<%= i %>][description]"
-                    type="text"
-                    value="<%= item.description %>"
-                    placeholder="(optional)"
-                    style="width: 100%; min-width: 130px;"
-                  />
-                </td>
-                <td>
-                  <% var types = ["veg", "non-veg", "egg", "unknown"]; %>
-                  <% types.forEach(function(t) { %>
-                    <label style="display: block; white-space: nowrap; font-size: 0.85em; margin-bottom: 3px;">
-                      <input
-                        type="radio"
-                        name="items[<%= i %>][foodType]"
-                        value="<%= t %>"
-                        <%= item.foodType === t ? "checked" : "" %>
-                      />
-                      <%= t.charAt(0).toUpperCase() + t.slice(1) %>
-                    </label>
-                  <% }); %>
-                </td>
-                <td>
-                  <% if (item.variants && item.variants.length > 0) { %>
-                    <% item.variants.forEach(function(v, j) { %>
-                      <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px;">
-                        <input
-                          name="items[<%= i %>][variants][<%= j %>][label]"
-                          type="text"
-                          value="<%= v.label %>"
-                          placeholder="Label"
-                          style="width: 70px; font-size: 0.85em;"
-                        />
-                        <span style="color: var(--muted, #888); font-size: 0.85em;">&#8377;</span>
-                        <input
-                          name="items[<%= i %>][variants][<%= j %>][price]"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value="<%= Number(v.price).toFixed(2) %>"
-                          required
-                          style="width: 80px; font-size: 0.85em;"
-                        />
-                      </div>
-                    <% }); %>
-                  <% } else { %>
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                      <input
-                        name="items[<%= i %>][variants][0][label]"
-                        type="hidden"
-                        value="Regular"
-                      />
-                      <span style="font-size: 0.85em;">Regular</span>
-                      <span style="color: var(--muted, #888); font-size: 0.85em;">&#8377;</span>
-                      <input
-                        name="items[<%= i %>][variants][0][price]"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value="0.00"
-                        required
-                        style="width: 80px; font-size: 0.85em;"
-                      />
-                    </div>
-                  <% } %>
-                </td>
-                <td>
-                  <input
-                    name="items[<%= i %>][category]"
-                    type="text"
-                    value="<%= item.category %>"
-                    style="width: 100%; min-width: 100px;"
-                  />
-                </td>
-                <td style="text-align: center;">
-                  <span class="tag tag--<%= item.confidence >= 0.8 ? 'ok' : item.confidence >= 0.5 ? 'warn' : 'danger' %>" style="font-size: 0.8em;">
-                    <%= (item.confidence * 100).toFixed(0) %>%
-                  </span>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
+</form>
 
-      <div class="row" style="margin-top: 20px; gap: 8px;">
-        <button class="btn" type="submit">Import All Items</button>
-        <a class="btn btn--outline" href="/admin/vendors/<%= vendor._id %>/menu/import">Upload different file</a>
-        <a class="btn btn--ghost" href="/admin/vendors/<%= vendor._id %>/menu">Cancel</a>
-      </div>
-    </div>
-  </form>
-
-  <% if (rawText) { %>
-    <div class="card">
-      <details>
-        <summary style="cursor: pointer; font-weight: 600;">Raw extracted text</summary>
-        <pre style="
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
-          border-radius: 6px;
-          padding: 16px;
-          font-size: 0.85em;
-          line-height: 1.5;
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          max-height: 400px;
-          overflow-y: auto;
-          margin-top: 8px;
-        "><%= rawText %></pre>
-      </details>
-    </div>
-  <% } %>
+<% if (rawText) { %>
+<div class="raw-panel card">
+  <details>
+    <summary>Raw extracted text (<%= rawText.length %> chars)</summary>
+    <pre><%= rawText %></pre>
+  </details>
+</div>
 <% } %>
 
-<div class="card">
-  <p class="muted" style="font-size: 0.85em;">
+<div class="card" style="margin-top:10px;">
+  <p class="muted" style="margin:0;font-size:0.8em;">
     Import ID: <code><%= importId %></code> &middot; File: <code><%= fileName %></code>
   </p>
 </div>
+
+<% } %>
+
+<script>
+(function() {
+  var itemsCount = <%= items.length %>;
+
+  // ── toggle row status helpers ──
+  function getStatus(el) { return el.getAttribute('data-status'); }
+
+  // ── SEARCH ──
+  var searchEl = document.getElementById('import-search');
+  searchEl && searchEl.addEventListener('input', function(e) {
+    var q = e.target.value.toLowerCase().trim();
+    var rows = document.querySelectorAll('#import-table tbody tr');
+    // when search is cleared, re-apply the active filter
+    if (!q) {
+      var activeFilter = document.querySelector('.filter-btn.is-active');
+      if (activeFilter) { activeFilter.click(); }
+      return;
+    }
+    rows.forEach(function(row) {
+      if (row.classList.contains('row--deleted')) return;
+      var text = row.textContent.toLowerCase();
+      row.classList.toggle('is-hidden', text.indexOf(q) === -1);
+    });
+  });
+
+  // ── FILTER TABS ──
+  var filterBtns = document.querySelectorAll('.filter-btn');
+  filterBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      filterBtns.forEach(function(b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      var filter = btn.getAttribute('data-filter');
+      var rows = document.querySelectorAll('#import-table tbody tr');
+      rows.forEach(function(row) {
+        if (row.classList.contains('row--deleted')) return;
+        var status = row.getAttribute('data-status');
+        var ft = row.getAttribute('data-foodtype');
+        var conf = parseFloat(row.getAttribute('data-confidence'));
+        if (filter === 'all') { row.classList.remove('is-hidden'); }
+        else if (filter === 'ready') { row.classList.toggle('is-hidden', status !== 'ready'); }
+        else if (filter === 'review') { row.classList.toggle('is-hidden', status !== 'review'); }
+        else if (filter === 'duplicate') { row.classList.toggle('is-hidden', status !== 'duplicate'); }
+        else if (filter === 'noprice') { row.classList.toggle('is-hidden', status !== 'noprice'); }
+        else if (filter === 'lowconf') { row.classList.toggle('is-hidden', conf >= 0.7); }
+        else if (['veg','non-veg','egg','unknown'].indexOf(filter) !== -1) {
+          row.classList.toggle('is-hidden', ft !== filter);
+        }
+      });
+      // reset search
+      if (searchEl) searchEl.value = '';
+    });
+  });
+
+  // ── FOOD TYPE PILLS ──
+  document.querySelectorAll('.ft-pills').forEach(function(group) {
+    var idx = group.getAttribute('data-index');
+    var hiddenInput = group.parentElement.querySelector('input[name$="[foodType]"]');
+    group.querySelectorAll('.ft-pill').forEach(function(pill) {
+      pill.addEventListener('click', function() {
+        group.querySelectorAll('.ft-pill').forEach(function(p) { p.classList.remove('is-active'); });
+        pill.classList.add('is-active');
+        var val = pill.getAttribute('data-value');
+        if (hiddenInput) hiddenInput.value = val;
+        // update row data attribute for filtering
+        var row = group.closest('tr');
+        if (row) row.setAttribute('data-foodtype', val);
+        // update status based on food type
+        updateRowStatus(row);
+      });
+    });
+  });
+
+  // ── VARIANTS: add / remove ──
+  function reindexVariants(group) {
+    var idx = group.getAttribute('data-index');
+    var rows = group.querySelectorAll('.variant-row');
+    rows.forEach(function(row, j) {
+      var labelInput = row.querySelector('input[name*="[label]"]');
+      var priceInput = row.querySelector('input[name*="[price]"]');
+      if (labelInput) {
+        labelInput.setAttribute('name', 'items[' + idx + '][variants][' + j + '][label]');
+      }
+      if (priceInput) {
+        priceInput.setAttribute('name', 'items[' + idx + '][variants][' + j + '][price]');
+      }
+    });
+  }
+
+  function addVariantToGroup(group) {
+    var idx = group.getAttribute('data-index');
+    var existingRows = group.querySelectorAll('.variant-row');
+    var j = existingRows.length;
+    var div = document.createElement('div');
+    div.className = 'variant-row';
+    div.innerHTML =
+      '<input name="items[' + idx + '][variants][' + j + '][label]" type="text" value="" placeholder="Label" />' +
+      '<input name="items[' + idx + '][variants][' + j + '][price]" type="number" step="0.01" min="0" value="0.00" required />' +
+      '<button type="button" class="v-remove" title="Remove variant">&times;</button>';
+    var addBtn = group.querySelector('.add-variant');
+    group.insertBefore(div, addBtn);
+    // wire remove
+    div.querySelector('.v-remove').addEventListener('click', function() { removeVariant(div); });
+  }
+
+  function removeVariant(row) {
+    var group = row.closest('.variant-group');
+    row.remove();
+    reindexVariants(group);
+    // if no variants left, add a default one
+    if (group.querySelectorAll('.variant-row').length === 0) {
+      addVariantToGroup(group);
+    }
+    var idx = group.getAttribute('data-index');
+    var rowEl = document.querySelector('#import-table tbody tr[data-index="' + idx + '"]');
+    if (rowEl) updateRowStatus(rowEl);
+  }
+
+  document.querySelectorAll('.add-variant').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var group = btn.closest('.variant-group');
+      addVariantToGroup(group);
+      var idx = group.getAttribute('data-index');
+      var rowEl = document.querySelector('#import-table tbody tr[data-index="' + idx + '"]');
+      if (rowEl) updateRowStatus(rowEl);
+    });
+  });
+
+  document.querySelectorAll('.v-remove').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var row = btn.closest('.variant-row');
+      removeVariant(row);
+    });
+  });
+
+  // ── UPDATE ROW STATUS (based on current data) ──
+  function updateRowStatus(row) {
+    if (!row || row.classList.contains('row--deleted')) return;
+    var idx = row.getAttribute('data-index');
+    var ft = row.getAttribute('data-foodtype');
+    var conf = parseFloat(row.getAttribute('data-confidence')) || 0;
+    var name = (row.querySelector('input[name$="[name]"]') || {}).value || '';
+    // check if any variant has a price > 0
+    var hasPrice = false;
+    row.querySelectorAll('input[name*="[price]"]').forEach(function(inp) {
+      if (parseFloat(inp.value) > 0) hasPrice = true;
+    });
+    var isDup = false;
+    var allNames = [];
+    document.querySelectorAll('#import-table tbody tr').forEach(function(r) {
+      var n = (r.querySelector('input[name$="[name]"]') || {}).value || '';
+      if (n) allNames.push(n.toLowerCase().trim());
+    });
+    var nameLower = name.toLowerCase().trim();
+    if (nameLower) {
+      var count = allNames.filter(function(n) { return n === nameLower; }).length;
+      if (count > 1) isDup = true;
+    }
+    var status;
+    if (!hasPrice) status = 'noprice';
+    else if (isDup) status = 'duplicate';
+    else if (ft === 'unknown') status = 'review';
+    else if (conf < 0.7) status = 'lowconf';
+    else status = 'ready';
+    row.setAttribute('data-status', status);
+    // update status badge
+    var badge = row.querySelector('.status-badge');
+    if (badge) {
+      badge.className = 'status-badge status-badge--' + status;
+      var labels = { ready:'Ready', review:'Needs Review', duplicate:'Duplicate', noprice:'No Price', lowconf:'Low Conf' };
+      badge.textContent = labels[status] || status;
+    }
+    // update row class
+    ['ready','review','duplicate','noprice','lowconf'].forEach(function(c) {
+      row.classList.remove('row--' + c);
+    });
+    row.classList.add('row--' + status);
+    updateStats();
+  }
+
+  // ── REINDEX ITEMS after deletion ──
+  function reindexItems() {
+    var rows = document.querySelectorAll('#import-table tbody tr');
+    var newIdx = 0;
+    rows.forEach(function(row) {
+      if (row.classList.contains('row--deleted')) return;
+      row.setAttribute('data-index', newIdx);
+      // update row number display
+      var numCell = row.querySelector('td.cell--center');
+      if (numCell) numCell.textContent = newIdx + 1;
+      // re-index all inputs in this row
+      row.querySelectorAll('input').forEach(function(inp) {
+        var name = inp.getAttribute('name');
+        if (!name) return;
+        // replace the first numeric index in items[N]
+        var newName = name.replace(/items\[\d+\]/, 'items[' + newIdx + ']');
+        inp.setAttribute('name', newName);
+      });
+      // update data-index on child elements
+      row.querySelectorAll('[data-index]').forEach(function(el) {
+        el.setAttribute('data-index', newIdx);
+      });
+      newIdx++;
+    });
+  }
+
+  // ── DELETE ROW ──
+  document.querySelectorAll('.del-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var row = btn.closest('tr');
+      row.classList.add('row--deleted');
+      // remove name attribute from all inputs in this row so they aren't submitted
+      row.querySelectorAll('input').forEach(function(el) {
+        el.removeAttribute('name');
+      });
+      // re-index remaining rows
+      reindexItems();
+      updateStats();
+    });
+  });
+
+  // ── SELECT ALL ──
+  document.getElementById('select-all').addEventListener('change', function() {
+    var checked = this.checked;
+    document.querySelectorAll('.row-select').forEach(function(cb) {
+      var row = cb.closest('tr');
+      if (!row.classList.contains('row--deleted') && !row.classList.contains('is-hidden')) {
+        cb.checked = checked;
+      }
+    });
+    updateBatchBar();
+  });
+
+  // ── ROW SELECT ──
+  document.querySelectorAll('.row-select').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      updateBatchBar();
+    });
+  });
+
+  function updateBatchBar() {
+    var selected = document.querySelectorAll('.row-select:checked').length;
+    var bar = document.getElementById('batch-bar');
+    var count = document.getElementById('batch-count');
+    if (count) count.textContent = selected;
+    if (bar) bar.classList.toggle('is-visible', selected > 0);
+  }
+
+  // ── BATCH ACTIONS ──
+  document.getElementById('batch-apply').addEventListener('click', function() {
+    var action = document.getElementById('batch-action').value;
+    if (!action) return;
+    var checked = document.querySelectorAll('.row-select:checked');
+    var rowsToDelete = [];
+    checked.forEach(function(cb) {
+      var row = cb.closest('tr');
+      if (action === 'delete') {
+        rowsToDelete.push(row);
+        return;
+      }
+      var idx = row.getAttribute('data-index');
+      // food type actions
+      var ftInput = row.querySelector('input[name$="[foodType]"]');
+      if (ftInput) ftInput.value = action;
+      row.setAttribute('data-foodtype', action);
+      row.querySelectorAll('.ft-pill').forEach(function(p) {
+        p.classList.toggle('is-active', p.getAttribute('data-value') === action);
+      });
+      updateRowStatus(row);
+    });
+    // batch delete
+    if (action === 'delete') {
+      rowsToDelete.forEach(function(row) {
+        row.classList.add('row--deleted');
+        row.querySelectorAll('input').forEach(function(el) { el.removeAttribute('name'); });
+      });
+      reindexItems();
+      updateStats();
+    } else {
+      updateStats();
+    }
+    // clear selection
+    document.querySelectorAll('.row-select').forEach(function(cb) { cb.checked = false; });
+    document.getElementById('select-all').checked = false;
+    updateBatchBar();
+  });
+
+  document.getElementById('batch-clear').addEventListener('click', function() {
+    document.querySelectorAll('.row-select').forEach(function(cb) { cb.checked = false; });
+    document.getElementById('select-all').checked = false;
+    updateBatchBar();
+  });
+
+  // ── UPDATE STATS ──
+  function updateStats() {
+    var total = 0, ready = 0, review = 0, noprice = 0, duplicate = 0, confSum = 0;
+    document.querySelectorAll('#import-table tbody tr').forEach(function(row) {
+      if (row.classList.contains('row--deleted')) return;
+      total++;
+      var status = row.getAttribute('data-status');
+      var conf = parseFloat(row.getAttribute('data-confidence')) || 0;
+      confSum += conf;
+      if (status === 'ready') ready++;
+      else if (status === 'review') review++;
+      else if (status === 'duplicate') duplicate++;
+      else if (status === 'noprice') noprice++;
+    });
+    // update import button count
+    var importCount = document.getElementById('import-count');
+    if (importCount) importCount.textContent = ready;
+    // update count badges in filter tabs
+    var allTab = document.querySelector('.filter-btn[data-filter="all"] .filter-btn--count');
+    if (allTab) allTab.textContent = total;
+    var readyTab = document.querySelector('.filter-btn[data-filter="ready"] .filter-btn--count');
+    if (readyTab) readyTab.textContent = ready;
+    var reviewTab = document.querySelector('.filter-btn[data-filter="review"] .filter-btn--count');
+    if (reviewTab) reviewTab.textContent = review;
+    var dupTab = document.querySelector('.filter-btn[data-filter="duplicate"] .filter-btn--count');
+    if (dupTab) dupTab.textContent = duplicate;
+    var npTab = document.querySelector('.filter-btn[data-filter="noprice"] .filter-btn--count');
+    if (npTab) npTab.textContent = noprice;
+    // update review button
+    var reviewBtn = document.getElementById('review-btn');
+    if (reviewBtn) reviewBtn.textContent = 'Review Issues (' + (review + noprice + duplicate) + ')';
+  }
+
+  // ── REVIEW ISSUES BUTTON ──
+  document.getElementById('review-btn').addEventListener('click', function() {
+    // click the "Need Review" filter tab
+    var tab = document.querySelector('.filter-btn[data-filter="review"]');
+    if (tab) tab.click();
+    // also include duplicates and noprice
+    // Actually, let's toggle between all and review
+    var current = document.querySelector('.filter-btn.is-active');
+    if (current && current.getAttribute('data-filter') === 'all') {
+      var reviewFilter = document.querySelector('.filter-btn[data-filter="review"]');
+      if (reviewFilter) reviewFilter.click();
+    } else {
+      var allFilter = document.querySelector('.filter-btn[data-filter="all"]');
+      if (allFilter) allFilter.click();
+    }
+  });
+
+  // ── IMPORT BUTTON: show count in confirm dialog ──
+  document.getElementById('import-form').addEventListener('submit', function(e) {
+    var visibleReady = 0;
+    document.querySelectorAll('#import-table tbody tr.row--ready').forEach(function(row) {
+      if (!row.classList.contains('row--deleted') && !row.classList.contains('is-hidden')) visibleReady++;
+    });
+    // allow submit regardless
+  });
+
+  // ── SEARCH ON FILTER CHANGE: reset search when filter changes ──
+  filterBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (searchEl) searchEl.value = '';
+    });
+  });
+
+  // ── NAME CHANGE: re-check all rows for duplicates ──
+  function refreshAllStatuses() {
+    // sync data-name attributes from input values
+    document.querySelectorAll('#import-table tbody tr').forEach(function(r) {
+      var n = (r.querySelector('input[name$="[name]"]') || {}).value || '';
+      r.setAttribute('data-name', n.toLowerCase());
+    });
+    // re-evaluate every row
+    document.querySelectorAll('#import-table tbody tr').forEach(function(r) {
+      updateRowStatus(r);
+    });
+  }
+
+  document.querySelectorAll('input[name$="[name]"]').forEach(function(inp) {
+    inp.addEventListener('input', refreshAllStatuses);
+  });
+
+  // ── PRICE CHANGE: update status ──
+  document.querySelectorAll('input[name*="[price]"]').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      var row = inp.closest('tr');
+      if (row) updateRowStatus(row);
+    });
+  });
+
+  // ── LIVE SEARCH KEYBOARD SHORTCUT: Ctrl+/ or Cmd+/ to focus search ──
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+      e.preventDefault();
+      if (searchEl) searchEl.focus();
+    }
+  });
+
+})();
+</script>
 
 <%- include("../partials/layout-end") %>
 <%- include("../../partials/footer") %>
