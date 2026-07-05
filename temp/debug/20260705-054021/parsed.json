@@ -1,0 +1,954 @@
+{
+  "items": [
+    {
+      "name": "Lemon Chicken Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Drums of Heaven Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Grill Chicken Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken Manchurian Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken Chilli Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer Manchurian Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer Chilli Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Gobi Chilli Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Gobi Manchurian Bowl",
+      "description": "",
+      "category": "1.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "French Fries",
+      "description": "",
+      "category": "1.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Peri Peri Fries",
+      "description": "",
+      "category": "2.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Cheesy Fries",
+      "description": "",
+      "category": "2.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Cheesy Peri Peri Fries",
+      "description": "",
+      "category": "2.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Falafel",
+      "description": "",
+      "category": "2.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken Nuggets",
+      "description": "",
+      "category": "2.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Gobi Manchurian",
+      "description": "",
+      "category": "2.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Gobi Chilli",
+      "description": "",
+      "category": "2.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Gobi 65",
+      "description": "",
+      "category": "2.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Baby corn Manchurian",
+      "description": "",
+      "category": "2.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Baby corn Chilli",
+      "description": "",
+      "category": "2.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Baby corn 65",
+      "description": "",
+      "category": "3.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer Manchurian",
+      "description": "",
+      "category": "3.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer Chilli",
+      "description": "",
+      "category": "3.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer 65",
+      "description": "",
+      "category": "3.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Honey Chilli Potato",
+      "description": "",
+      "category": "3.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chilli Chicken",
+      "description": "",
+      "category": "3.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken Manchurian",
+      "description": "",
+      "category": "3.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Lemon Chicken",
+      "description": "",
+      "category": "3.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken Salt n Pepper Dry",
+      "description": "",
+      "category": "3.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken 65",
+      "description": "",
+      "category": "3.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Garlic Chicken",
+      "description": "",
+      "category": "4.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Drums Of Heaven (5pcs)",
+      "description": "",
+      "category": "4.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken Lollipop (5pcs)",
+      "description": "",
+      "category": "4.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Honey Chilli Wings (6pcs)",
+      "description": "",
+      "category": "4.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Peri-Peri Wings (6pcs)",
+      "description": "",
+      "category": "4.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Dargon Chicken",
+      "description": "",
+      "category": "4.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Veg Fried Rice",
+      "description": "",
+      "category": "4.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 99
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Veg Schezwan Fried Rice",
+      "description": "",
+      "category": "4.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Egg Fried Rice",
+      "description": "",
+      "category": "4.",
+      "foodType": "egg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Egg Schezwan Fried Rice",
+      "description": "",
+      "category": "4.",
+      "foodType": "egg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken Fried Rice",
+      "description": "",
+      "category": "5.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Chicken Schezwan Fried Rice",
+      "description": "",
+      "category": "5.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Plane Rice",
+      "description": "",
+      "category": "5.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 89
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Ghee Rice",
+      "description": "",
+      "category": "5.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Jeera Rice",
+      "description": "",
+      "category": "5.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Dal Fry",
+      "description": "",
+      "category": "5.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Dal Makhani",
+      "description": "",
+      "category": "5.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Punjabi Chole",
+      "description": "",
+      "category": "5.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Rajma",
+      "description": "",
+      "category": "5.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer Butter Masala",
+      "description": "",
+      "category": "5.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 139
+        },
+        {
+          "label": "Full",
+          "price": 219
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer Kadai",
+      "description": "",
+      "category": "6.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 139
+        },
+        {
+          "label": "Full",
+          "price": 219
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer Hyderabadi",
+      "description": "",
+      "category": "6.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 139
+        },
+        {
+          "label": "Full",
+          "price": 219
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Butter Chicken",
+      "description": "",
+      "category": "6.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Paneer Butter Masala",
+      "description": "",
+      "category": "6.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Murg Masala",
+      "description": "",
+      "category": "6.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Murg Hyderabadi",
+      "description": "",
+      "category": "6.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Murg Lajawab",
+      "description": "",
+      "category": "6.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 169
+        },
+        {
+          "label": "Full",
+          "price": 269
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Murg Do Pyaja",
+      "description": "",
+      "category": "6.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Murg Kadai",
+      "description": "",
+      "category": "6.",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Half",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Roomaali Roti",
+      "description": "",
+      "category": "6.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 20
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Laccha Paratha",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 20
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Soft Drink (Glass Bottle)",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 10
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Water Bottle (Glass Bottle) (Half ltr)",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 20
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Mayonnaise Dip",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 10
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "No Veggies",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 30
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Extra Flavor",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 10
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Soft Drinks",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 49
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Fresh Lime Soda",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 59
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Mint Lime Soda",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 59
+        }
+      ],
+      "confidence": 1
+    },
+    {
+      "name": "Masala Lemonade",
+      "description": "",
+      "category": "7.",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 59
+        }
+      ],
+      "confidence": 1
+    }
+  ]
+}

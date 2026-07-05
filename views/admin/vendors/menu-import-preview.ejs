@@ -470,9 +470,9 @@ function rowStatus(it) {
     <button class="btn btn--small btn--outline" type="button" id="review-btn" style="min-height:36px;font-size:13px;">
       Review Issues (<%= stats.review %>)
     </button>
-    <a class="btn btn--small btn--ghost" href="/admin/vendors/<%= vendor._id %>/menu/import" style="min-height:36px;font-size:13px;">
+    <button type="button" class="btn btn--small btn--ghost" id="discard-btn" style="min-height:36px;font-size:13px;">
       Discard
-    </a>
+    </button>
   </div>
   <div class="import-actions__right">
     <div class="import-search-wrap">
@@ -483,28 +483,28 @@ function rowStatus(it) {
 
 <!-- ── FILTER TABS ── -->
 <div class="import-filters" id="filter-bar">
-  <button class="filter-btn is-active" data-filter="all">
+  <button type="button" class="filter-btn is-active" data-filter="all">
     All <span class="filter-btn--count"><%= stats.total %></span>
   </button>
-  <button class="filter-btn" data-filter="review">
+  <button type="button" class="filter-btn" data-filter="review">
     Need Review <span class="filter-btn--count"><%= stats.review %></span>
   </button>
-  <button class="filter-btn" data-filter="duplicate">
+  <button type="button" class="filter-btn" data-filter="duplicate">
     Duplicates <span class="filter-btn--count"><%= stats.duplicate %></span>
   </button>
-  <button class="filter-btn" data-filter="noprice">
+  <button type="button" class="filter-btn" data-filter="noprice">
     Missing Price <span class="filter-btn--count"><%= stats.noprice %></span>
   </button>
-  <button class="filter-btn" data-filter="lowconf">
+  <button type="button" class="filter-btn" data-filter="lowconf">
     Low Confidence <span class="filter-btn--count"><%= items.filter(function(it){return it.confidence<0.7}).length %></span>
   </button>
   <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
-  <button class="filter-btn" data-filter="veg">Veg</button>
-  <button class="filter-btn" data-filter="non-veg">Non-Veg</button>
-  <button class="filter-btn" data-filter="egg">Egg</button>
-  <button class="filter-btn" data-filter="unknown">Unknown</button>
+  <button type="button" class="filter-btn" data-filter="veg">Veg</button>
+  <button type="button" class="filter-btn" data-filter="non-veg">Non-Veg</button>
+  <button type="button" class="filter-btn" data-filter="egg">Egg</button>
+  <button type="button" class="filter-btn" data-filter="unknown">Unknown</button>
   <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
-  <button class="filter-btn" data-filter="ready">Ready</button>
+  <button type="button" class="filter-btn" data-filter="ready">Ready</button>
 </div>
 
 <!-- ── BATCH ACTIONS BAR ── -->
@@ -627,6 +627,13 @@ function rowStatus(it) {
 <script>
 (function() {
   var itemsCount = <%= items.length %>;
+
+  // ── PREVENT ENTER from submitting the form inside any text input ──
+  document.getElementById('import-form').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+      e.preventDefault();
+    }
+  });
 
   // ── toggle row status helpers ──
   function getStatus(el) { return el.getAttribute('data-status'); }
@@ -916,6 +923,24 @@ function rowStatus(it) {
     updateBatchBar();
   });
 
+  // ── DISCARD (delete selected rows) ──
+  document.getElementById('discard-btn').addEventListener('click', function() {
+    var checked = document.querySelectorAll('.row-select:checked');
+    if (checked.length === 0) return;
+    if (!confirm('Discard ' + checked.length + ' selected item(s)? This cannot be undone.')) return;
+    checked.forEach(function(cb) {
+      var row = cb.closest('tr');
+      if (!row || row.classList.contains('row--deleted')) return;
+      row.classList.add('row--deleted');
+      row.querySelectorAll('input').forEach(function(el) { el.removeAttribute('name'); });
+    });
+    reindexItems();
+    updateStats();
+    document.querySelectorAll('.row-select').forEach(function(cb) { cb.checked = false; });
+    document.getElementById('select-all').checked = false;
+    updateBatchBar();
+  });
+
   // ── UPDATE STATS ──
   function updateStats() {
     var total = 0, ready = 0, review = 0, noprice = 0, duplicate = 0, confSum = 0;
@@ -951,18 +976,20 @@ function rowStatus(it) {
 
   // ── REVIEW ISSUES BUTTON ──
   document.getElementById('review-btn').addEventListener('click', function() {
-    // click the "Need Review" filter tab
-    var tab = document.querySelector('.filter-btn[data-filter="review"]');
-    if (tab) tab.click();
-    // also include duplicates and noprice
-    // Actually, let's toggle between all and review
-    var current = document.querySelector('.filter-btn.is-active');
-    if (current && current.getAttribute('data-filter') === 'all') {
-      var reviewFilter = document.querySelector('.filter-btn[data-filter="review"]');
-      if (reviewFilter) reviewFilter.click();
+    // Toggle between "all" view and "issues" view (everything except ready)
+    var allBtn = document.querySelector('.filter-btn[data-filter="all"]');
+    var currentFilter = document.querySelector('.filter-btn.is-active');
+    if (currentFilter && currentFilter.getAttribute('data-filter') === 'all') {
+      // Switch to issues: hide every row whose status is "ready"
+      filterBtns.forEach(function(b) { b.classList.remove('is-active'); });
+      document.querySelectorAll('#import-table tbody tr').forEach(function(row) {
+        if (row.classList.contains('row--deleted')) return;
+        row.classList.toggle('is-hidden', row.getAttribute('data-status') === 'ready');
+      });
+      if (searchEl) searchEl.value = '';
     } else {
-      var allFilter = document.querySelector('.filter-btn[data-filter="all"]');
-      if (allFilter) allFilter.click();
+      // Switch back to all
+      if (allBtn) allBtn.click();
     }
   });
 

@@ -1,0 +1,1240 @@
+{
+  "items": [
+    {
+      "name": "Lemon Chicken Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Drums of Heaven Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Grill Chicken Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Manchurian Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Chilli Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Manchurian Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Chilli Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Gobi Chilli Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Gobi Manchurian Bowl",
+      "description": "",
+      "category": "RICE AND NOODLES BOWLS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "French Fries",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Peri Peri Fries",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Cheesy Fries",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Cheesy Peri Peri Fries",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Falafel",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Nuggets",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Gobi Manchurian",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Gobi Chilli",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Gobi 65",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Baby corn Manchurian",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Baby corn Chilli",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Baby corn 65",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Manchurian",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Chilli",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer 65",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Honey Chilli Potato",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chilli Chicken",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Manchurian",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Lemon Chicken",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Salt n Pepper Dry",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken 65",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Garlic Chicken",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 179
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Drums Of Heaven (5pcs)",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Lollipop (5pcs)",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Honey Chilli Wings (6pcs)",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Peri-Peri Wings (6pcs)",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Dargon Chicken",
+      "description": "",
+      "category": "STARTERS",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 189
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Veg Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 99
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Veg Schezwan Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Egg Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "egg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Egg Schezwan Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "egg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Schezwan Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Plane Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 89
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Ghee Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Jeera Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Dal Fry",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Dal Makhani",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Punjabi Chole",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Rajma",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Butter Masala",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        },
+        {
+          "label": "Full",
+          "price": 219
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Kadai",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        },
+        {
+          "label": "Full",
+          "price": 219
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Hyderabadi",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        },
+        {
+          "label": "Full",
+          "price": 219
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Butter Chicken",
+      "description": "",
+      "category": "INDIAN GRAVIES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Butter Masala",
+      "description": "",
+      "category": "INDIAN GRAVIES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Murg Masala",
+      "description": "",
+      "category": "INDIAN GRAVIES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Murg Hyderabadi",
+      "description": "",
+      "category": "INDIAN GRAVIES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Murg Lajawab",
+      "description": "",
+      "category": "INDIAN GRAVIES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 169
+        },
+        {
+          "label": "Full",
+          "price": 269
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Murg Do Pyaja",
+      "description": "",
+      "category": "INDIAN GRAVIES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Murg Kadai",
+      "description": "",
+      "category": "INDIAN GRAVIES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 149
+        },
+        {
+          "label": "Full",
+          "price": 249
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Veg Noodles",
+      "description": "",
+      "category": "NOODLES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 99
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Veg Schezwan Noodles",
+      "description": "",
+      "category": "NOODLES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Egg Noodles",
+      "description": "",
+      "category": "NOODLES",
+      "foodType": "egg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Egg Schezwan Noodles",
+      "description": "",
+      "category": "NOODLES",
+      "foodType": "egg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Noodles",
+      "description": "",
+      "category": "NOODLES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Schezwan Noodles",
+      "description": "",
+      "category": "NOODLES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Roomaali Roti",
+      "description": "",
+      "category": "ADD ONS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 20
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Laccha Paratha",
+      "description": "",
+      "category": "ADD ONS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 20
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Soft Drink (Glass Bottle)",
+      "description": "",
+      "category": "ADD ONS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 10
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Water Bottle (Glass Bottle) (Half ltr)",
+      "description": "",
+      "category": "ADD ONS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 20
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Mayonnaise Dip",
+      "description": "",
+      "category": "ADD ONS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 10
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "No Veggies",
+      "description": "",
+      "category": "ADD ONS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 30
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Extra Flavor",
+      "description": "",
+      "category": "ADD ONS",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 10
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "French Fries",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Peri Peri Fries",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Cheesy Fries",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Cheesy Peri Peri Fries",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Nuggets",
+      "description": "",
+      "category": "SIDES",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Veg Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 99
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Veg Schezwan Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 109
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Egg Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "egg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Egg Schezwan Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "egg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Schezwan Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Paneer Schezwan Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 129
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Jeera Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 89
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Ghee Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 119
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Chicken Fried Rice",
+      "description": "",
+      "category": "RICE",
+      "foodType": "non-veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 139
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Soft Drinks",
+      "description": "",
+      "category": "BEVERAGES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 49
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Fresh Lime Soda",
+      "description": "",
+      "category": "BEVERAGES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 59
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Mint Lime Soda",
+      "description": "",
+      "category": "BEVERAGES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 59
+        }
+      ],
+      "confidence": 0.98
+    },
+    {
+      "name": "Masala Lemonade",
+      "description": "",
+      "category": "BEVERAGES",
+      "foodType": "veg",
+      "variants": [
+        {
+          "label": "Regular",
+          "price": 59
+        }
+      ],
+      "confidence": 0.98
+    }
+  ]
+}
