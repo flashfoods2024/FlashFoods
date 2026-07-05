@@ -1,9 +1,0 @@
-=== Gemini Extraction Debug Report ===
-
-finishReason: STOP
-usageMetadata: {"promptTokenCount":1300,"candidatesTokenCount":5346,"totalTokenCount":6646,"promptTokensDetails":[{"modality":"TEXT","tokenCount":220},{"modality":"IMAGE","tokenCount":1080}],"serviceTier":"standard"}
-responseLength: 15768 chars
-parserStage: fence-extract
-recoveryMethod: N/A
-success: true
-failureReason: N/A

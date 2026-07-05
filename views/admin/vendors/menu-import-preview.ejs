@@ -638,49 +638,57 @@ function rowStatus(it) {
   // ── toggle row status helpers ──
   function getStatus(el) { return el.getAttribute('data-status'); }
 
-  // ── SEARCH ──
+  // ── UNIFIED FILTER + SEARCH PIPELINE ──
   var searchEl = document.getElementById('import-search');
-  searchEl && searchEl.addEventListener('input', function(e) {
-    var q = e.target.value.toLowerCase().trim();
+  var filterBtns = document.querySelectorAll('.filter-btn');
+
+  var reviewMode = false;
+
+  function applyFilters() {
+    var q = searchEl ? searchEl.value.toLowerCase().trim() : '';
+    var activeBtn = document.querySelector('.filter-btn.is-active');
+    var filter = activeBtn ? activeBtn.getAttribute('data-filter') : 'all';
     var rows = document.querySelectorAll('#import-table tbody tr');
-    // when search is cleared, re-apply the active filter
-    if (!q) {
-      var activeFilter = document.querySelector('.filter-btn.is-active');
-      if (activeFilter) { activeFilter.click(); }
-      return;
-    }
     rows.forEach(function(row) {
       if (row.classList.contains('row--deleted')) return;
-      var text = row.textContent.toLowerCase();
-      row.classList.toggle('is-hidden', text.indexOf(q) === -1);
+      var show = true;
+      // text search: case-insensitive partial match against row text
+      if (q) {
+        var text = row.textContent.toLowerCase();
+        if (text.indexOf(q) === -1) show = false;
+      }
+      // status / food-type filter
+      if (show && filter !== 'all') {
+        var status = row.getAttribute('data-status');
+        var ft = row.getAttribute('data-foodtype');
+        var conf = parseFloat(row.getAttribute('data-confidence'));
+        if (filter === 'ready')         { if (status !== 'ready') show = false; }
+        else if (filter === 'review')   { if (status !== 'review') show = false; }
+        else if (filter === 'duplicate'){ if (status !== 'duplicate') show = false; }
+        else if (filter === 'noprice')  { if (status !== 'noprice') show = false; }
+        else if (filter === 'lowconf')  { if (conf >= 0.7) show = false; }
+        else if (filter === 'veg' || filter === 'non-veg' || filter === 'egg' || filter === 'unknown') {
+          if (ft !== filter) show = false;
+        }
+      }
+      // review mode: hide ready rows (unless explicitly viewing ready)
+      if (show && reviewMode && filter !== 'ready') {
+        if (row.getAttribute('data-status') === 'ready') show = false;
+      }
+      row.classList.toggle('is-hidden', !show);
     });
-  });
+  }
 
-  // ── FILTER TABS ──
-  var filterBtns = document.querySelectorAll('.filter-btn');
+  // Search input → immediate live filtering
+  searchEl && searchEl.addEventListener('input', applyFilters);
+
+  // Filter tabs → update active state then re-filter (preserve search text)
   filterBtns.forEach(function(btn) {
     btn.addEventListener('click', function() {
       filterBtns.forEach(function(b) { b.classList.remove('is-active'); });
       btn.classList.add('is-active');
-      var filter = btn.getAttribute('data-filter');
-      var rows = document.querySelectorAll('#import-table tbody tr');
-      rows.forEach(function(row) {
-        if (row.classList.contains('row--deleted')) return;
-        var status = row.getAttribute('data-status');
-        var ft = row.getAttribute('data-foodtype');
-        var conf = parseFloat(row.getAttribute('data-confidence'));
-        if (filter === 'all') { row.classList.remove('is-hidden'); }
-        else if (filter === 'ready') { row.classList.toggle('is-hidden', status !== 'ready'); }
-        else if (filter === 'review') { row.classList.toggle('is-hidden', status !== 'review'); }
-        else if (filter === 'duplicate') { row.classList.toggle('is-hidden', status !== 'duplicate'); }
-        else if (filter === 'noprice') { row.classList.toggle('is-hidden', status !== 'noprice'); }
-        else if (filter === 'lowconf') { row.classList.toggle('is-hidden', conf >= 0.7); }
-        else if (['veg','non-veg','egg','unknown'].indexOf(filter) !== -1) {
-          row.classList.toggle('is-hidden', ft !== filter);
-        }
-      });
-      // reset search
-      if (searchEl) searchEl.value = '';
+      reviewMode = false;
+      applyFilters();
     });
   });
 
@@ -976,21 +984,16 @@ function rowStatus(it) {
 
   // ── REVIEW ISSUES BUTTON ──
   document.getElementById('review-btn').addEventListener('click', function() {
-    // Toggle between "all" view and "issues" view (everything except ready)
-    var allBtn = document.querySelector('.filter-btn[data-filter="all"]');
-    var currentFilter = document.querySelector('.filter-btn.is-active');
-    if (currentFilter && currentFilter.getAttribute('data-filter') === 'all') {
-      // Switch to issues: hide every row whose status is "ready"
-      filterBtns.forEach(function(b) { b.classList.remove('is-active'); });
-      document.querySelectorAll('#import-table tbody tr').forEach(function(row) {
-        if (row.classList.contains('row--deleted')) return;
-        row.classList.toggle('is-hidden', row.getAttribute('data-status') === 'ready');
-      });
-      if (searchEl) searchEl.value = '';
-    } else {
-      // Switch back to all
-      if (allBtn) allBtn.click();
+    reviewMode = !reviewMode;
+    // When entering review mode, switch to "all" filter if on a specific filter
+    if (reviewMode) {
+      var allBtn = document.querySelector('.filter-btn[data-filter="all"]');
+      if (allBtn && !allBtn.classList.contains('is-active')) {
+        filterBtns.forEach(function(b) { b.classList.remove('is-active'); });
+        allBtn.classList.add('is-active');
+      }
     }
+    applyFilters();
   });
 
   // ── IMPORT BUTTON: show count in confirm dialog ──
@@ -1000,13 +1003,6 @@ function rowStatus(it) {
       if (!row.classList.contains('row--deleted') && !row.classList.contains('is-hidden')) visibleReady++;
     });
     // allow submit regardless
-  });
-
-  // ── SEARCH ON FILTER CHANGE: reset search when filter changes ──
-  filterBtns.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      if (searchEl) searchEl.value = '';
-    });
   });
 
   // ── NAME CHANGE: re-check all rows for duplicates ──
