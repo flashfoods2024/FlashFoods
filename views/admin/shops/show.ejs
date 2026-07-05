@@ -75,7 +75,7 @@
           <% menuItems.forEach((item) => { %>
             <tr>
               <td><strong><%= item.name %></strong><div class="muted small"><%= item.description || "No description" %></div></td>
-              <td><%= formatMoney(item.price) %></td>
+              <td><%= formatMoney(item.variants && item.variants[0] ? item.variants[0].price : item.price) %></td>
               <td><span class="tag tag--<%= item.available ? "ok" : "muted" %>"><%= item.available ? "Available" : "Unavailable" %></span></td>
             </tr>
           <% }) %>

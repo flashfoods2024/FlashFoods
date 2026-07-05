@@ -226,6 +226,7 @@ vendorRouter.post(
       description,
       price,
       image,
+      variants: [{ label: "Regular", price }],
     });
 
     req.flash("success", "Menu item created.");
@@ -271,6 +272,9 @@ vendorRouter.patch(
     item.name = name;
     item.description = description;
     item.price = price;
+    if (item.variants && item.variants.length > 0) {
+      item.variants[0].price = price;
+    }
     if (req.file?.path) {
       item.image = req.file.path;
     }
@@ -286,6 +290,7 @@ vendorRouter.patch(
         price: item.price,
         image: item.image,
         available: item.available,
+        variants: item.variants,
       },
     });
   },

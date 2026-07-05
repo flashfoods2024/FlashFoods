@@ -463,7 +463,7 @@ var isStudent = mode === 'student';
             <% }); %>
           </div>
         <% } else { %>
-          <span class="variant-price">₹<%= Number(item.price || 0).toFixed(2) %></span>
+          <span class="variant-price">₹<%= Number(item.variants && item.variants[0] ? item.variants[0].price : (item.price || 0)).toFixed(2) %></span>
         <% } %>
       </td>
       <td class="cell--center">
