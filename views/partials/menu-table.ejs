@@ -245,6 +245,15 @@ var isStudent = mode === 'student';
 .avail-badge--yes { background: var(--green-soft); color: #166534; }
 .avail-badge--no { background: var(--danger-soft); color: #991b1b; }
 
+/* menu item image (student mode) */
+.menu-item-img {
+  width: 54px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
 /* variants inline display */
 .variant-group { display: flex; flex-direction: column; gap: 3px; }
 .variant-row { display: flex; gap: 3px; align-items: center; }
@@ -345,6 +354,9 @@ var isStudent = mode === 'student';
       <th style="width:30px;"><input type="checkbox" id="select-all" /></th>
       <th style="width:32px;">#</th>
       <% } %>
+      <% if (isStudent) { %>
+      <th style="width:70px;">Photo</th>
+      <% } %>
       <th style="min-width:140px;">Item Name</th>
       <th style="width:100px;">Category</th>
       <th style="width:130px;">Food Type</th>
@@ -430,6 +442,9 @@ var isStudent = mode === 'student';
       </td>
       <% } %>
       <% if (isStudent) { %>
+      <td>
+        <img class="menu-item-img" src="<%= item.image || '/food-placeholder.svg' %>" alt="<%= item.name %>" loading="lazy" />
+      </td>
       <td class="cell--text"><%= item.name %></td>
       <td><span class="cell--muted"><%= item.category || '—' %></span></td>
       <td>
