@@ -43,7 +43,11 @@
           <ul class="vendor-order-card__items">
             <% order.items.forEach((item) => { %>
               <li>
-                <span><%= item.name %></span>
+                <span><%= item.name %>
+                  <% if (item.variantName) { %>
+                    <span class="muted small">(<%= item.variantName %>)</span>
+                  <% } %>
+                </span>
                 <strong><%= item.quantity %> x</strong>
               </li>
             <% }) %>

@@ -128,7 +128,9 @@
   <ul class="vendor-detail-items">
     <% order.items.forEach((item) => { %>
       <li class="<%= item.status === 'removed' ? 'item-removed' : '' %>">
-        <span><%= item.name %></span>
+        <span><%= item.name %>
+          <% if (item.variantName) { %><span class="muted small">(<%= item.variantName %>)</span><% } %>
+        </span>
         <strong>&times;<%= item.quantity %></strong>
         <% if (item.status === "removed") { %><span class="muted small"> (removed)</span><% } %>
       </li>

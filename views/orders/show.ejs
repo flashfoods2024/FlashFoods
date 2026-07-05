@@ -87,7 +87,9 @@
   <ul class="plain-list">
     <% order.items.forEach((line) => { %>
       <li class="<%= line.status === 'removed' ? 'item-removed' : '' %>">
-        <%= line.quantity %> x <%= line.name %> - &#8377;<%= (line.price * line.quantity).toFixed(2) %>
+        <%= line.quantity %> x <%= line.name %>
+        <% if (line.variantName) { %><span class="muted">(Variant: <%= line.variantName %>)</span><% } %>
+        - &#8377;<%= (line.price * line.quantity).toFixed(2) %>
         <% if (line.status === "removed") { %><span class="muted small"> (unavailable)</span><% } %>
       </li>
     <% }) %>

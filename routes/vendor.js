@@ -392,6 +392,7 @@ vendorRouter.get(
           .map((item) => ({
             name: item.name,
             quantity: item.quantity,
+            variantName: item.variantName || null,
           })),
       }));
       res.json({ orders: payload });

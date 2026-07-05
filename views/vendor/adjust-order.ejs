@@ -48,7 +48,7 @@
                 data-index="<%= idx %>"
               />
             </td>
-            <td><%= item.name %></td>
+            <td><%= item.name %><% if (item.variantName) { %> <span class="muted small">(<%= item.variantName %>)</span><% } %></td>
             <td><%= item.quantity %></td>
             <td>&#8377;<%= Number(item.price).toFixed(2) %></td>
             <td class="item-subtotal">&#8377;<%= (item.price * item.quantity).toFixed(2) %></td>

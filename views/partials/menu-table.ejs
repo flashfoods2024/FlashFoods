@@ -1,0 +1,484 @@
+<%
+// ── Shared Menu Table Partial ─────────────────────────────────
+// Parameters:
+//   mode  : 'vendor' (editable, with admin controls)
+//         | 'student' (read-only, with cart/view actions)
+//   items : array of item objects
+//
+// Items interface:
+//   .name       (string)
+//   .category   (string, optional)
+//   .foodType   (string: 'veg'|'non-veg'|'egg'|'unknown')
+//   .variants   (array of {label, price})
+//
+// Vendor mode additionally:
+//   .confidence (number 0-1)
+//   .rowStatus  (string)  — precomputed server-side
+//
+// Student mode additionally:
+//   ._id        (string)
+//   .available  (boolean)
+//   .description(string)
+//   .price      (number)  — base price if no variants
+%>
+<%
+var isVendor = mode === 'vendor';
+var isStudent = mode === 'student';
+%>
+
+<style>
+/* ── shared menu table styles ──────────────────────────────── */
+
+/* sticky action bar */
+.import-actions {
+  position: sticky;
+  top: 92px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(31,31,31,0.06);
+  backdrop-filter: blur(8px);
+}
+.import-actions__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.import-actions__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.import-search-wrap {
+  position: relative;
+  flex: 0 1 220px;
+}
+.import-search-wrap input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px 6px 30px;
+  font-size: 13px;
+}
+.import-search-wrap::before {
+  content: '\1F50D';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* filter tabs */
+.import-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.filter-btn:hover { border-color: var(--orange); color: var(--text); }
+.filter-btn.is-active { background: var(--orange); color: #fff; border-color: var(--orange); }
+.filter-btn--count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.08);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 0 5px;
+  margin-left: 4px;
+}
+.filter-btn.is-active .filter-btn--count { background: rgba(255,255,255,0.25); }
+
+/* compact table */
+.import-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 1100px;
+}
+.import-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.import-table th {
+  background: #f9f6f2;
+  padding: 8px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  text-align: left;
+  vertical-align: middle;
+}
+.import-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid #f0eeeb;
+  vertical-align: middle;
+  height: 44px;
+}
+.import-table tbody tr { transition: background 0.1s; }
+.import-table tbody tr:hover { background: #fdf8f2; }
+
+/* read-only table cells */
+.import-table .cell--text {
+  font-weight: 600;
+  color: var(--text);
+}
+.import-table .cell--muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* vendor editable inputs */
+.import-table input[type="text"],
+.import-table input[type="number"] {
+  width: 100%;
+  min-height: 30px;
+  padding: 3px 6px;
+  font-size: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.12s, background 0.12s;
+  box-sizing: border-box;
+}
+
+/* alignment */
+.import-table .cell--center { text-align: center; }
+.import-table .cell--right { text-align: right; }
+
+/* food type pills (vendor: clickable; student: static badge) */
+.ft-pills {
+  display: flex;
+  gap: 2px;
+}
+.ft-pill {
+  min-height: 24px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 800;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.1s;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.ft-pill:hover { border-color: #bbb; color: var(--text); }
+.ft-pill.is-active { border-width: 2px; }
+.ft-pill--veg.is-active { background: #dcfce7; border-color: #22c55e; color: #166534; }
+.ft-pill--non-veg.is-active { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+.ft-pill--egg.is-active { background: #fef9c3; border-color: #eab308; color: #854d0e; }
+.ft-pill--unknown.is-active { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
+
+/* static food type badge (student mode) */
+.ft-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 1.5px solid var(--border);
+}
+.ft-badge--veg { background: #dcfce7; border-color: #22c55e; color: #166534; }
+.ft-badge--non-veg { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+.ft-badge--egg { background: #fef9c3; border-color: #eab308; color: #854d0e; }
+.ft-badge--unknown { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
+
+/* availability badge (student mode) */
+.avail-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.avail-badge--yes { background: var(--green-soft); color: #166534; }
+.avail-badge--no { background: var(--danger-soft); color: #991b1b; }
+
+/* variants inline display */
+.variant-group { display: flex; flex-direction: column; gap: 3px; }
+.variant-row { display: flex; gap: 3px; align-items: center; }
+.variant-row .variant-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.variant-row .variant-price { font-weight: 700; font-size: 12px; color: var(--text); white-space: nowrap; }
+
+/* action buttons (student mode) */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.action-btn--primary { background: var(--orange); color: #fff; }
+.action-btn--primary:hover { background: #e66d00; }
+.action-btn--ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+.action-btn--ghost:hover { border-color: var(--orange); color: var(--orange); }
+
+/* hidden row */
+.import-table .is-hidden { display: none; }
+
+/* responsive */
+@media (max-width: 900px) {
+  .import-actions { flex-wrap: wrap; }
+  .import-actions__right { width: 100%; }
+  .import-search-wrap { flex: 1; }
+}
+</style>
+
+<!-- ── STICKY ACTION BAR ── -->
+<div class="import-actions" id="action-bar">
+  <div class="import-actions__left">
+    <% if (isVendor) { %>
+    <button class="btn btn--small" type="submit" id="import-btn" style="min-height:36px;font-size:13px;">
+      Import <span id="import-count"><%= typeof stats !== 'undefined' ? stats.ready : 0 %></span> Items
+    </button>
+    <button class="btn btn--small btn--outline" type="button" id="review-btn" style="min-height:36px;font-size:13px;">
+      Review Issues (<%= typeof stats !== 'undefined' ? (stats.review + stats.noprice + stats.duplicate) : 0 %>)
+    </button>
+    <button type="button" class="btn btn--small btn--ghost" id="discard-btn" style="min-height:36px;font-size:13px;">
+      Discard
+    </button>
+    <span style="width:1px;height:22px;background:var(--border);margin:0 4px;"></span>
+    <% } %>
+  </div>
+  <div class="import-actions__right">
+    <div class="import-search-wrap">
+      <input type="text" id="import-search" placeholder="Search items..." autocomplete="off" />
+    </div>
+  </div>
+</div>
+
+<!-- ── FILTER TABS ── -->
+<div class="import-filters" id="filter-bar">
+  <button type="button" class="filter-btn is-active" data-filter="all">
+    All <span class="filter-btn--count"><%= items.length %></span>
+  </button>
+  <% if (isVendor) { %>
+  <button type="button" class="filter-btn" data-filter="review">
+    Need Review <span class="filter-btn--count"><%= stats.review %></span>
+  </button>
+  <button type="button" class="filter-btn" data-filter="duplicate">
+    Duplicates <span class="filter-btn--count"><%= stats.duplicate %></span>
+  </button>
+  <button type="button" class="filter-btn" data-filter="noprice">
+    Missing Price <span class="filter-btn--count"><%= stats.noprice %></span>
+  </button>
+  <button type="button" class="filter-btn" data-filter="lowconf">
+    Low Confidence <span class="filter-btn--count"><%= items.filter(function(it){return it.confidence<0.7}).length %></span>
+  </button>
+  <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+  <% } %>
+  <button type="button" class="filter-btn" data-filter="veg">Veg</button>
+  <button type="button" class="filter-btn" data-filter="non-veg">Non-Veg</button>
+  <button type="button" class="filter-btn" data-filter="egg">Egg</button>
+  <button type="button" class="filter-btn" data-filter="unknown">Unknown</button>
+  <% if (isVendor) { %>
+  <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+  <button type="button" class="filter-btn" data-filter="ready">Ready</button>
+  <% } %>
+</div>
+
+<!-- ── TABLE ── -->
+<div class="import-table-wrap">
+<table class="import-table" id="import-table">
+  <thead>
+    <tr>
+      <% if (isVendor) { %>
+      <th style="width:30px;"><input type="checkbox" id="select-all" /></th>
+      <th style="width:32px;">#</th>
+      <% } %>
+      <th style="min-width:140px;">Item Name</th>
+      <th style="width:100px;">Category</th>
+      <th style="width:130px;">Food Type</th>
+      <th style="min-width:160px;">Price / Variants</th>
+      <% if (isVendor) { %>
+      <th style="width:60px;">Conf.</th>
+      <th style="width:90px;">Status</th>
+      <th style="width:40px;"></th>
+      <% } %>
+      <% if (isStudent) { %>
+      <th style="width:80px;">Availability</th>
+      <th style="width:100px;">Action</th>
+      <% } %>
+    </tr>
+  </thead>
+  <tbody>
+    <% items.forEach(function(item, i) { %>
+    <tr
+      data-index="<%= i %>"
+      data-name="<%= (item.name||'').toLowerCase() %>"
+      data-category="<%= (item.category||'').toLowerCase() %>"
+      data-foodtype="<%= item.foodType %>"
+      <% if (isVendor) { %>
+      data-confidence="<%= item.confidence %>"
+      data-status="<%= item.rowStatus %>"
+      <% } %>
+      <% if (isStudent) { %>
+      data-available="<%= item.available !== false %>"
+      <% } %>
+    >
+      <% if (isVendor) { %>
+      <td class="cell--center"><input type="checkbox" class="row-select" data-index="<%= i %>" /></td>
+      <td class="cell--center" style="color:var(--muted);font-size:11px;"><%= i+1 %></td>
+      <td>
+        <input name="items[<%= i %>][name]" type="text" value="<%= item.name %>" required />
+      </td>
+      <td>
+        <input name="items[<%= i %>][category]" type="text" value="<%= item.category || '' %>" placeholder="Uncategorized" />
+      </td>
+      <td>
+        <div class="ft-pills" data-index="<%= i %>">
+          <% ['veg','non-veg','egg','unknown'].forEach(function(t) { %>
+            <button type="button" class="ft-pill ft-pill--<%= t %><%= item.foodType === t ? ' is-active' : '' %>" data-value="<%= t %>">
+              <%= {veg:'Veg', 'non-veg':'NV', egg:'Egg', unknown:'?'}[t] %>
+            </button>
+          <% }) %>
+        </div>
+        <input type="hidden" name="items[<%= i %>][foodType]" value="<%= item.foodType %>" />
+      </td>
+      <td>
+        <div class="variant-group" data-index="<%= i %>">
+          <% if (item.variants && item.variants.length > 0) {
+            item.variants.forEach(function(v, j) { %>
+              <div class="variant-row">
+                <input name="items[<%= i %>][variants][<%= j %>][label]" type="text" value="<%= v.label %>" placeholder="Label" />
+                <input name="items[<%= i %>][variants][<%= j %>][price]" type="number" step="0.01" min="0" value="<%= Number(v.price).toFixed(2) %>" required />
+                <button type="button" class="v-remove" title="Remove variant">&times;</button>
+              </div>
+          <% }); } else { %>
+            <div class="variant-row">
+              <input name="items[<%= i %>][variants][0][label]" type="hidden" value="Regular" />
+              <span style="font-size:11px;color:var(--muted);">Regular</span>
+              <input name="items[<%= i %>][variants][0][price]" type="number" step="0.01" min="0" value="0.00" required style="width:60px;" />
+              <button type="button" class="v-remove" title="Remove variant">&times;</button>
+            </div>
+          <% } %>
+          <button type="button" class="add-variant" data-index="<%= i %>">+ Add Variant</button>
+        </div>
+      </td>
+      <td class="cell--center">
+        <span class="conf-badge conf-badge--<%= item.confidence >= 0.9 ? 'high' : item.confidence >= 0.7 ? 'mid' : 'low' %>"><%= (item.confidence * 100).toFixed(0) %>%</span>
+      </td>
+      <td>
+        <span class="status-badge status-badge--<%= item.rowStatus %>">
+          <% var statusLabels = { ready:'Ready', review:'Needs Review', duplicate:'Duplicate', noprice:'No Price', lowconf:'Low Conf' }; %>
+          <%= statusLabels[item.rowStatus] || item.rowStatus %>
+        </span>
+      </td>
+      <td>
+        <div class="row-actions">
+          <button type="button" class="del-btn" data-index="<%= i %>" title="Delete item">&times;</button>
+        </div>
+      </td>
+      <% } %>
+      <% if (isStudent) { %>
+      <td class="cell--text"><%= item.name %></td>
+      <td><span class="cell--muted"><%= item.category || '—' %></span></td>
+      <td>
+        <span class="ft-badge ft-badge--<%= item.foodType %>">
+          <%= {veg:'Veg', 'non-veg':'Non-Veg', egg:'Egg', unknown:'?'}[item.foodType] %>
+        </span>
+      </td>
+      <td>
+        <% if (item.variants && item.variants.length > 0) { %>
+          <div class="variant-group">
+            <% item.variants.forEach(function(v) { %>
+              <div class="variant-row">
+                <span class="variant-label"><%= v.label %>:</span>
+                <span class="variant-price">₹<%= Number(v.price).toFixed(2) %></span>
+              </div>
+            <% }); %>
+          </div>
+        <% } else { %>
+          <span class="variant-price">₹<%= Number(item.price || 0).toFixed(2) %></span>
+        <% } %>
+      </td>
+      <td class="cell--center">
+        <span class="avail-badge avail-badge--<%= item.available !== false ? 'yes' : 'no' %>">
+          <%= item.available !== false ? 'Available' : 'Sold Out' %>
+        </span>
+      </td>
+      <td>
+        <% if (currentUser && currentUser.role === 'student') { %>
+          <% if (shop && shop.isOpen && item.available !== false) { %>
+            <form method="post" action="/cart/add" style="display:inline;">
+              <input type="hidden" name="menuItemId" value="<%= item._id %>" />
+              <input type="hidden" name="redirect" value="<%= '/shops/' + (typeof shop !== 'undefined' ? shop.slug : '') %>" />
+              <input type="hidden" name="quantity" value="1" />
+              <button type="submit" class="action-btn action-btn--primary">Add to Cart</button>
+            </form>
+          <% } else if (item.available === false) { %>
+            <span class="action-btn action-btn--ghost" style="cursor:default;">Sold Out</span>
+          <% } else { %>
+            <span class="action-btn action-btn--ghost" style="cursor:default;">Closed</span>
+          <% } %>
+        <% } else if (!currentUser) { %>
+          <a class="action-btn action-btn--ghost" href="/login">Log in to order</a>
+        <% } %>
+      </td>
+      <% } %>
+    </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+
+<script src="/js/menu-table.js"></script>

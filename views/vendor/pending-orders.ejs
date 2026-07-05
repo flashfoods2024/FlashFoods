@@ -30,7 +30,11 @@
         <ul class="vendor-order-card__items">
           <% order.items.filter(function(i) { return i.status !== "removed"; }).forEach((item) => { %>
             <li>
-              <span><%= item.name %></span>
+              <span><%= item.name %>
+                <% if (item.variantName) { %>
+                  <span class="muted small">(<%= item.variantName %>)</span>
+                <% } %>
+              </span>
               <strong><%= item.quantity %> x</strong>
             </li>
           <% }) %>
@@ -93,9 +97,11 @@
       var itemsHtml = (order.items || [])
         .filter(function (item) { return item.status !== "removed"; })
         .map(function (item) {
+          var variantHtml = item.variantName ? ' <span class="muted small">(' + esc(item.variantName) + ')</span>' : '';
           return (
             "<li><span>" +
             esc(item.name) +
+            variantHtml +
             "</span><strong>" +
             esc(item.quantity) +
             " x</strong></li>"

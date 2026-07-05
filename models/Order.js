@@ -11,6 +11,9 @@ const orderItemSchema = new mongoose.Schema(
       enum: ["active", "removed"],
       default: "active",
     },
+    variantId: { type: Number, default: null },
+    variantName: { type: String, default: null },
+    variantPrice: { type: Number, default: null },
   },
   { _id: false },
 );

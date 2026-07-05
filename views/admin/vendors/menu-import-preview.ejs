@@ -21,8 +21,8 @@ items.forEach(function(it) {
 });
 stats.avgConf = items.length > 0 ? (sumConf / items.length * 100) : 0;
 
-// compute row status
-function rowStatus(it) {
+// compute row status and attach to items
+function computeRowStatus(it) {
   var hasPrice = it.variants && it.variants.some(function(v) { return Number(v.price) > 0; });
   var isDup = nameCounts[String(it.name || '').toLowerCase().trim()] > 1;
   if (!hasPrice) return 'noprice';
@@ -31,10 +31,13 @@ function rowStatus(it) {
   if (it.confidence < 0.7) return 'lowconf';
   return 'ready';
 }
+items.forEach(function(it) {
+  it.rowStatus = computeRowStatus(it);
+});
 %>
 
 <style>
-/* ── import preview page styles ───────────────────────────── */
+/* ── vendor-only styles ──────────────────────────────────────── */
 .import-stats {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -68,95 +71,7 @@ function rowStatus(it) {
 .import-stat--warn { border-left: 3px solid #f59e0b; }
 .import-stat--danger { border-left: 3px solid var(--danger); }
 
-/* ── sticky action bar ─────────────────────────────────────── */
-.import-actions {
-  position: sticky;
-  top: 92px;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 14px;
-  margin-bottom: 12px;
-  background: rgba(255,255,255,0.96);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(31,31,31,0.06);
-  backdrop-filter: blur(8px);
-}
-.import-actions__left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-.import-actions__right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.import-search-wrap {
-  position: relative;
-  flex: 0 1 220px;
-}
-.import-search-wrap input {
-  width: 100%;
-  min-height: 36px;
-  padding: 6px 10px 6px 30px;
-  font-size: 13px;
-}
-.import-search-wrap::before {
-  content: '\1F50D';
-  position: absolute;
-  left: 9px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 13px;
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-/* ── filter tabs ────────────────────────────────────────────── */
-.import-filters {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-.filter-btn {
-  min-height: 30px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.12s;
-  white-space: nowrap;
-}
-.filter-btn:hover { border-color: var(--orange); color: var(--text); }
-.filter-btn.is-active { background: var(--orange); color: #fff; border-color: var(--orange); }
-.filter-btn--count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.08);
-  font-size: 10px;
-  font-weight: 800;
-  padding: 0 5px;
-  margin-left: 4px;
-}
-.filter-btn.is-active .filter-btn--count { background: rgba(255,255,255,0.25); }
-
-/* ── batch actions bar ──────────────────────────────────────── */
+/* batch actions bar */
 .batch-bar {
   display: none;
   align-items: center;
@@ -173,46 +88,6 @@ function rowStatus(it) {
 .batch-bar select { min-height: 34px; font-size: 13px; width: auto; min-width: 120px; }
 .batch-bar .btn { min-height: 34px; font-size: 12px; padding: 6px 12px; }
 
-/* ── compact table ──────────────────────────────────────────── */
-.import-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
-}
-.import-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  min-width: 1100px;
-}
-.import-table thead {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-.import-table th {
-  background: #f9f6f2;
-  padding: 8px 8px;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  border-bottom: 2px solid var(--border);
-  white-space: nowrap;
-  text-align: left;
-  vertical-align: middle;
-}
-.import-table td {
-  padding: 4px 8px;
-  border-bottom: 1px solid #f0eeeb;
-  vertical-align: middle;
-  height: 44px;
-}
-.import-table tbody tr { transition: background 0.1s; }
-.import-table tbody tr:hover { background: #fdf8f2; }
-
 /* row highlighting */
 .import-table tbody tr.row--review { background: #fffbeb; }
 .import-table tbody tr.row--review:hover { background: #fef3c7; }
@@ -224,19 +99,7 @@ function rowStatus(it) {
 .import-table tbody tr.row--lowconf:hover { background: #ffe4e0; }
 .import-table tbody tr.row--deleted { display: none; }
 
-.import-table input[type="text"],
-.import-table input[type="number"] {
-  width: 100%;
-  min-height: 30px;
-  padding: 3px 6px;
-  font-size: 12px;
-  border: 1px solid transparent;
-  background: transparent;
-  border-radius: 4px;
-  outline: none;
-  transition: border-color 0.12s, background 0.12s;
-  box-sizing: border-box;
-}
+/* editable input hover/focus */
 .import-table input[type="text"]:hover,
 .import-table input[type="number"]:hover {
   border-color: #ddd;
@@ -250,55 +113,7 @@ function rowStatus(it) {
 }
 .import-table input[type="text"]::placeholder { color: #bbb; }
 
-.import-table .cell--center { text-align: center; }
-.import-table .cell--right { text-align: right; }
-
-/* ── food type pills ────────────────────────────────────────── */
-.ft-pills {
-  display: flex;
-  gap: 2px;
-}
-.ft-pill {
-  min-height: 24px;
-  padding: 2px 7px;
-  font-size: 10px;
-  font-weight: 800;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.1s;
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-.ft-pill:hover { border-color: #bbb; color: var(--text); }
-.ft-pill.is-active { border-width: 2px; }
-.ft-pill--veg.is-active { background: #dcfce7; border-color: #22c55e; color: #166534; }
-.ft-pill--non-veg.is-active { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
-.ft-pill--egg.is-active { background: #fef9c3; border-color: #eab308; color: #854d0e; }
-.ft-pill--unknown.is-active { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
-
-/* ── variants inline ────────────────────────────────────────── */
-.variant-group { display: flex; flex-direction: column; gap: 3px; }
-.variant-row { display: flex; gap: 3px; align-items: center; }
-.variant-row input[type="text"] { width: 48px; flex: none; }
-.variant-row input[type="number"] { width: 60px; flex: none; }
-.variant-row .v-remove {
-  min-height: 22px; width: 22px; padding: 0;
-  border: none; background: none; color: #bbb; cursor: pointer;
-  font-size: 14px; line-height: 1; border-radius: 4px;
-}
-.variant-row .v-remove:hover { color: var(--danger); background: var(--danger-soft); }
-.add-variant {
-  min-height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700;
-  border: 1px dashed #ccc; border-radius: 4px; background: none;
-  color: var(--muted); cursor: pointer; width: fit-content;
-}
-.add-variant:hover { border-color: var(--orange); color: var(--orange); }
-
-/* ── confidence badge ───────────────────────────────────────── */
+/* confidence badge */
 .conf-badge {
   display: inline-flex;
   align-items: center;
@@ -314,7 +129,7 @@ function rowStatus(it) {
 .conf-badge--mid { background: #fef3c7; color: #92400e; }
 .conf-badge--low { background: var(--danger-soft); color: #991b1b; }
 
-/* ── status badge ───────────────────────────────────────────── */
+/* status badge */
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -332,13 +147,13 @@ function rowStatus(it) {
 .status-badge--noprice,
 .status-badge--lowconf { background: var(--danger-soft); color: #991b1b; }
 
-/* ── checkbox styling ───────────────────────────────────────── */
+/* checkbox */
 .import-table input[type="checkbox"] {
   width: 16px; height: 16px; margin: 0; cursor: pointer;
   accent-color: var(--orange);
 }
 
-/* ── row actions ────────────────────────────────────────────── */
+/* row actions */
 .row-actions { display: flex; gap: 2px; }
 .row-actions button {
   min-height: 26px; width: 26px; padding: 0;
@@ -349,7 +164,21 @@ function rowStatus(it) {
 .row-actions button:hover { border-color: #eee; color: var(--muted); }
 .row-actions .del-btn:hover { border-color: var(--danger-soft); color: var(--danger); background: var(--danger-soft); }
 
-/* ── raw text panel ─────────────────────────────────────────── */
+/* variant add/remove */
+.variant-row .v-remove {
+  min-height: 22px; width: 22px; padding: 0;
+  border: none; background: none; color: #bbb; cursor: pointer;
+  font-size: 14px; line-height: 1; border-radius: 4px;
+}
+.variant-row .v-remove:hover { color: var(--danger); background: var(--danger-soft); }
+.add-variant {
+  min-height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700;
+  border: 1px dashed #ccc; border-radius: 4px; background: none;
+  color: var(--muted); cursor: pointer; width: fit-content;
+}
+.add-variant:hover { border-color: var(--orange); color: var(--orange); }
+
+/* raw text panel */
 .raw-panel { margin-top: 14px; }
 .raw-panel summary { font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted); padding: 8px 0; }
 .raw-panel pre {
@@ -358,15 +187,9 @@ function rowStatus(it) {
   white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto;
 }
 
-/* ── hidden row ─────────────────────────────────────────────── */
-.import-table .is-hidden { display: none; }
-
-/* ── responsive ─────────────────────────────────────────────── */
+/* responsive for stats only */
 @media (max-width: 900px) {
   .import-stats { grid-template-columns: repeat(3, 1fr); }
-  .import-actions { flex-wrap: wrap; }
-  .import-actions__right { width: 100%; }
-  .import-search-wrap { flex: 1; }
 }
 @media (max-width: 600px) {
   .import-stats { grid-template-columns: repeat(2, 1fr); }
@@ -461,51 +284,7 @@ function rowStatus(it) {
   </div>
 </div>
 
-<!-- ── STICKY ACTION BAR ── -->
-<div class="import-actions" id="action-bar">
-  <div class="import-actions__left">
-    <button class="btn btn--small" type="submit" id="import-btn" style="min-height:36px;font-size:13px;">
-      Import <span id="import-count"><%= stats.ready %></span> Items
-    </button>
-    <button class="btn btn--small btn--outline" type="button" id="review-btn" style="min-height:36px;font-size:13px;">
-      Review Issues (<%= stats.review %>)
-    </button>
-    <button type="button" class="btn btn--small btn--ghost" id="discard-btn" style="min-height:36px;font-size:13px;">
-      Discard
-    </button>
-  </div>
-  <div class="import-actions__right">
-    <div class="import-search-wrap">
-      <input type="text" id="import-search" placeholder="Search items..." autocomplete="off" />
-    </div>
-  </div>
-</div>
-
-<!-- ── FILTER TABS ── -->
-<div class="import-filters" id="filter-bar">
-  <button type="button" class="filter-btn is-active" data-filter="all">
-    All <span class="filter-btn--count"><%= stats.total %></span>
-  </button>
-  <button type="button" class="filter-btn" data-filter="review">
-    Need Review <span class="filter-btn--count"><%= stats.review %></span>
-  </button>
-  <button type="button" class="filter-btn" data-filter="duplicate">
-    Duplicates <span class="filter-btn--count"><%= stats.duplicate %></span>
-  </button>
-  <button type="button" class="filter-btn" data-filter="noprice">
-    Missing Price <span class="filter-btn--count"><%= stats.noprice %></span>
-  </button>
-  <button type="button" class="filter-btn" data-filter="lowconf">
-    Low Confidence <span class="filter-btn--count"><%= items.filter(function(it){return it.confidence<0.7}).length %></span>
-  </button>
-  <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
-  <button type="button" class="filter-btn" data-filter="veg">Veg</button>
-  <button type="button" class="filter-btn" data-filter="non-veg">Non-Veg</button>
-  <button type="button" class="filter-btn" data-filter="egg">Egg</button>
-  <button type="button" class="filter-btn" data-filter="unknown">Unknown</button>
-  <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
-  <button type="button" class="filter-btn" data-filter="ready">Ready</button>
-</div>
+<%- include("../../partials/menu-table", { mode: "vendor", items: items, stats: stats }) %>
 
 <!-- ── BATCH ACTIONS BAR ── -->
 <div class="batch-bar" id="batch-bar">
@@ -520,89 +299,6 @@ function rowStatus(it) {
   </select>
   <button class="btn btn--small btn--outline" type="button" id="batch-apply" style="min-height:34px;font-size:12px;">Apply</button>
   <button class="btn btn--small btn--ghost" type="button" id="batch-clear" style="min-height:34px;font-size:12px;">Clear</button>
-</div>
-
-<!-- ── TABLE ── -->
-<div class="import-table-wrap">
-<table class="import-table" id="import-table">
-  <thead>
-    <tr>
-      <th style="width:30px;"><input type="checkbox" id="select-all" /></th>
-      <th style="width:32px;">#</th>
-      <th style="min-width:140px;">Name</th>
-      <th style="width:100px;">Category</th>
-      <th style="width:130px;">Food Type</th>
-      <th style="min-width:160px;">Price / Variants</th>
-      <th style="width:60px;">Conf.</th>
-      <th style="width:90px;">Status</th>
-      <th style="width:40px;"></th>
-    </tr>
-  </thead>
-  <tbody>
-    <% items.forEach(function(item, i) {
-      var status = rowStatus(item);
-      var confClass = item.confidence >= 0.9 ? 'high' : item.confidence >= 0.7 ? 'mid' : 'low';
-    %>
-    <tr class="row--<%= status %>" data-index="<%= i %>" data-name="<%= item.name.toLowerCase() %>" data-category="<%= (item.category||'').toLowerCase() %>" data-foodtype="<%= item.foodType %>" data-confidence="<%= item.confidence %>" data-status="<%= status %>">
-      <td class="cell--center"><input type="checkbox" class="row-select" data-index="<%= i %>" /></td>
-      <td class="cell--center" style="color:var(--muted);font-size:11px;"><%= i+1 %></td>
-      <td>
-        <input name="items[<%= i %>][name]" type="text" value="<%= item.name %>" required />
-      </td>
-      <td>
-        <input name="items[<%= i %>][category]" type="text" value="<%= item.category %>" placeholder="Uncategorized" />
-      </td>
-      <td>
-        <div class="ft-pills" data-index="<%= i %>">
-          <% ['veg','non-veg','egg','unknown'].forEach(function(t) { %>
-            <button type="button" class="ft-pill ft-pill--<%= t %><%= item.foodType === t ? ' is-active' : '' %>" data-value="<%= t %>">
-              <%= {veg:'Veg', 'non-veg':'NV', egg:'Egg', unknown:'?'}[t] %>
-            </button>
-          <% }) %>
-        </div>
-        <input type="hidden" name="items[<%= i %>][foodType]" value="<%= item.foodType %>" />
-      </td>
-      <td>
-        <div class="variant-group" data-index="<%= i %>">
-          <% if (item.variants && item.variants.length > 0) {
-            item.variants.forEach(function(v, j) { %>
-              <div class="variant-row">
-                <input name="items[<%= i %>][variants][<%= j %>][label]" type="text" value="<%= v.label %>" placeholder="Label" />
-                <input name="items[<%= i %>][variants][<%= j %>][price]" type="number" step="0.01" min="0" value="<%= Number(v.price).toFixed(2) %>" required />
-                <button type="button" class="v-remove" title="Remove variant">&times;</button>
-              </div>
-          <% }); } else { %>
-            <div class="variant-row">
-              <input name="items[<%= i %>][variants][0][label]" type="hidden" value="Regular" />
-              <span style="font-size:11px;color:var(--muted);">Regular</span>
-              <input name="items[<%= i %>][variants][0][price]" type="number" step="0.01" min="0" value="0.00" required style="width:60px;" />
-              <button type="button" class="v-remove" title="Remove variant">&times;</button>
-            </div>
-          <% } %>
-          <button type="button" class="add-variant" data-index="<%= i %>">+ Add Variant</button>
-        </div>
-      </td>
-      <td class="cell--center">
-        <span class="conf-badge conf-badge--<%= confClass %>"><%= (item.confidence * 100).toFixed(0) %>%</span>
-      </td>
-      <td>
-        <span class="status-badge status-badge--<%= status %>">
-          <% if (status === 'ready') { %>Ready<% }
-          else if (status === 'review') { %>Needs Review<% }
-          else if (status === 'duplicate') { %>Duplicate<% }
-          else if (status === 'noprice') { %>No Price<% }
-          else if (status === 'lowconf') { %>Low Conf<% } %>
-        </span>
-      </td>
-      <td>
-        <div class="row-actions">
-          <button type="button" class="del-btn" data-index="<%= i %>" title="Delete item">&times;</button>
-        </div>
-      </td>
-    </tr>
-    <% }) %>
-  </tbody>
-</table>
 </div>
 
 </form>
@@ -626,70 +322,15 @@ function rowStatus(it) {
 
 <script>
 (function() {
-  var itemsCount = <%= items.length %>;
+  var mt = window.__menuTable;
+  var searchEl = mt.searchEl;
+  var filterBtns = mt.filterBtns;
 
   // ── PREVENT ENTER from submitting the form inside any text input ──
   document.getElementById('import-form').addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
       e.preventDefault();
     }
-  });
-
-  // ── toggle row status helpers ──
-  function getStatus(el) { return el.getAttribute('data-status'); }
-
-  // ── UNIFIED FILTER + SEARCH PIPELINE ──
-  var searchEl = document.getElementById('import-search');
-  var filterBtns = document.querySelectorAll('.filter-btn');
-
-  var reviewMode = false;
-
-  function applyFilters() {
-    var q = searchEl ? searchEl.value.toLowerCase().trim() : '';
-    var activeBtn = document.querySelector('.filter-btn.is-active');
-    var filter = activeBtn ? activeBtn.getAttribute('data-filter') : 'all';
-    var rows = document.querySelectorAll('#import-table tbody tr');
-    rows.forEach(function(row) {
-      if (row.classList.contains('row--deleted')) return;
-      var show = true;
-      // text search: case-insensitive partial match against row text
-      if (q) {
-        var text = row.textContent.toLowerCase();
-        if (text.indexOf(q) === -1) show = false;
-      }
-      // status / food-type filter
-      if (show && filter !== 'all') {
-        var status = row.getAttribute('data-status');
-        var ft = row.getAttribute('data-foodtype');
-        var conf = parseFloat(row.getAttribute('data-confidence'));
-        if (filter === 'ready')         { if (status !== 'ready') show = false; }
-        else if (filter === 'review')   { if (status !== 'review') show = false; }
-        else if (filter === 'duplicate'){ if (status !== 'duplicate') show = false; }
-        else if (filter === 'noprice')  { if (status !== 'noprice') show = false; }
-        else if (filter === 'lowconf')  { if (conf >= 0.7) show = false; }
-        else if (filter === 'veg' || filter === 'non-veg' || filter === 'egg' || filter === 'unknown') {
-          if (ft !== filter) show = false;
-        }
-      }
-      // review mode: hide ready rows (unless explicitly viewing ready)
-      if (show && reviewMode && filter !== 'ready') {
-        if (row.getAttribute('data-status') === 'ready') show = false;
-      }
-      row.classList.toggle('is-hidden', !show);
-    });
-  }
-
-  // Search input → immediate live filtering
-  searchEl && searchEl.addEventListener('input', applyFilters);
-
-  // Filter tabs → update active state then re-filter (preserve search text)
-  filterBtns.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      filterBtns.forEach(function(b) { b.classList.remove('is-active'); });
-      btn.classList.add('is-active');
-      reviewMode = false;
-      applyFilters();
-    });
   });
 
   // ── FOOD TYPE PILLS ──
@@ -702,10 +343,8 @@ function rowStatus(it) {
         pill.classList.add('is-active');
         var val = pill.getAttribute('data-value');
         if (hiddenInput) hiddenInput.value = val;
-        // update row data attribute for filtering
         var row = group.closest('tr');
         if (row) row.setAttribute('data-foodtype', val);
-        // update status based on food type
         updateRowStatus(row);
       });
     });
@@ -739,7 +378,6 @@ function rowStatus(it) {
       '<button type="button" class="v-remove" title="Remove variant">&times;</button>';
     var addBtn = group.querySelector('.add-variant');
     group.insertBefore(div, addBtn);
-    // wire remove
     div.querySelector('.v-remove').addEventListener('click', function() { removeVariant(div); });
   }
 
@@ -747,7 +385,6 @@ function rowStatus(it) {
     var group = row.closest('.variant-group');
     row.remove();
     reindexVariants(group);
-    // if no variants left, add a default one
     if (group.querySelectorAll('.variant-row').length === 0) {
       addVariantToGroup(group);
     }
@@ -773,14 +410,13 @@ function rowStatus(it) {
     });
   });
 
-  // ── UPDATE ROW STATUS (based on current data) ──
+  // ── UPDATE ROW STATUS ──
   function updateRowStatus(row) {
     if (!row || row.classList.contains('row--deleted')) return;
     var idx = row.getAttribute('data-index');
     var ft = row.getAttribute('data-foodtype');
     var conf = parseFloat(row.getAttribute('data-confidence')) || 0;
     var name = (row.querySelector('input[name$="[name]"]') || {}).value || '';
-    // check if any variant has a price > 0
     var hasPrice = false;
     row.querySelectorAll('input[name*="[price]"]').forEach(function(inp) {
       if (parseFloat(inp.value) > 0) hasPrice = true;
@@ -803,14 +439,12 @@ function rowStatus(it) {
     else if (conf < 0.7) status = 'lowconf';
     else status = 'ready';
     row.setAttribute('data-status', status);
-    // update status badge
     var badge = row.querySelector('.status-badge');
     if (badge) {
       badge.className = 'status-badge status-badge--' + status;
       var labels = { ready:'Ready', review:'Needs Review', duplicate:'Duplicate', noprice:'No Price', lowconf:'Low Conf' };
       badge.textContent = labels[status] || status;
     }
-    // update row class
     ['ready','review','duplicate','noprice','lowconf'].forEach(function(c) {
       row.classList.remove('row--' + c);
     });
@@ -825,18 +459,14 @@ function rowStatus(it) {
     rows.forEach(function(row) {
       if (row.classList.contains('row--deleted')) return;
       row.setAttribute('data-index', newIdx);
-      // update row number display
       var numCell = row.querySelector('td.cell--center');
       if (numCell) numCell.textContent = newIdx + 1;
-      // re-index all inputs in this row
       row.querySelectorAll('input').forEach(function(inp) {
         var name = inp.getAttribute('name');
         if (!name) return;
-        // replace the first numeric index in items[N]
         var newName = name.replace(/items\[\d+\]/, 'items[' + newIdx + ']');
         inp.setAttribute('name', newName);
       });
-      // update data-index on child elements
       row.querySelectorAll('[data-index]').forEach(function(el) {
         el.setAttribute('data-index', newIdx);
       });
@@ -849,11 +479,9 @@ function rowStatus(it) {
     btn.addEventListener('click', function() {
       var row = btn.closest('tr');
       row.classList.add('row--deleted');
-      // remove name attribute from all inputs in this row so they aren't submitted
       row.querySelectorAll('input').forEach(function(el) {
         el.removeAttribute('name');
       });
-      // re-index remaining rows
       reindexItems();
       updateStats();
     });
@@ -871,7 +499,6 @@ function rowStatus(it) {
     updateBatchBar();
   });
 
-  // ── ROW SELECT ──
   document.querySelectorAll('.row-select').forEach(function(cb) {
     cb.addEventListener('change', function() {
       updateBatchBar();
@@ -899,7 +526,6 @@ function rowStatus(it) {
         return;
       }
       var idx = row.getAttribute('data-index');
-      // food type actions
       var ftInput = row.querySelector('input[name$="[foodType]"]');
       if (ftInput) ftInput.value = action;
       row.setAttribute('data-foodtype', action);
@@ -908,7 +534,6 @@ function rowStatus(it) {
       });
       updateRowStatus(row);
     });
-    // batch delete
     if (action === 'delete') {
       rowsToDelete.forEach(function(row) {
         row.classList.add('row--deleted');
@@ -919,7 +544,6 @@ function rowStatus(it) {
     } else {
       updateStats();
     }
-    // clear selection
     document.querySelectorAll('.row-select').forEach(function(cb) { cb.checked = false; });
     document.getElementById('select-all').checked = false;
     updateBatchBar();
@@ -931,7 +555,7 @@ function rowStatus(it) {
     updateBatchBar();
   });
 
-  // ── DISCARD (delete selected rows) ──
+  // ── DISCARD ──
   document.getElementById('discard-btn').addEventListener('click', function() {
     var checked = document.querySelectorAll('.row-select:checked');
     if (checked.length === 0) return;
@@ -963,10 +587,8 @@ function rowStatus(it) {
       else if (status === 'duplicate') duplicate++;
       else if (status === 'noprice') noprice++;
     });
-    // update import button count
     var importCount = document.getElementById('import-count');
     if (importCount) importCount.textContent = ready;
-    // update count badges in filter tabs
     var allTab = document.querySelector('.filter-btn[data-filter="all"] .filter-btn--count');
     if (allTab) allTab.textContent = total;
     var readyTab = document.querySelector('.filter-btn[data-filter="ready"] .filter-btn--count');
@@ -977,42 +599,29 @@ function rowStatus(it) {
     if (dupTab) dupTab.textContent = duplicate;
     var npTab = document.querySelector('.filter-btn[data-filter="noprice"] .filter-btn--count');
     if (npTab) npTab.textContent = noprice;
-    // update review button
     var reviewBtn = document.getElementById('review-btn');
     if (reviewBtn) reviewBtn.textContent = 'Review Issues (' + (review + noprice + duplicate) + ')';
   }
 
   // ── REVIEW ISSUES BUTTON ──
   document.getElementById('review-btn').addEventListener('click', function() {
-    reviewMode = !reviewMode;
-    // When entering review mode, switch to "all" filter if on a specific filter
-    if (reviewMode) {
+    mt.reviewMode = !mt.reviewMode;
+    if (mt.reviewMode) {
       var allBtn = document.querySelector('.filter-btn[data-filter="all"]');
       if (allBtn && !allBtn.classList.contains('is-active')) {
         filterBtns.forEach(function(b) { b.classList.remove('is-active'); });
         allBtn.classList.add('is-active');
       }
     }
-    applyFilters();
+    mt.applyFilters();
   });
 
-  // ── IMPORT BUTTON: show count in confirm dialog ──
-  document.getElementById('import-form').addEventListener('submit', function(e) {
-    var visibleReady = 0;
-    document.querySelectorAll('#import-table tbody tr.row--ready').forEach(function(row) {
-      if (!row.classList.contains('row--deleted') && !row.classList.contains('is-hidden')) visibleReady++;
-    });
-    // allow submit regardless
-  });
-
-  // ── NAME CHANGE: re-check all rows for duplicates ──
+  // ── NAME CHANGE ──
   function refreshAllStatuses() {
-    // sync data-name attributes from input values
     document.querySelectorAll('#import-table tbody tr').forEach(function(r) {
       var n = (r.querySelector('input[name$="[name]"]') || {}).value || '';
       r.setAttribute('data-name', n.toLowerCase());
     });
-    // re-evaluate every row
     document.querySelectorAll('#import-table tbody tr').forEach(function(r) {
       updateRowStatus(r);
     });
@@ -1022,22 +631,12 @@ function rowStatus(it) {
     inp.addEventListener('input', refreshAllStatuses);
   });
 
-  // ── PRICE CHANGE: update status ──
   document.querySelectorAll('input[name*="[price]"]').forEach(function(inp) {
     inp.addEventListener('input', function() {
       var row = inp.closest('tr');
       if (row) updateRowStatus(row);
     });
   });
-
-  // ── LIVE SEARCH KEYBOARD SHORTCUT: Ctrl+/ or Cmd+/ to focus search ──
-  document.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-      e.preventDefault();
-      if (searchEl) searchEl.focus();
-    }
-  });
-
 })();
 </script>
 

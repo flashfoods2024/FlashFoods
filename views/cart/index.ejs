@@ -1,5 +1,17 @@
 <%- include("../partials/header", { pageTitle }) %>
 
+<style>
+.cart-item-name { font-weight:700; }
+.variant-required-warn { color:#d97706;font-size:12px;font-weight:700;margin:0 0 4px; }
+.variant-select { min-height:32px;font-size:13px; }
+.variant-select option { font-size:13px; }
+.cart-price-cell { font-size:14px;font-weight:700; }
+.cart-subtotal-cell { font-size:14px;font-weight:700; }
+.cart-qty-form { display:flex;gap:4px;align-items:center; }
+.cart-qty-input { width:50px; }
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+</style>
+
 <section class="hero hero--compact">
   <h1>Your cart</h1>
   <% if (shop) { %>
@@ -14,31 +26,66 @@
   </div>
 <% } else { %>
   <div class="card">
-    <table class="table">
+    <table class="table" id="cart-table">
       <thead>
         <tr>
           <th>Item</th>
           <th>Price</th>
           <th>Qty</th>
+          <th>Subtotal</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
-        <% lines.forEach((line) => { %>
-          <tr>
+        <% lines.forEach(function(line) { %>
+          <% var hasVariants = line.variants && line.variants.length > 1; %>
+          <% var variantMissing = hasVariants && line.variantId == null; %>
+          <tr data-menu-item-id="<%= line.menuItemId %>">
             <td>
-              <%= line.name %>
+              <div class="cart-item-name"><%= line.name %></div>
               <% if (!line.available) { %>
                 <span class="tag tag--warn">Unavailable</span>
               <% } %>
+              <% if (hasVariants) { %>
+                <div class="variant-select-wrap" style="margin-top:6px;">
+                  <% if (variantMissing) { %>
+                    <p class="variant-required-warn">⚠ Variant Required</p>
+                  <% } %>
+                  <select class="variant-select input" data-mid="<%= line.menuItemId %>" style="width:auto;min-width:160px;font-size:13px;">
+                    <option value="">Select Variant</option>
+                    <% line.variants.forEach(function(v, vi) { %>
+                      <option value="<%= vi %>" <%= line.variantId === vi ? 'selected' : '' %>>
+                        <%= v.label %> — ₹<%= Number(v.price).toFixed(2) %>
+                      </option>
+                    <% }); %>
+                  </select>
+                </div>
+              <% } %>
             </td>
-            <td>₹<%= line.price.toFixed(2) %></td>
+            <td class="cart-price-cell">
+              <% if (hasVariants) { %>
+                <span class="variant-price-display"><%= variantMissing ? '—' : '₹' + Number(line.variantPrice).toFixed(2) %></span>
+              <% } else { %>
+                <% var singlePrice = line.variants && line.variants[0] ? line.variants[0].price : line.price; %>
+                ₹<%= Number(singlePrice).toFixed(2) %>
+              <% } %>
+            </td>
             <td>
-              <form method="post" action="/cart/line" class="inline-form">
+              <form method="post" action="/cart/line" class="inline-form cart-qty-form">
                 <input type="hidden" name="menuItemId" value="<%= line.menuItemId %>" />
-                <input class="input--qty" name="quantity" type="number" min="0" max="99" value="<%= line.quantity %>" />
+                <input class="input--qty cart-qty-input" name="quantity" type="number" min="0" max="99" value="<%= line.quantity %>" />
                 <button class="btn btn--ghost btn--small" type="submit">Update</button>
               </form>
+            </td>
+            <td class="cart-subtotal-cell">
+              <span class="line-subtotal-display">
+                <% if (hasVariants && variantMissing) { %>
+                  —
+                <% } else { %>
+                  <% var sp = line.variantPrice != null ? line.variantPrice : (line.variants && line.variants[0] ? line.variants[0].price : line.price); %>
+                  ₹<%= Number(sp * line.quantity).toFixed(2) %>
+                <% } %>
+              </span>
             </td>
           </tr>
         <% }) %>
@@ -46,18 +93,24 @@
     </table>
 
     <p class="cart-total">
-      <strong>Subtotal:</strong> ₹<%= subtotal.toFixed(2) %>
+      <strong>Cart Subtotal:</strong> ₹<span id="cart-subtotal"><%= subtotal.toFixed(2) %></span>
     </p>
+
+    <% if (!allVariantsSelected) { %>
+      <div class="card" style="border-left:4px solid #e63946;margin-bottom:14px;padding:12px;">
+        <p style="margin:0;color:#991b1b;font-weight:700;">
+          Some items require your attention. Please select a variant for all items before continuing.
+        </p>
+      </div>
+    <% } %>
 
     <div class="pickup-time-section">
       <label for="pickupTime">
         <strong>Pickup Time</strong>
       </label>
-
       <select id="pickupTime" class="input">
         <option value="">Select pickup time</option>
       </select>
-
       <p class="muted small">
         Choose when you plan to collect your order.
       </p>
@@ -69,15 +122,15 @@
       </form>
 
       <% if (shop && shop.paymentGateway === "razorpay") { %>
-        <button class="btn" id="rzp-button">
+        <button class="btn" id="rzp-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
           Pay with Razorpay
         </button>
       <% } else if (shop && shop.paymentGateway === "easebuzz") { %>
-        <button class="btn" id="easebuzz-button">
+        <button class="btn" id="easebuzz-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
           Pay with Easebuzz
         </button>
       <% } else if (shop && shop.paymentGateway === "phonepe") { %>
-        <button class="btn" id="phonepe-button">
+        <button class="btn" id="phonepe-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
           Pay with PhonePe
         </button>
       <% } else { %>
@@ -98,162 +151,197 @@
 <% } %>
 
 <script>
-  const pickupSelect = document.getElementById("pickupTime");
+  var allVariantsSelected = <%= allVariantsSelected ? 'true' : 'false' %>;
 
+  // ── PICKUP TIME OPTIONS ──
+  var pickupSelect = document.getElementById("pickupTime");
   if (pickupSelect) {
     (function generatePickupTimes() {
-      const now = new Date();
-
-      for (let i = 5; i <= 120; i += 5) {
-        const time = new Date(now.getTime() + i * 60000);
-
-        const value = time.toISOString();
-
-        const label = time.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-
-        pickupSelect.innerHTML += `
-          <option value="${value}">
-            ${label}
-          </option>
-        `;
+      var now = new Date();
+      for (var i = 5; i <= 120; i += 5) {
+        var time = new Date(now.getTime() + i * 60000);
+        var value = time.toISOString();
+        var label = time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        pickupSelect.innerHTML += '<option value="' + value + '">' + label + '</option>';
       }
     })();
   }
 
-  const rzpButton = document.getElementById("rzp-button");
+  // ── VARIANT SELECTION: live price update ──
+  document.querySelectorAll('.variant-select').forEach(function(sel) {
+    sel.addEventListener('change', function() {
+      var mid = sel.getAttribute('data-mid');
+      var variantId = sel.value;
+      var row = sel.closest('tr');
+      if (!row) return;
 
+      fetch('/cart/variant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menuItemId: mid, variantId: variantId ? Number(variantId) : null })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.success) return;
+
+        // Update price display
+        var priceCell = row.querySelector('.cart-price-cell .variant-price-display');
+        if (priceCell) {
+          priceCell.textContent = data.variantPrice != null ? '₹' + Number(data.variantPrice).toFixed(2) : '—';
+        }
+
+        // Update subtotal display
+        var qtyInput = row.querySelector('.cart-qty-input');
+        var qty = qtyInput ? Number(qtyInput.value) : 1;
+        var subCell = row.querySelector('.line-subtotal-display');
+        if (subCell) {
+          subCell.textContent = data.variantPrice != null ? '₹' + Number(data.variantPrice * qty).toFixed(2) : '—';
+        }
+
+        // Update warning banner
+        var warnBanner = document.querySelector('.variant-required-warn');
+        if (warnBanner && data.variantPrice != null) {
+          warnBanner.remove();
+        }
+
+        // Update cart subtotal
+        document.getElementById('cart-subtotal').textContent = Number(data.subtotal).toFixed(2);
+
+        // Re-evaluate all-variants state
+        allVariantsSelected = data.allVariantsSelected;
+
+        // Enable/disable payment buttons
+        document.querySelectorAll('#rzp-button, #easebuzz-button, #phonepe-button').forEach(function(btn) {
+          btn.disabled = !allVariantsSelected;
+        });
+
+        // Show/hide validation banner
+        var valBanner = document.querySelector('.card[style*="border-left:4px solid #e63946"]');
+        if (!allVariantsSelected) {
+          if (!valBanner) {
+            var subtotalP = document.querySelector('.cart-total');
+            if (subtotalP) {
+              var div = document.createElement('div');
+              div.className = 'card';
+              div.style.cssText = 'border-left:4px solid #e63946;margin-bottom:14px;padding:12px;';
+              div.innerHTML = '<p style="margin:0;color:#991b1b;font-weight:700;">Some items require your attention. Please select a variant for all items before continuing.</p>';
+              subtotalP.parentNode.insertBefore(div, subtotalP.nextSibling);
+            }
+          }
+        } else {
+          if (valBanner) valBanner.remove();
+        }
+      })
+      .catch(function(err) { console.error('Variant update failed:', err); });
+    });
+  });
+
+  // ── QUANTITY CHANGE: update subtotal display immediately ──
+  document.querySelectorAll('.cart-qty-input').forEach(function(inp) {
+    inp.addEventListener('change', function() {
+      var row = inp.closest('tr');
+      if (!row) return;
+      var qty = Number(inp.value) || 1;
+      var priceCell = row.querySelector('.cart-price-cell');
+      var priceText = priceCell ? priceCell.textContent.trim() : '';
+      var priceMatch = priceText.match(/[\d.]+/);
+      if (priceMatch) {
+        var p = Number(priceMatch[0]);
+        var subCell = row.querySelector('.line-subtotal-display');
+        if (subCell) subCell.textContent = '₹' + Number(p * qty).toFixed(2);
+      }
+    });
+  });
+
+  // ── RAZORPAY ──
+  var rzpButton = document.getElementById("rzp-button");
   if (rzpButton) {
-    rzpButton.addEventListener("click", async () => {
-      const pickupTime = pickupSelect?.value;
-
-      if (!pickupTime) {
-        alert("Please select a pickup time.");
+    rzpButton.addEventListener("click", async function() {
+      if (!allVariantsSelected) { alert("Please select a variant for all items before paying."); return; }
+      var pickupTime = pickupSelect ? pickupSelect.value : '';
+      if (!pickupTime) { alert("Please select a pickup time."); return; }
+      var response = await fetch("/create-razorpay-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: Number("<%= subtotal %>"), pickupTime: pickupTime }),
+      });
+      var data = await response.json();
+      if (!response.ok) {
+        var msg = data.error || "Failed to create order";
+        if (data.missingItems) msg = "Please select a variant for: " + data.missingItems.join(", ");
+        alert(msg);
         return;
       }
-
-      const response = await fetch("/create-razorpay-order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: Number("<%= subtotal %>"),
-          pickupTime,
-        }),
-      });
-
-      const data = await response.json();
-
-      const options = {
-        key: data.key_id || "<%= razorpayKeyId || locals.env?.RAZORPAY_KEY_ID || '' %>",
+      var options = {
+        key: data.key_id || "<%= razorpayKeyId || '' %>",
         amount: data.amount,
         currency: data.currency,
         name: "Flash Foods",
         description: "Order Payment",
         order_id: data.id,
-
-        handler: async function (response) {
-          const verifyResponse = await fetch("/verify-payment", {
+        handler: async function(response) {
+          var verifyResponse = await fetch("/verify-payment", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              ...response,
-              pickupTime,
-            }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...response, pickupTime: pickupTime }),
           });
-
-          const data = await verifyResponse.json();
-
-          if (data.success) {
-            window.location.href = `/orders/${data.orderId}`;
-          } else {
-            alert("Payment verification failed");
-          }
+          var vdata = await verifyResponse.json();
+          if (vdata.success) window.location.href = "/orders/" + vdata.orderId;
+          else alert("Payment verification failed");
         },
       };
-
-      const rzp = new Razorpay(options);
+      var rzp = new Razorpay(options);
       rzp.open();
     });
   }
 
-  // Easebuzz hosted-checkout path. Only wired up when the shop uses Easebuzz;
-  // the Razorpay flow above is left completely untouched.
-  const easebuzzButton = document.getElementById("easebuzz-button");
-
+  // ── EASEBUZZ ──
+  var easebuzzButton = document.getElementById("easebuzz-button");
   if (easebuzzButton) {
-    easebuzzButton.addEventListener("click", async () => {
-      const pickupTime = pickupSelect?.value;
-
-      if (!pickupTime) {
-        alert("Please select a pickup time.");
-        return;
-      }
-
+    easebuzzButton.addEventListener("click", async function() {
+      if (!allVariantsSelected) { alert("Please select a variant for all items before paying."); return; }
+      var pickupTime = pickupSelect ? pickupSelect.value : '';
+      if (!pickupTime) { alert("Please select a pickup time."); return; }
       try {
-        const response = await fetch("/easebuzz/initiate", {
+        var response = await fetch("/easebuzz/initiate", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ pickupTime }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pickupTime: pickupTime }),
         });
-
-        const data = await response.json();
-
+        var data = await response.json();
         if (!response.ok || !data.redirectUrl) {
-          alert(data.error || "Failed to start Easebuzz payment.");
+          var msg = data.error || "Failed to start Easebuzz payment.";
+          if (data.missingItems) msg = "Please select a variant for: " + data.missingItems.join(", ");
+          alert(msg);
           return;
         }
-
-        // Redirect to the Easebuzz hosted payment page.
         window.location.href = data.redirectUrl;
-      } catch (err) {
-        console.error("Easebuzz initiate failed:", err);
-        alert("Failed to start Easebuzz payment.");
-      }
+      } catch (err) { console.error("Easebuzz initiate failed:", err); alert("Failed to start Easebuzz payment."); }
     });
   }
 
-  // PhonePe hosted-checkout path. Only wired up when the shop uses PhonePe.
-  const phonepeButton = document.getElementById("phonepe-button");
-
+  // ── PHONEPE ──
+  var phonepeButton = document.getElementById("phonepe-button");
   if (phonepeButton) {
-    phonepeButton.addEventListener("click", async () => {
-      const pickupTime = pickupSelect?.value;
-
-      if (!pickupTime) {
-        alert("Please select a pickup time.");
-        return;
-      }
-
+    phonepeButton.addEventListener("click", async function() {
+      if (!allVariantsSelected) { alert("Please select a variant for all items before paying."); return; }
+      var pickupTime = pickupSelect ? pickupSelect.value : '';
+      if (!pickupTime) { alert("Please select a pickup time."); return; }
       try {
-        const response = await fetch("/phonepe/initiate", {
+        var response = await fetch("/phonepe/initiate", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ pickupTime }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pickupTime: pickupTime }),
         });
-
-        const data = await response.json();
-
+        var data = await response.json();
         if (!response.ok || !data.redirectUrl) {
-          alert(data.error || "Failed to start PhonePe payment.");
+          var msg = data.error || "Failed to start PhonePe payment.";
+          if (data.missingItems) msg = "Please select a variant for: " + data.missingItems.join(", ");
+          alert(msg);
           return;
         }
-
-        // Redirect to the PhonePe hosted payment page.
         window.location.href = data.redirectUrl;
-      } catch (err) {
-        console.error("PhonePe initiate failed:", err);
-        alert("Failed to start PhonePe payment.");
-      }
+      } catch (err) { console.error("PhonePe initiate failed:", err); alert("Failed to start PhonePe payment."); }
     });
   }
 </script>

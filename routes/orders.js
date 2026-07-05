@@ -23,8 +23,35 @@ import {
 } from "../config/phonepe.js";
 export const ordersRouter = express.Router();
 
+// Build a single order item from a cart line, looking up current MenuItem data.
+// Returns null when the menu item is no longer available.
+async function buildOrderItemFromLine(line) {
+  const m = await MenuItem.findById(line.menuItemId).lean();
+  if (!m || !m.available) return null;
+  const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
+  var variantId = line.variantId != null ? Number(line.variantId) : null;
+  var variantName = null;
+  var variantPrice = null;
+  var price = m.price;
+  var variants = m.variants || [];
+  if (variantId != null && variants[variantId]) {
+    variantName = variants[variantId].label;
+    variantPrice = variants[variantId].price;
+    price = variantPrice;
+  }
+  return {
+    menuItem: m._id,
+    name: m.name,
+    price: price,
+    quantity: q,
+    variantId: variantId,
+    variantName: variantName,
+    variantPrice: variantPrice,
+  };
+}
+
 // Build order line items + total from the session cart, validating each item
-// against the shop. Shared by the Easebuzz initiate flow. Returns null when
+// against the shop. Shared by all payment gateway flows. Returns null when
 // nothing orderable remains.
 async function buildOrderItemsFromCart(cart) {
   const ids = cart.items.map((l) => l.menuItemId);
@@ -41,16 +68,50 @@ async function buildOrderItemsFromCart(cart) {
     const m = byId.get(String(line.menuItemId));
     if (!m) continue;
     const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
+    var variantId = line.variantId != null ? Number(line.variantId) : null;
+    var variantName = null;
+    var variantPrice = null;
+    var price = m.price;
+    var variants = m.variants || [];
+    if (variantId != null && variants[variantId]) {
+      variantName = variants[variantId].label;
+      variantPrice = variants[variantId].price;
+      price = variantPrice;
+    }
     orderItems.push({
       menuItem: m._id,
       name: m.name,
-      price: m.price,
+      price: price,
       quantity: q,
+      variantId: variantId,
+      variantName: variantName,
+      variantPrice: variantPrice,
     });
-    total += m.price * q;
+    total += price * q;
   }
   if (!orderItems.length) return null;
   return { orderItems, total };
+}
+
+// Validate that every cart item requiring variant selection has one.
+// Returns an array of item names missing variant selection.
+async function validateCartVariants(cart) {
+  const ids = cart.items.map((l) => l.menuItemId);
+  const menuItems = await MenuItem.find({ _id: { $in: ids } }).lean();
+  const byId = new Map(menuItems.map((m) => [String(m._id), m]));
+  var missing = [];
+  for (const line of cart.items) {
+    var m = byId.get(String(line.menuItemId));
+    if (!m) continue;
+    var variants = m.variants || [];
+    if (variants.length > 1) {
+      var vi = line.variantId != null ? Number(line.variantId) : null;
+      if (vi == null || !variants[vi]) {
+        missing.push(m.name);
+      }
+    }
+  }
+  return missing;
 }
 
 function getCart(req) {
@@ -87,36 +148,24 @@ ordersRouter.post(
           .json({ error: "This shop is not using Razorpay." });
       }
 
-      // Build the order line items from the cart and compute the total
-      // server-side so the charged amount cannot be tampered with client-side.
-      const ids = cart.items.map((l) => l.menuItemId);
-      const menuItems = await MenuItem.find({
-        _id: { $in: ids },
-        shop: cart.shopId,
-        available: true,
-      }).lean();
-      const byId = new Map(menuItems.map((m) => [String(m._id), m]));
-
-      const orderItems = [];
-      let total = 0;
-      for (const line of cart.items) {
-        const m = byId.get(String(line.menuItemId));
-        if (!m) continue;
-        const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
-        orderItems.push({
-          menuItem: m._id,
-          name: m.name,
-          price: m.price,
-          quantity: q,
+      // Validate variants before proceeding
+      var missingVariants = await validateCartVariants(cart);
+      if (missingVariants.length > 0) {
+        return res.status(400).json({
+          error: "Variant selection required",
+          missingItems: missingVariants,
         });
-        total += m.price * q;
       }
 
-      if (!orderItems.length) {
+      // Build the order line items from the cart and compute the total
+      // server-side so the charged amount cannot be tampered with client-side.
+      const built = await buildOrderItemsFromCart(cart);
+      if (!built) {
         return res
           .status(400)
           .json({ error: "Nothing in your cart is available to order." });
       }
+      const { orderItems, total } = built;
 
       const { keyId, instance } = createRazorpayFromShop(shop);
 
@@ -126,10 +175,6 @@ ordersRouter.post(
         receipt: `receipt_${Date.now()}`,
       });
 
-      // Persist a pending order immediately. This gives webhooks a stable
-      // identifier (razorpayOrderId) to look up, and is intentionally created
-      // with status "pending_payment" so it is excluded from vendor workflows
-      // until payment is confirmed (by /verify-payment or the webhook).
       await Order.create({
         customer: req.session.userId,
         shop: cart.shopId,
@@ -202,8 +247,6 @@ ordersRouter.post(
         });
       }
 
-      // Locate the pending order created in /create-razorpay-order using the
-      // existing Razorpay order identifier. We do NOT create a new record here.
       const order = await Order.findOne({ razorpayOrderId: razorpay_order_id });
       if (!order || String(order.customer) !== String(req.session.userId)) {
         return res.status(404).json({
@@ -212,9 +255,6 @@ ordersRouter.post(
         });
       }
 
-      // Idempotency / fallback safety: if the webhook (or a previous verify)
-      // already moved the order out of pending_payment, just return success
-      // without re-processing.
       if (order.status !== "pending_payment") {
         req.session.cart = { shopId: null, items: [] };
         return res.json({ success: true, orderId: order._id });
@@ -247,11 +287,6 @@ ordersRouter.post(
 );
 
 // --- Easebuzz hosted checkout -------------------------------------------
-//
-// Initiate: create the pending order up front (reusing the same pending-order
-// tracking pattern as Razorpay), then return the params the browser must POST
-// to the Easebuzz hosted payment page. The order's _id is used as the txnid so
-// the callback can reconcile against an existing record (via gatewayTxnId).
 ordersRouter.post(
   "/easebuzz/initiate",
   requireDb,
@@ -278,6 +313,15 @@ ordersRouter.post(
           .json({ error: "This shop is not using Easebuzz." });
       }
 
+      // Validate variants before proceeding
+      var missingVariants = await validateCartVariants(cart);
+      if (missingVariants.length > 0) {
+        return res.status(400).json({
+          error: "Variant selection required",
+          missingItems: missingVariants,
+        });
+      }
+
       const built = await buildOrderItemsFromCart(cart);
       if (!built) {
         return res
@@ -300,7 +344,6 @@ ordersRouter.post(
       const firstname = String(user.name || "Customer").slice(0, 60);
       const email = String(user.email || "customer@flashfoods.local");
 
-      // Persist the pending order before redirecting to the gateway.
       await Order.create({
         customer: req.session.userId,
         shop: cart.shopId,
@@ -338,8 +381,6 @@ ordersRouter.post(
         hash,
       };
 
-      // Step 1: server-to-server initiate. Easebuzz returns an access key on
-      // success which we turn into the hosted payment page URL.
       const result = await easebuzzInitiatePayment(params, baseUrl);
 
       if (!result || Number(result.status) !== 1 || !result.data) {
@@ -365,9 +406,6 @@ ordersRouter.post(
   },
 );
 
-// Callback: Easebuzz redirects (POST) the payment result here. Verify the
-// response hash, then reconcile the existing pending order by gatewayTxnId.
-// Only transitions orders still in pending_payment so this is idempotent.
 ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
   try {
     const payload = req.body || {};
@@ -405,11 +443,6 @@ ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
 });
 
 // --- PhonePe hosted checkout ---------------------------------------------
-//
-// Initiate: create the pending order up front (reusing the same pending-order
-// tracking pattern as Razorpay and Easebuzz), then return the PhonePe Pay API
-// redirect URL. The order's gatewayTxnId is the merchantTransactionId PhonePe
-// uses for reconciliation on callback.
 ordersRouter.post(
   "/phonepe/initiate",
   requireDb,
@@ -434,6 +467,15 @@ ordersRouter.post(
         return res
           .status(400)
           .json({ error: "This shop is not using PhonePe." });
+      }
+
+      // Validate variants before proceeding
+      var missingVariants = await validateCartVariants(cart);
+      if (missingVariants.length > 0) {
+        return res.status(400).json({
+          error: "Variant selection required",
+          missingItems: missingVariants,
+        });
       }
 
       const built = await buildOrderItemsFromCart(cart);
@@ -469,7 +511,6 @@ ordersRouter.post(
         });
       }
 
-      // Persist the pending order before redirecting to the gateway.
       await Order.create({
         customer: req.session.userId,
         shop: cart.shopId,
@@ -510,12 +551,6 @@ ordersRouter.post(
   },
 );
 
-// --- PhonePe callback ------------------------------------------------------
-//
-// After payment, PhonePe redirects the browser back to this URL. The callback
-// may arrive as GET (query params) or POST (form body) depending on the
-// sandbox/production environment. We verify payment server-to-server via the
-// Order Status API before updating the order.
 ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
   try {
     const merchantOrderId = req.query.merchantOrderId || "";
@@ -561,17 +596,14 @@ ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
     const state = statusResult?.state || "";
 
     if (state === "COMPLETED") {
-      // Extract the PhonePe transaction ID from the first payment attempt.
       const transactionId =
         statusResult?.paymentDetails?.[0]?.transactionId || "";
 
-      // Update the order as paid.
       order.status = "paid";
       order.paymentNote = "paid";
       order.transactionId = transactionId;
       await order.save();
 
-      // Clear the session cart so the user can start fresh.
       if (req.session) {
         req.session.cart = { shopId: null, items: [] };
       }
@@ -580,7 +612,6 @@ ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
       return res.redirect(`/orders/${order._id}`);
     }
 
-    // Failure states — mark the order cancelled so it's not stuck in limbo.
     if (["FAILED", "EXPIRED", "CANCELLED", "REVERSED"].includes(state)) {
       order.status = "cancelled";
       order.paymentNote = `phonepe_${state.toLowerCase()}`;
@@ -629,34 +660,22 @@ ordersRouter.post(
       return res.redirect("/cart");
     }
 
-    const ids = cart.items.map((l) => l.menuItemId);
-    const menuItems = await MenuItem.find({
-      _id: { $in: ids },
-      shop: cart.shopId,
-      available: true,
-    }).lean();
-
-    const byId = new Map(menuItems.map((m) => [String(m._id), m]));
-    const orderItems = [];
-    let total = 0;
-
-    for (const line of cart.items) {
-      const m = byId.get(String(line.menuItemId));
-      if (!m) continue;
-      const q = Math.max(1, Math.min(99, Number(line.quantity) || 1));
-      orderItems.push({
-        menuItem: m._id,
-        name: m.name,
-        price: m.price,
-        quantity: q,
-      });
-      total += m.price * q;
+    // Validate variants before proceeding
+    var missingVariants = await validateCartVariants(cart);
+    if (missingVariants.length > 0) {
+      req.flash(
+        "error",
+        "Please select a variant for all items before checking out."
+      );
+      return res.redirect("/cart");
     }
 
-    if (!orderItems.length) {
+    const built = await buildOrderItemsFromCart(cart);
+    if (!built) {
       req.flash("error", "Nothing in your cart is available to order.");
       return res.redirect("/cart");
     }
+    const { orderItems, total } = built;
 
     const pickupOtp = generateOtp();
 
@@ -675,7 +694,7 @@ ordersRouter.post(
     req.session.cart = { shopId: null, items: [] };
     req.flash(
       "success",
-      "Order placed (paid). You’ll get a pickup code after the canteen marks it ready.",
+      "Order placed (paid). You'll get a pickup code after the canteen marks it ready.",
     );
     return res.redirect(`/orders/${order._id}`);
   },
