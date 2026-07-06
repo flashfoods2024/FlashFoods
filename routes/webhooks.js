@@ -4,6 +4,7 @@ import { Order } from "../models/Order.js";
 import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { getWebhookSecretFromShop } from "../config/razorpay.js";
+import { emitPendingCount } from "../socket/index.js";
 
 export const webhooksRouter = express.Router();
 
@@ -106,6 +107,10 @@ webhooksRouter.post(
           },
           { new: true }
         );
+
+        if (updated) {
+          emitPendingCount(order.shop);
+        }
 
         // If it was not pending (already paid/handled), still record the event
         // id so repeat deliveries are recognised as duplicates.

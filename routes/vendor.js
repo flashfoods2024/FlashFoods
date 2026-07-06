@@ -17,6 +17,7 @@ import {
   refundPayment,
 } from "../config/phonepe.js";
 import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
+import { emitPendingCount } from "../socket/index.js";
 
 export const vendorRouter = express.Router();
 
@@ -436,6 +437,8 @@ vendorRouter.post(
     order.readyAt = order.readyAt || new Date();
     await order.save();
 
+    emitPendingCount(order.shop);
+
     req.flash(
       "success",
       "Order marked ready. Student can pick up with their code.",
@@ -517,6 +520,7 @@ vendorRouter.post(
         order.status = "cancelled";
         order.refundStatus = "completed";
         await order.save();
+        emitPendingCount(order.shop);
         req.flash("success", "Order cancelled.");
         return res.redirect("/vendor/orders/pending");
       }
@@ -553,6 +557,8 @@ vendorRouter.post(
       order.refundStatus = "completed";
 
       await order.save();
+
+      emitPendingCount(order.shop);
 
       req.flash("success", "Order cancelled and refund initiated.");
 

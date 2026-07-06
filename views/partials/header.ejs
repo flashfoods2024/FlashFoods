@@ -6,6 +6,8 @@
     <title><%= pageTitle ? `${pageTitle} - Flash Foods` : "Flash Foods" %></title>
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/notification-manager.js"></script>
   </head>
   <body>
     <% if (typeof hidePageBackground === "undefined" || !hidePageBackground) { %>

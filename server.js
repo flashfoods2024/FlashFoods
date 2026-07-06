@@ -22,6 +22,7 @@ import {
   formatPickupTime,
   getPickupUrgency,
 } from "./utils/time.js";
+import { initSocket } from "./socket/index.js";
 
 dotenv.config();
 console.log(
@@ -55,18 +56,26 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 const app = express();
+//RATE LIMITING: 300 requests per 15 minutes per IP
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // 300 requests per IP
+  windowMs: 15 * 60 * 1000,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+const disableRateLimit = process.env.DISABLE_RATE_LIMIT === "true";
+
 app.use(
   helmet({
     contentSecurityPolicy: false,
   }),
 );
-app.use(limiter);
+
+if (!disableRateLimit) {
+  app.use(limiter);
+}
+
 const port = Number(process.env.PORT || 3000);
 
 const __filename = fileURLToPath(import.meta.url);
@@ -191,6 +200,8 @@ try {
   process.exit(1);
 }
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
+
+initSocket(server);

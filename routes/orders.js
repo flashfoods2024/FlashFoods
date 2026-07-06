@@ -21,6 +21,7 @@ import {
   createPayment,
   getOrderStatus,
 } from "../config/phonepe.js";
+import { emitPendingCount } from "../socket/index.js";
 export const ordersRouter = express.Router();
 
 // Build a single order item from a cart line, looking up current MenuItem data.
@@ -266,6 +267,8 @@ ordersRouter.post(
       order.razorpayPaymentId = razorpay_payment_id;
       await order.save();
 
+      emitPendingCount(order.shop);
+
       req.session.cart = {
         shopId: null,
         items: [],
@@ -433,6 +436,8 @@ ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
       order.paymentNote = payload.easepayid || payload.status || "easebuzz";
       order.transactionId = payload.easepayid || "";
       await order.save();
+
+      if (success) emitPendingCount(order.shop);
     }
 
     return res.redirect(`/orders/${order._id}`);
@@ -604,6 +609,8 @@ ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
       order.transactionId = transactionId;
       await order.save();
 
+      emitPendingCount(order.shop);
+
       if (req.session) {
         req.session.cart = { shopId: null, items: [] };
       }
@@ -690,6 +697,8 @@ ordersRouter.post(
       paymentNote: "mock",
       transactionId: "mock",
     });
+
+    emitPendingCount(cart.shopId);
 
     req.session.cart = { shopId: null, items: [] };
     req.flash(

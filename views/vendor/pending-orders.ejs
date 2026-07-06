@@ -222,4 +222,15 @@
   })();
 </script>
 
+<script>
+  (function () {
+    <% if (typeof vendorShop !== "undefined" && vendorShop && vendorShop._id) { %>
+      var shopId = "<%= vendorShop._id %>";
+      if (typeof NotificationManager !== "undefined") {
+        window._notificationManager = new NotificationManager(shopId);
+      }
+    <% } %>
+  })();
+</script>
+
 <%- include("../partials/footer") %>
