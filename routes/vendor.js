@@ -474,6 +474,8 @@ vendorRouter.post(
     order.status = "accepted";
     await order.save();
 
+    emitPendingCount(order.shop);
+
     req.flash("success", "Order accepted. Mark it ready when prepared.");
     return res.redirect("/vendor/orders/pending");
   },

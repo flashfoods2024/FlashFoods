@@ -7,8 +7,17 @@ export function initSocket(server) {
   _io = new Server(server);
 
   _io.on("connection", (socket) => {
-    socket.on("vendor:join", (shopId) => {
+    socket.on("vendor:join", async (shopId) => {
       socket.join(`shop:${shopId}`);
+      try {
+        const pendingCount = await Order.countDocuments({
+          shop: shopId,
+          status: "paid",
+        });
+        socket.emit("pending-count", pendingCount);
+      } catch (err) {
+        console.error("vendor:join count error:", err);
+      }
     });
   });
 }
@@ -22,7 +31,7 @@ export async function emitPendingCount(shopId) {
   try {
     const pendingCount = await Order.countDocuments({
       shop: shopId,
-      status: { $in: ["paid", "accepted"] },
+      status: "paid",
     });
     _io.to(`shop:${shopId}`).emit("pending-count", pendingCount);
   } catch (err) {
