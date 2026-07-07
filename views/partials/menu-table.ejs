@@ -290,6 +290,182 @@ var isStudent = mode === 'student';
   .import-actions__right { width: 100%; }
   .import-search-wrap { flex: 1; }
 }
+
+/* ── mobile card layout (student mode) ─────────────────────── */
+@media (max-width: 768px) {
+  .import-actions {
+    top: 56px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+  .import-actions__left { min-width: 0; }
+  .import-search-wrap { flex: 1; }
+  .import-search-wrap input {
+    min-height: 40px;
+    font-size: 14px;
+    padding: 8px 10px 8px 30px;
+  }
+
+  .import-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 4px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+  }
+  .import-filters::-webkit-scrollbar { display: none; }
+  .filter-btn {
+    min-height: 32px;
+    padding: 4px 12px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .import-table-wrap {
+    overflow-x: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .import-table { min-width: 0; }
+
+  .import-table thead { display: none; }
+
+  .import-table tbody tr[data-available] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    height: auto;
+  }
+
+  .import-table tbody tr[data-available]:hover { background: var(--card); }
+
+  .import-table tbody tr[data-available] td {
+    border: none;
+    padding: 0;
+    height: auto;
+    vertical-align: middle;
+  }
+
+  .import-table tbody tr[data-available] td:nth-child(1) {
+    flex: 0 0 80px;
+    order: 0;
+  }
+
+  .import-table tbody tr[data-available] .menu-item-img {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  .import-table tbody tr[data-available] .cell--text {
+    flex: 1 1 calc(100% - 90px);
+    order: 1;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 0;
+  }
+
+  .import-table tbody tr[data-available] td:nth-child(3),
+  .import-table tbody tr[data-available] td:nth-child(4) {
+    display: inline;
+    flex: 0 0 auto;
+    order: 2;
+    width: auto;
+  }
+  .import-table tbody tr[data-available] td:nth-child(4) { margin-left: 4px; }
+
+  .import-table tbody tr[data-available] td:nth-child(3) .cell--muted {
+    font-size: 11px;
+  }
+
+  .import-table tbody tr[data-available] .ft-badge {
+    min-height: 20px;
+    padding: 1px 7px;
+    font-size: 9px;
+  }
+
+  .import-table tbody tr[data-available] td:nth-child(5) {
+    flex: 0 0 100%;
+    order: 3;
+    padding: 2px 0;
+  }
+
+  .import-table tbody tr[data-available] .variant-group { flex-direction: row; flex-wrap: wrap; gap: 2px 6px; }
+  .import-table tbody tr[data-available] .variant-label { font-size: 11px; }
+  .import-table tbody tr[data-available] .variant-price { font-size: 14px; }
+
+  .import-table tbody tr[data-available] .cell--center {
+    flex: 1;
+    order: 4;
+    text-align: left;
+    padding: 0;
+  }
+
+  .import-table tbody tr[data-available] .avail-badge {
+    min-height: 20px;
+    padding: 1px 8px;
+    font-size: 10px;
+  }
+
+  .import-table tbody tr[data-available] td:nth-child(7) {
+    flex: 0 0 auto;
+    order: 4;
+  }
+
+  .import-table tbody tr[data-available] .action-btn {
+    min-height: 36px;
+    padding: 6px 16px;
+    font-size: 13px;
+  }
+
+  .import-table tbody tr[data-available] td:nth-child(7) .action-btn--ghost {
+    font-size: 12px;
+    padding: 4px 12px;
+    min-height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .import-actions { top: 48px; }
+
+  .import-table tbody tr[data-available] {
+    padding: 8px 10px;
+    gap: 4px 8px;
+    margin-bottom: 8px;
+  }
+
+  .import-table tbody tr[data-available] td:nth-child(1) { flex-basis: 68px; }
+
+  .import-table tbody tr[data-available] .menu-item-img {
+    width: 68px;
+    height: 68px;
+  }
+
+  .import-table tbody tr[data-available] .cell--text {
+    font-size: 14px;
+  }
+
+  .import-table tbody tr[data-available] td:nth-child(5) { padding: 0; }
+
+  .import-table tbody tr[data-available] .variant-price { font-size: 13px; }
+
+  .import-table tbody tr[data-available] .action-btn {
+    min-height: 32px;
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+}
 </style>
 
 <!-- ── STICKY ACTION BAR ── -->

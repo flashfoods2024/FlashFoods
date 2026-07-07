@@ -1577,3 +1577,119 @@ fieldset.fieldset legend {
   text-decoration: line-through;
   opacity: 0.6;
 }
+
+/* ── Mobile header / hero / footer refinements ─────────────── */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 2px 0;
+  }
+  .topbar__inner {
+    gap: 4px;
+  }
+  .topbar__brand-row {
+    gap: 8px;
+  }
+  .brand {
+    font-size: 22px;
+  }
+  .brand::before {
+    width: 28px;
+    height: 28px;
+    background-size: 18px 18px;
+    box-shadow: 0 6px 14px rgba(255, 122, 0, 0.2);
+  }
+  .topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .nav-toggle {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+  }
+  .cart-mobile {
+    max-width: none;
+    height: 34px;
+    font-size: 13px;
+    padding: 6px 12px;
+    min-height: 34px;
+  }
+
+  .container {
+    padding: 0 10px;
+  }
+
+  .breadcrumb {
+    margin: 6px 0 2px;
+    font-size: 12px;
+  }
+
+  .hero--compact {
+    padding: 12px 0 8px;
+  }
+  .hero--compact h1 {
+    font-size: 22px;
+    margin: 0 0 6px;
+  }
+  .hero--compact p {
+    font-size: 14px;
+    margin: 0 0 10px;
+  }
+  .hero--compact .tag {
+    min-height: 24px;
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .footer {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar {
+    padding: 1px 0;
+  }
+  .brand {
+    font-size: 20px;
+  }
+  .brand::before {
+    width: 24px;
+    height: 24px;
+    background-size: 16px 16px;
+  }
+  .nav-toggle {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+  .cart-mobile {
+    height: 30px;
+    font-size: 12px;
+    padding: 4px 10px;
+    min-height: 30px;
+  }
+
+  .container {
+    padding: 0 8px;
+  }
+
+  .hero--compact {
+    padding: 8px 0 6px;
+  }
+  .hero--compact h1 {
+    font-size: 20px;
+  }
+  .hero--compact p {
+    font-size: 13px;
+  }
+
+  .footer {
+    margin-top: 0.25rem;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.65rem;
+  }
+}
