@@ -10,6 +10,32 @@
 .cart-qty-form { display:flex;gap:4px;align-items:center; }
 .cart-qty-input { width:50px; }
 .btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+@media (max-width: 768px) {
+  #cart-table { min-width: 0; width: 100%; }
+  #cart-table th,
+  #cart-table td {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+  #cart-table th { font-size: 9px; letter-spacing: 0.02em; }
+  .variant-select { min-width: 120px !important; min-height: 30px; font-size: 12px; }
+  .variant-select-wrap { margin-top: 3px; }
+  .variant-required-warn { font-size: 10px; margin: 0 0 1px; }
+  .cart-qty-input { width: 36px; min-height: 30px; font-size: 12px; text-align: center; }
+  .cart-qty-form .btn--small { min-height: 30px; padding: 3px 8px; font-size: 11px; }
+  .cart-price-cell { font-size: 11px; }
+  .cart-subtotal-cell { font-size: 11px; }
+  .cart-total { margin: 8px 0 0; font-size: 14px; }
+  .pickup-time-section { margin: 10px 0 6px; }
+  .pickup-time-section select { min-height: 40px; }
+  .pickup-time-section .muted.small { margin: 3px 0 0; padding-bottom: 0; }
+  .row--split { gap: 8px; }
+  .row--split .btn { min-height: 44px; font-size: 14px; }
+  .muted.small { padding-bottom: 0; }
+  .card[style*="border-left:4px"] { margin-bottom: 8px; padding: 8px 10px !important; }
+  .card[style*="border-left:4px"] p { font-size: 12px; }
+}
 </style>
 
 <section class="hero hero--compact">

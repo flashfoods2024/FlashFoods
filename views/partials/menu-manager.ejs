@@ -189,6 +189,39 @@
 [data-edit-container] input {
   width: 100%;
 }
+
+@media (max-width: 768px) {
+  .vendor-menu-table { min-width: 0; width: 100%; }
+  .vendor-menu-table th,
+  .vendor-menu-table td {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+  .vendor-menu-table th { font-size: 9px; letter-spacing: 0.02em; }
+  .vendor-menu-item .food-thumb { width: 52px; height: 52px; flex: 0 0 52px; }
+  .vendor-menu-item { gap: 8px; }
+  .vendor-menu-item__name { font-size: 13px; }
+  .vendor-menu-item__desc { font-size: 0.75em; }
+  .vendor-menu-item__price { font-size: 12px; }
+  .vendor-menu-table .tag { min-height: 20px; padding: 1px 6px; font-size: 9px; }
+  .vendor-menu-table [data-actions-view],
+  .vendor-menu-table [data-actions-edit] {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .vendor-menu-table [data-actions-view] .btn,
+  .vendor-menu-table [data-actions-edit] .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 32px;
+    font-size: 11px;
+  }
+  .form { gap: 8px; }
+  .form input { min-height: 40px; padding: 8px 10px; font-size: 13px; }
+  .form .btn { width: 100%; justify-content: center; min-height: 44px; }
+  .row--split .tag { font-size: 11px; min-height: 24px; padding: 3px 8px; }
+  .card { padding: 14px; }
+}
 </style>
 
 <script>
