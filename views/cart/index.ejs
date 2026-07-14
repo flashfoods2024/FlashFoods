@@ -286,16 +286,28 @@
       if (!allVariantsSelected) { alert("Please select a variant for all items before paying."); return; }
       var pickupTime = pickupSelect ? pickupSelect.value : '';
       if (!pickupTime) { alert("Please select a pickup time."); return; }
-      var response = await fetch("/create-razorpay-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: Number("<%= subtotal %>"), pickupTime: pickupTime }),
-      });
-      var data = await response.json();
-      if (!response.ok) {
-        var msg = data.error || "Failed to create order";
-        if (data.missingItems) msg = "Please select a variant for: " + data.missingItems.join(", ");
-        alert(msg);
+      rzpButton.disabled = true;
+      rzpButton.textContent = "Processing...";
+      try {
+        var response = await fetch("/create-razorpay-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: Number("<%= subtotal %>"), pickupTime: pickupTime }),
+        });
+        var data = await response.json();
+        if (!response.ok) {
+          var msg = data.error || "Failed to create order";
+          if (data.missingItems) msg = "Please select a variant for: " + data.missingItems.join(", ");
+          alert(msg);
+          rzpButton.disabled = false;
+          rzpButton.textContent = "Pay with Razorpay";
+          return;
+        }
+      } catch (err) {
+        console.error("Razorpay order creation failed:", err);
+        alert("Failed to create order. Please try again.");
+        rzpButton.disabled = false;
+        rzpButton.textContent = "Pay with Razorpay";
         return;
       }
       var options = {
@@ -328,6 +340,8 @@
       if (!allVariantsSelected) { alert("Please select a variant for all items before paying."); return; }
       var pickupTime = pickupSelect ? pickupSelect.value : '';
       if (!pickupTime) { alert("Please select a pickup time."); return; }
+      easebuzzButton.disabled = true;
+      easebuzzButton.textContent = "Processing...";
       try {
         var response = await fetch("/easebuzz/initiate", {
           method: "POST",
@@ -339,10 +353,17 @@
           var msg = data.error || "Failed to start Easebuzz payment.";
           if (data.missingItems) msg = "Please select a variant for: " + data.missingItems.join(", ");
           alert(msg);
+          easebuzzButton.disabled = false;
+          easebuzzButton.textContent = "Pay with Easebuzz";
           return;
         }
         window.location.href = data.redirectUrl;
-      } catch (err) { console.error("Easebuzz initiate failed:", err); alert("Failed to start Easebuzz payment."); }
+      } catch (err) {
+        console.error("Easebuzz initiate failed:", err);
+        alert("Failed to start Easebuzz payment.");
+        easebuzzButton.disabled = false;
+        easebuzzButton.textContent = "Pay with Easebuzz";
+      }
     });
   }
 
@@ -353,6 +374,8 @@
       if (!allVariantsSelected) { alert("Please select a variant for all items before paying."); return; }
       var pickupTime = pickupSelect ? pickupSelect.value : '';
       if (!pickupTime) { alert("Please select a pickup time."); return; }
+      phonepeButton.disabled = true;
+      phonepeButton.textContent = "Processing...";
       try {
         var response = await fetch("/phonepe/initiate", {
           method: "POST",
@@ -364,10 +387,17 @@
           var msg = data.error || "Failed to start PhonePe payment.";
           if (data.missingItems) msg = "Please select a variant for: " + data.missingItems.join(", ");
           alert(msg);
+          phonepeButton.disabled = false;
+          phonepeButton.textContent = "Pay with PhonePe";
           return;
         }
         window.location.href = data.redirectUrl;
-      } catch (err) { console.error("PhonePe initiate failed:", err); alert("Failed to start PhonePe payment."); }
+      } catch (err) {
+        console.error("PhonePe initiate failed:", err);
+        alert("Failed to start PhonePe payment.");
+        phonepeButton.disabled = false;
+        phonepeButton.textContent = "Pay with PhonePe";
+      }
     });
   }
 </script>

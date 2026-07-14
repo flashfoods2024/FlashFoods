@@ -291,7 +291,7 @@ adminRouter.get("/", async (req, res) => {
       .lean(),
   ]);
 
-  res.render("admin/dashboard", {
+  return res.render("admin/dashboard", {
     pageTitle: "Admin Dashboard",
     activeSection: "dashboard",
     stats: {
@@ -339,7 +339,7 @@ adminRouter.get("/shops", async (req, res) => {
     };
   });
 
-  res.render("admin/shops/index", {
+  return res.render("admin/shops/index", {
     pageTitle: "Manage Shops",
     activeSection: "shops",
     shops: rows,
@@ -349,7 +349,7 @@ adminRouter.get("/shops", async (req, res) => {
 
 adminRouter.get("/shops/new", async (req, res) => {
   const vendors = await User.find({ role: "vendor" }).sort({ name: 1 }).lean();
-  res.render("admin/shops/form", {
+  return res.render("admin/shops/form", {
     pageTitle: "Create Shop",
     activeSection: "shops",
     mode: "create",
@@ -451,7 +451,7 @@ adminRouter.get("/shops/:id", async (req, res) => {
     return res.redirect("/admin/shops");
   }
 
-  res.render("admin/shops/show", {
+  return res.render("admin/shops/show", {
     pageTitle: shop.name,
     activeSection: "shops",
     shop,
@@ -482,7 +482,7 @@ adminRouter.get("/shops/:id/edit", async (req, res) => {
     return res.redirect("/admin/shops");
   }
 
-  res.render("admin/shops/form", {
+  return res.render("admin/shops/form", {
     pageTitle: `Edit ${shop.name}`,
     activeSection: "shops",
     mode: "edit",
@@ -631,7 +631,7 @@ adminRouter.get("/shops/:id/payment-settings", async (req, res) => {
     return res.redirect("/admin/shops");
   }
 
-  res.render("admin/shops/payment-settings", {
+  return res.render("admin/shops/payment-settings", {
     pageTitle: `Payment Settings - ${shop.name}`,
     activeSection: "shops",
     shop,
@@ -750,7 +750,7 @@ adminRouter.get("/vendors", async (req, res) => {
     statusLabel: vendor.isActive === false ? "Disabled" : "Active",
   }));
 
-  res.render("admin/vendors/index", {
+  return res.render("admin/vendors/index", {
     pageTitle: "Manage Vendors",
     activeSection: "vendors",
     vendors: rows,
@@ -760,7 +760,7 @@ adminRouter.get("/vendors", async (req, res) => {
 
 adminRouter.get("/vendors/new", async (req, res) => {
   const shops = await Shop.find().sort({ name: 1 }).lean();
-  res.render("admin/vendors/form", {
+  return res.render("admin/vendors/form", {
     pageTitle: "Create Vendor",
     activeSection: "vendors",
     mode: "create",
@@ -846,7 +846,7 @@ adminRouter.get("/vendors/:id", async (req, res) => {
     ? await Order.countDocuments({ shop: vendor.shop._id, status: "completed" })
     : 0;
 
-  res.render("admin/vendors/show", {
+  return res.render("admin/vendors/show", {
     pageTitle: vendor.name,
     activeSection: "vendors",
     vendor,
@@ -877,7 +877,7 @@ adminRouter.get("/vendors/:id/edit", async (req, res) => {
     return res.redirect("/admin/vendors");
   }
 
-  res.render("admin/vendors/form", {
+  return res.render("admin/vendors/form", {
     pageTitle: `Edit ${vendor.name}`,
     activeSection: "vendors",
     mode: "edit",
@@ -1018,7 +1018,7 @@ adminRouter.get("/students", async (req, res) => {
     };
   });
 
-  res.render("admin/students/index", {
+  return res.render("admin/students/index", {
     pageTitle: "Manage Students",
     activeSection: "students",
     students: rows,
@@ -1062,7 +1062,7 @@ adminRouter.get("/students/:id", async (req, res) => {
     },
   ]);
 
-  res.render("admin/students/show", {
+  return res.render("admin/students/show", {
     pageTitle: student.name,
     activeSection: "students",
     student,
@@ -1119,7 +1119,7 @@ adminRouter.get("/orders", async (req, res) => {
       vendorName: order.shop?.vendor?.name || "Unassigned",
     }));
 
-  res.render("admin/orders/index", {
+  return res.render("admin/orders/index", {
     pageTitle: "Manage Orders",
     activeSection: "orders",
     orders: rows,
@@ -1152,7 +1152,7 @@ adminRouter.get("/orders/:id", async (req, res) => {
     return res.redirect("/admin/orders");
   }
 
-  res.render("admin/orders/show", {
+  return res.render("admin/orders/show", {
     pageTitle: `Order ${orderNumber(order)}`,
     activeSection: "orders",
     order,
@@ -1196,7 +1196,7 @@ adminRouter.get("/menus", async (req, res) => {
           : "Open",
   }));
 
-  res.render("admin/menus/index", {
+  return res.render("admin/menus/index", {
     pageTitle: "Manage Menus",
     activeSection: "menus",
     vendors: rows,
@@ -1210,7 +1210,7 @@ adminRouter.get(
     const menuItems = await MenuItem.find({ shop: req.vendorShopId })
       .sort({ name: 1 })
       .lean();
-    res.render("admin/vendors/menu", {
+    return res.render("admin/vendors/menu", {
       pageTitle: `Menu – ${req.targetVendor.name}`,
       activeSection: "menus",
       vendor: req.targetVendor,
@@ -1416,7 +1416,7 @@ adminRouter.get(
   "/vendors/:vendorId/menu/import",
   resolveAdminVendorShop,
   async (req, res) => {
-    res.render("admin/vendors/menu-import", {
+    return res.render("admin/vendors/menu-import", {
       pageTitle: `Import Menu – ${req.targetVendor.name}`,
       activeSection: "menus",
       vendor: req.targetVendor,
@@ -1532,7 +1532,7 @@ adminRouter.post(
       // ---- Step 5: render ----
       try {
         console.log("[MARK] res.render start");
-        res.render("admin/vendors/menu-import-preview", {
+        return res.render("admin/vendors/menu-import-preview", {
           pageTitle: hasItems ? "Review Extracted Items" : "Extraction Failed",
           activeSection: "menus",
           vendor: req.targetVendor,
@@ -1817,7 +1817,7 @@ adminRouter.get("/analytics", async (req, res) => {
     ]),
   ]);
 
-  res.render("admin/analytics", {
+  return res.render("admin/analytics", {
     pageTitle: "Analytics",
     activeSection: "analytics",
     stats: {

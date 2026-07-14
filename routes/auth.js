@@ -8,7 +8,7 @@ import { sendPasswordResetEmail } from "../utils/email.js";
 export const authRouter = express.Router();
 
 authRouter.get("/signup", (req, res) => {
-  res.render("auth/signup", { pageTitle: "Sign Up" });
+  return res.render("auth/signup", { pageTitle: "Sign Up" });
 });
 
 authRouter.post("/signup", requireDb, async (req, res) => {
@@ -41,7 +41,7 @@ authRouter.post("/signup", requireDb, async (req, res) => {
 });
 
 authRouter.get("/login", (req, res) => {
-  res.render("auth/login", { pageTitle: "Login" });
+  return res.render("auth/login", { pageTitle: "Login" });
 });
 
 authRouter.post("/login", requireDb, async (req, res) => {
@@ -75,7 +75,7 @@ authRouter.post("/login", requireDb, async (req, res) => {
 });
 
 authRouter.get("/forgot-password", (req, res) => {
-  res.render("auth/forgot-password", { pageTitle: "Forgot Password" });
+  return res.render("auth/forgot-password", { pageTitle: "Forgot Password" });
 });
 
 authRouter.post("/forgot-password", requireDb, async (req, res) => {
@@ -121,7 +121,7 @@ authRouter.get("/reset-password/:token", requireDb, async (req, res) => {
     return res.redirect("/forgot-password");
   }
 
-  res.render("auth/reset-password", { pageTitle: "Reset Password", token });
+  return res.render("auth/reset-password", { pageTitle: "Reset Password", token });
 });
 
 authRouter.post("/reset-password/:token", requireDb, async (req, res) => {

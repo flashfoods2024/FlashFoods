@@ -78,7 +78,7 @@ cartRouter.get(
         "";
     }
 
-    res.render("cart/index", {
+    return res.render("cart/index", {
       pageTitle: "Cart",
       shop,
       lines,

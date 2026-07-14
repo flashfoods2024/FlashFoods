@@ -146,7 +146,7 @@ vendorRouter.get(
     const menuItems = await MenuItem.find({ shop: req.vendorShopId })
       .sort({ name: 1 })
       .lean();
-    res.render("vendor/menu", {
+    return res.render("vendor/menu", {
       pageTitle: "Vendor Dashboard",
       shop,
       menuItems,
@@ -366,7 +366,7 @@ vendorRouter.get(
   requireVendorShop,
   async (req, res) => {
     const orders = await getPendingOrders(req.vendorShopId);
-    res.render("vendor/pending-orders", {
+    return res.render("vendor/pending-orders", {
       pageTitle: "Pending Orders",
       orders,
     });
@@ -401,10 +401,10 @@ vendorRouter.get(
             variantName: item.variantName || null,
           })),
       }));
-      res.json({ orders: payload });
+      return res.json({ orders: payload });
     } catch (err) {
       console.error("Failed to load pending orders JSON:", err);
-      res.status(500).json({ error: "Failed to load pending orders." });
+      return res.status(500).json({ error: "Failed to load pending orders." });
     }
   },
 );
@@ -603,7 +603,7 @@ vendorRouter.get(
       .populate("customer", "name")
       .lean();
 
-    res.render("vendor/verify", {
+    return res.render("vendor/verify", {
       pageTitle: "Verify Pickup",
       waitingPickup: readyOrders.length,
       orders: readyOrders,
@@ -697,7 +697,7 @@ vendorRouter.get(
       return res.redirect("/vendor/orders/pending");
     }
 
-    res.render("vendor/adjust-order", {
+    return res.render("vendor/adjust-order", {
       pageTitle: `Adjust Order #${String(order._id).slice(-6).toUpperCase()}`,
       order,
     });
@@ -840,7 +840,7 @@ vendorRouter.get(
       .limit(50)
       .lean();
 
-    res.render("vendor/completed-orders", {
+    return res.render("vendor/completed-orders", {
       pageTitle: "Completed & Cancelled Orders",
       orders,
     });
@@ -888,7 +888,7 @@ vendorRouter.get(
       }
     }
 
-    res.render("vendor/order-details", {
+    return res.render("vendor/order-details", {
       pageTitle: `Order #${String(order._id).slice(-6).toUpperCase()}`,
       order,
       backHref,
@@ -910,7 +910,7 @@ vendorRouter.get(
         return res.redirect("/vendor/menu");
       }
 
-      res.render("vendor/payment-settings", {
+      return res.render("vendor/payment-settings", {
         pageTitle: "Payment Settings",
         shop,
       });

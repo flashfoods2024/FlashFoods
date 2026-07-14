@@ -1,3 +1,17 @@
+const PICKUP_TOLERANCE_MS = 5 * 60 * 1000; // 5 min tolerance for clock skew
+
+export function validatePickupTime(value) {
+  if (!value || !String(value).trim()) return { valid: true };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { valid: false, error: "Invalid pickup time." };
+  }
+  if (date.getTime() < Date.now() - PICKUP_TOLERANCE_MS) {
+    return { valid: false, error: "Pickup time cannot be in the past." };
+  }
+  return { valid: true, date };
+}
+
 export function formatPickupTime(pickupTime) {
   if (!pickupTime) return "Not specified";
 

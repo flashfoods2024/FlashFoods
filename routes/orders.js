@@ -7,6 +7,7 @@ import { Order } from "../models/Order.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { generateOtp } from "../utils/otp.js";
+import { validatePickupTime } from "../utils/time.js";
 import { createRazorpayFromShop } from "../config/razorpay.js";
 import {
   getEasebuzzFromShop,
@@ -168,6 +169,11 @@ ordersRouter.post(
       }
       const { orderItems, total } = built;
 
+      const pickupValidation = validatePickupTime(pickupTime);
+      if (!pickupValidation.valid) {
+        return res.status(400).json({ error: pickupValidation.error });
+      }
+
       const { keyId, instance } = createRazorpayFromShop(shop);
 
       const rzpOrder = await instance.orders.create({
@@ -181,7 +187,7 @@ ordersRouter.post(
         shop: cart.shopId,
         items: orderItems,
         total,
-        pickupTime: pickupTime ? new Date(pickupTime) : null,
+        pickupTime: pickupValidation.date || null,
         status: "pending_payment",
         pickupOtp: generateOtp(),
         paymentNote: "pending",
@@ -189,10 +195,10 @@ ordersRouter.post(
         razorpayOrderId: rzpOrder.id,
       });
 
-      res.json({ ...rzpOrder, key_id: keyId });
+      return res.json({ ...rzpOrder, key_id: keyId });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "Failed to create Razorpay order" });
+      return res.status(500).json({ error: "Failed to create Razorpay order" });
     }
   },
 );
@@ -340,6 +346,11 @@ ordersRouter.post(
           .json({ error: "Easebuzz is not configured for this shop." });
       }
 
+      const pickupValidation = validatePickupTime(pickupTime);
+      if (!pickupValidation.valid) {
+        return res.status(400).json({ error: pickupValidation.error });
+      }
+
       const user = req.user || {};
       const amount = total.toFixed(2);
       const txnid = new mongoose.Types.ObjectId().toString();
@@ -352,7 +363,7 @@ ordersRouter.post(
         shop: cart.shopId,
         items: orderItems,
         total,
-        pickupTime: pickupTime ? new Date(pickupTime) : null,
+        pickupTime: pickupValidation.date || null,
         status: "pending_payment",
         pickupOtp: generateOtp(),
         paymentNote: "pending",
@@ -416,7 +427,7 @@ ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
 
     const order = txnid ? await Order.findOne({ gatewayTxnId: txnid }) : null;
     if (!order) {
-      req.flash?.("error", "Payment could not be matched to an order.");
+      req.flash("error", "Payment could not be matched to an order.");
       return res.redirect("/orders");
     }
 
@@ -498,6 +509,11 @@ ordersRouter.post(
           .json({ error: "PhonePe is not configured for this shop." });
       }
 
+      const pickupValidation = validatePickupTime(pickupTime);
+      if (!pickupValidation.valid) {
+        return res.status(400).json({ error: pickupValidation.error });
+      }
+
       const user = req.user || {};
       const txnid = new mongoose.Types.ObjectId().toString();
       const origin = `${req.protocol}://${req.get("host")}`;
@@ -521,7 +537,7 @@ ordersRouter.post(
         shop: cart.shopId,
         items: orderItems,
         total,
-        pickupTime: pickupTime ? new Date(pickupTime) : null,
+        pickupTime: pickupValidation.date || null,
         status: "pending_payment",
         pickupOtp: generateOtp(),
         paymentNote: "pending",
@@ -684,6 +700,12 @@ ordersRouter.post(
     }
     const { orderItems, total } = built;
 
+    const pickupValidation = validatePickupTime(req.body.pickupTime);
+    if (!pickupValidation.valid) {
+      req.flash("error", pickupValidation.error);
+      return res.redirect("/cart");
+    }
+
     const pickupOtp = generateOtp();
 
     const order = await Order.create({
@@ -691,7 +713,7 @@ ordersRouter.post(
       shop: cart.shopId,
       items: orderItems,
       total,
-      pickupTime: req.body.pickupTime ? new Date(req.body.pickupTime) : null,
+      pickupTime: pickupValidation.date || null,
       status: "paid",
       pickupOtp,
       paymentNote: "mock",
@@ -719,7 +741,7 @@ ordersRouter.get(
       .sort({ createdAt: -1 })
       .populate("shop", "name slug")
       .lean();
-    res.render("orders/index", { pageTitle: "Orders", orders });
+    return res.render("orders/index", { pageTitle: "Orders", orders });
   },
 );
 
@@ -764,7 +786,7 @@ ordersRouter.get(
       req.flash("error", "Order not found.");
       return res.redirect("/orders");
     }
-    res.render("orders/show", {
+    return res.render("orders/show", {
       pageTitle: `Order ${String(order._id).slice(-6)}`,
       order,
     });

@@ -157,16 +157,6 @@ export async function refundPayment({
     transactionId,
   };
 
-  // TEMP DEBUG: log the exact refund request sent to PhonePe
-  console.log("PHONEPE REFUND REQUEST:", {
-    url,
-    originalMerchantOrderId: merchantOrderId,
-    transactionId,
-    amount: Math.round(amount * 100),
-    merchantRefundId,
-    env,
-  });
-
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -178,15 +168,9 @@ export async function refundPayment({
 
   if (!response.ok) {
     const text = await response.text();
-    console.error("PHONEPE REFUND ERROR RESPONSE:", {
-      status: response.status,
-      body: text,
-      requestPayload: payload,
-    });
     throw new Error(`PhonePe refund failed: ${response.status} ${text}`);
   }
 
   const responseData = await response.json();
-  console.log("PHONEPE REFUND SUCCESS RESPONSE:", responseData);
   return responseData;
 }
