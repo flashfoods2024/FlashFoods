@@ -26,11 +26,12 @@ export default defineConfig({
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-  trace: 'on',
-  //video: 'on',
-  //screenshot: 'only-on-failure',
-  headless: false,
-},
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    trace: 'on',
+    //video: 'on',
+    //screenshot: 'only-on-failure',
+    headless: false,
+  },
 
   /* Configure projects for major browsers */
   projects: [
