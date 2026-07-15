@@ -27,6 +27,7 @@ const orderSchema = new mongoose.Schema(
     },
     shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", required: true },
     items: { type: [orderItemSchema], required: true },
+    parcelCharge: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
 
     pickupTime: {

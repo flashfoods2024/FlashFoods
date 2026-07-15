@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import { MenuItem } from "../models/MenuItem.js";
+import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireVendor, requireVendorShop } from "../middleware/auth.js";
 

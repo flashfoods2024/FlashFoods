@@ -40,7 +40,9 @@
           </div>
 
           <nav id="main-nav" class="nav nav-main" aria-label="Main">
-            <a class="nav__link" href="/shops">Canteens</a>
+            <% if (!currentUser || currentUser.role !== "vendor") { %>
+              <a class="nav__link" href="/shops">Canteens</a>
+            <% } %>
 
             <% if (currentUser && currentUser.role === "student") { %>
               <a class="nav__link cart-link" href="/cart">

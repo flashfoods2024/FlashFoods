@@ -260,7 +260,7 @@ a:focus-visible {
   padding: clamp(34px, 7vw, 74px);
   overflow: hidden;
   border-radius: 8px;
-  background-image: url("/background-image copy.png");
+  background-image: url("/background-image.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

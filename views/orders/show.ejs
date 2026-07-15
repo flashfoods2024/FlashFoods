@@ -94,7 +94,9 @@
       </li>
     <% }) %>
   </ul>
-  <p class="cart-total"><strong>Total:</strong> &#8377;<%= (order.updatedTotal || order.total).toFixed(2) %></p>
+  <p class="cart-total"><strong>Total:</strong> &#8377;<%= (order.updatedTotal || order.total).toFixed(2) %>
+    <% if (order.parcelCharge) { %><span class="muted small"> (incl. &#8377;<%= Number(order.parcelCharge).toFixed(2) %> parcel fee)</span><% } %>
+  </p>
 </div>
 
 <script>

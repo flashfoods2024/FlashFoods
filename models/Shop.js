@@ -62,6 +62,12 @@ const shopSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    parcelCharge: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true },
 );

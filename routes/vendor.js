@@ -209,6 +209,7 @@ vendorRouter.post(
     }
     const name = String((req.body && req.body.name) || "").trim();
     const description = String((req.body && req.body.description) || "").trim();
+    const category = String((req.body && req.body.category) || "").trim();
     const price = Number((req.body && req.body.price) || 0);
     const image = req.file?.path || "";
 
@@ -224,6 +225,7 @@ vendorRouter.post(
     await MenuItem.create({
       shop: req.vendorShopId,
       name,
+      category,
       description,
       price,
       image,
@@ -261,6 +263,7 @@ vendorRouter.patch(
 
     const name = String((req.body && req.body.name) || "").trim();
     const description = String((req.body && req.body.description) || "").trim();
+    const category = String((req.body && req.body.category) || "").trim();
     const price = Number((req.body && req.body.price) || 0);
 
     if (!name) {
@@ -271,6 +274,7 @@ vendorRouter.patch(
     }
 
     item.name = name;
+    item.category = category;
     item.description = description;
     item.price = price;
     if (item.variants && item.variants.length > 0) {
@@ -391,6 +395,8 @@ vendorRouter.get(
         shortId: String(order._id).slice(-6).toUpperCase(),
         status: order.status,
         total: Number(order.total),
+        parcelCharge: Number(order.parcelCharge) || 0,
+        pickupTime: order.pickupTime ? order.pickupTime.toISOString() : null,
         pickupUrgency: getPickupUrgency(order.pickupTime),
         pickupTimeLabel: formatPickupTime(order.pickupTime),
         items: (order.items || [])
@@ -932,6 +938,7 @@ vendorRouter.post(
     try {
       const {
         paymentGateway,
+        parcelCharge,
         razorpayKeyId,
         razorpayKeySecret,
         easebuzzMerchantKey,
@@ -947,6 +954,13 @@ vendorRouter.post(
       if (!shop) {
         req.flash("error", "Shop not found.");
         return res.redirect("/vendor/payment/settings");
+      }
+
+      if (parcelCharge !== undefined) {
+        const charge = Number(parcelCharge);
+        if (!isNaN(charge) && charge >= 0) {
+          shop.parcelCharge = charge;
+        }
       }
 
       if (paymentGateway !== undefined) {

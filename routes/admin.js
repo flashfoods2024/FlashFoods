@@ -1234,6 +1234,7 @@ adminRouter.post(
     }
     const name = String((req.body && req.body.name) || "").trim();
     const description = String((req.body && req.body.description) || "").trim();
+    const category = String((req.body && req.body.category) || "").trim();
     const price = Number((req.body && req.body.price) || 0);
     const image = req.file?.path || "";
 
@@ -1249,6 +1250,7 @@ adminRouter.post(
     await MenuItem.create({
       shop: req.vendorShopId,
       name,
+      category,
       description,
       price,
       image,
@@ -1285,6 +1287,7 @@ adminRouter.patch(
 
     const name = String((req.body && req.body.name) || "").trim();
     const description = String((req.body && req.body.description) || "").trim();
+    const category = String((req.body && req.body.category) || "").trim();
     const price = Number((req.body && req.body.price) || 0);
 
     if (!name) {
@@ -1295,6 +1298,7 @@ adminRouter.patch(
     }
 
     item.name = name;
+    item.category = category;
     item.description = description;
     item.price = price;
     if (item.variants && item.variants.length > 0) {

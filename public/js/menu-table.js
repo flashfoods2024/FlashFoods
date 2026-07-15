@@ -33,10 +33,11 @@
         if (text.indexOf(q) === -1) show = false;
       }
 
-      // status / food-type filter
+      // status / food-type / category filter
       if (show && filter !== 'all') {
         var status = row.getAttribute('data-status');
         var ft = row.getAttribute('data-foodtype');
+        var cat = row.getAttribute('data-category');
         var conf = parseFloat(row.getAttribute('data-confidence'));
         if (filter === 'ready')         { if (status !== 'ready') show = false; }
         else if (filter === 'review')   { if (status !== 'review') show = false; }
@@ -45,6 +46,9 @@
         else if (filter === 'lowconf')  { if (conf >= 0.7) show = false; }
         else if (filter === 'veg' || filter === 'non-veg' || filter === 'egg' || filter === 'unknown') {
           if (ft !== filter) show = false;
+        } else if (filter.indexOf('cat:') === 0) {
+          var targetCat = filter.slice(4);
+          if (cat !== targetCat) show = false;
         }
       }
 

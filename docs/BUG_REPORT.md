@@ -53,6 +53,42 @@
 - **Files**: All route files
 - **Status**: ✅ Fixed
 
+## Critical (Fixed — Sprint 1 Verification)
+
+### C-2: "Mark Unavailable" returns "Request failed" — ReferenceError on toggle
+
+- **Root Cause**: `routes/menu.js:16` calls `Shop.findById(req.vendorShopId)` but `Shop` was never imported. The file only imported `MenuItem`. This caused a `ReferenceError: Shop is not defined` every time the toggle endpoint was hit.
+- **Fix**: Added `import { Shop } from "../models/Shop.js"` to `routes/menu.js`.
+- **Files**: `routes/menu.js`
+- **Regression Risk**: Low — only adds a missing import. No logic changes.
+- **Status**: ✅ Fixed
+
+### C-3: Background image regression — homepage hero references deleted file
+
+- **Root Cause**: `public/styles.css:263` referenced `url("/background-image copy.png")` which was deleted in commit `786ec45` ("ai readiness added"). The file `public/background-image.png` still exists and is the correct file.
+- **Fix**: Changed CSS reference from `background-image copy.png` to `background-image.png`.
+- **Files**: `public/styles.css`
+- **Regression Risk**: None — only fixes a broken image URL.
+- **Status**: ✅ Fixed
+
+## High (Fixed — Sprint 1 Verification)
+
+### H-3: Vendor navigation shows "Canteens" link
+
+- **Root Cause**: `views/partials/header.ejs:43` rendered the "Canteens" link unconditionally for all users, including vendors who should not see it.
+- **Fix**: Wrapped the "Canteens" link in `<% if (!currentUser || currentUser.role !== "vendor") { %>` so it's hidden for vendors.
+- **Files**: `views/partials/header.ejs`
+- **Regression Risk**: Low — only affects vendor role. Admin and student still see the link.
+- **Status**: ✅ Fixed
+
+### H-4: Category filter missing — "Unknown" shown, categories not persisted
+
+- **Root Cause**: `models/MenuItem.js` had no `category` field in the schema. The `menu-table.ejs` partial collected categories from items but they were never persisted to the database. The "Unknown" food type filter button was shown but not useful.
+- **Fix**: Added `category` field (String, default "", trim) to `MenuItem` schema. Added `category` to vendor and admin menu create/update endpoints. Removed "Unknown" button from food type filter in `menu-table.ejs`.
+- **Files**: `models/MenuItem.js`, `routes/vendor.js`, `routes/admin.js`, `views/partials/menu-table.ejs`
+- **Regression Risk**: Low — new field is optional with empty default. Existing items get empty string.
+- **Status**: ✅ Fixed
+
 ## Low (Not Fixed — Already Handled)
 
 ### L-1: Cancel confirmation dialog

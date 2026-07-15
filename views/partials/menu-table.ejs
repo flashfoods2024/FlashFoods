@@ -24,6 +24,11 @@
 <%
 var isVendor = mode === 'vendor';
 var isStudent = mode === 'student';
+var categories = [];
+items.forEach(function(it) {
+  if (it.category && categories.indexOf(it.category) === -1) categories.push(it.category);
+});
+categories.sort();
 %>
 
 <style>
@@ -514,7 +519,12 @@ var isStudent = mode === 'student';
   <button type="button" class="filter-btn" data-filter="veg">Veg</button>
   <button type="button" class="filter-btn" data-filter="non-veg">Non-Veg</button>
   <button type="button" class="filter-btn" data-filter="egg">Egg</button>
-  <button type="button" class="filter-btn" data-filter="unknown">Unknown</button>
+  <% if (categories.length > 0) { %>
+  <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+  <% categories.forEach(function(cat) { %>
+    <button type="button" class="filter-btn" data-filter="cat:<%= cat %>"><%= cat %></button>
+  <% }) %>
+  <% } %>
   <% if (isVendor) { %>
   <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
   <button type="button" class="filter-btn" data-filter="ready">Ready</button>

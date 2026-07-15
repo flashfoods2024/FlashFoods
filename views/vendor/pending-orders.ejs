@@ -1,5 +1,55 @@
 <%- include("../partials/header", { pageTitle }) %>
 
+<style>
+.pickup-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: -4px 0 10px 0;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.pickup-banner--danger {
+  background: #fee2e2;
+  color: #991b1b;
+  border-left: 4px solid #ef4444;
+}
+.pickup-banner--pending {
+  background: #fef9c3;
+  color: #854d0e;
+  border-left: 4px solid #eab308;
+}
+.pickup-banner--ok,
+.pickup-banner--muted {
+  background: #f0fdf4;
+  color: #166534;
+  border-left: 4px solid #22c55e;
+}
+.pickup-banner__icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.pickup-banner__time {
+  font-size: 17px;
+  letter-spacing: 0.02em;
+}
+.pickup-banner__label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.08);
+}
+@media (max-width: 768px) {
+  .pickup-banner { font-size: 14px; padding: 6px 10px; }
+  .pickup-banner__time { font-size: 15px; }
+}
+</style>
+
 <section class="hero hero--compact">
   <p class="eyebrow">Rush hour control</p>
   <h1>Pending orders</h1>
@@ -27,6 +77,13 @@
             <span class="tag tag--<%= pickupUrgency %>">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
           </div>
         </div>
+        <% if (order.pickupTime) { %>
+          <div class="pickup-banner pickup-banner--<%= pickupUrgency %>">
+            <span class="pickup-banner__icon">&#9200;</span>
+            <span class="pickup-banner__time"><%= formatPickupTime(order.pickupTime) %></span>
+            <span class="pickup-banner__label"><%= pickupUrgency === 'danger' ? 'OVERDUE' : pickupUrgency === 'pending' ? 'SOON' : '' %></span>
+          </div>
+        <% } %>
         <ul class="vendor-order-card__items">
           <% order.items.filter(function(i) { return i.status !== "removed"; }).forEach((item) => { %>
             <li>
@@ -39,7 +96,10 @@
             </li>
           <% }) %>
         </ul>
-        <p class="cart-total"><strong>Total:</strong> &#8377;<%= Number(order.total).toFixed(2) %></p>
+        <p class="cart-total">
+          <strong>Total:</strong> &#8377;<%= Number(order.total).toFixed(2) %>
+          <% if (order.parcelCharge) { %><span class="muted small"> (incl. &#8377;<%= Number(order.parcelCharge).toFixed(2) %> parcel fee)</span><% } %>
+        </p>
         <div class="vendor-order-card__actions">
           <% if (order.status === "paid") { %>
             <form method="post" action="/vendor/orders/<%= order._id %>/accept">
@@ -115,6 +175,7 @@
       var urgency = esc(order.pickupUrgency);
       var pickupLabel = esc(order.pickupTimeLabel);
       var total = Number(order.total).toFixed(2);
+      var parcelCharge = Number(order.parcelCharge) || 0;
 
       var actionHtml;
       if (st === "paid") {
@@ -139,6 +200,14 @@
         ? '<form method="post" action="/vendor/orders/' + id + '/cancel" onsubmit="return confirm(\'Cancel this order and refund customer?\');"><button class="btn btn--danger btn--wide" type="submit">Cancel</button></form>'
         : "";
 
+      var pickupBannerHtml = order.pickupTime
+        ? '<div class="pickup-banner pickup-banner--' + urgency + '">' +
+          '<span class="pickup-banner__icon">&#9200;</span>' +
+          '<span class="pickup-banner__time">' + pickupLabel + '</span>' +
+          '<span class="pickup-banner__label">' + (urgency === 'danger' ? 'OVERDUE' : urgency === 'pending' ? 'SOON' : '') + '</span>' +
+          '</div>'
+        : '';
+
       return (
         '<article class="card vendor-order-card">' +
         '<a class="vendor-order-card__overlay" href="/vendor/orders/' +
@@ -152,16 +221,14 @@
         "</h2></div>" +
         '<div class="vendor-order-card__status">' +
         '<span class="tag tag--pending">Preparing</span>' +
-        '<span class="tag tag--' +
-        urgency +
-        '">Pickup: ' +
-        pickupLabel +
-        "</span></div></div>" +
+        "</div></div>" +
+        pickupBannerHtml +
         '<ul class="vendor-order-card__items">' +
         itemsHtml +
         "</ul>" +
         '<p class="cart-total"><strong>Total:</strong> &#8377;' +
         esc(total) +
+        (parcelCharge > 0 ? '<span class="muted small"> (incl. &#8377;' + parcelCharge.toFixed(2) + ' parcel fee)</span>' : '') +
         "</p>" +
         '<div class="vendor-order-card__actions">' +
         actionHtml +

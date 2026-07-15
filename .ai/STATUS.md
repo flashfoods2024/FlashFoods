@@ -4,7 +4,7 @@
 
 **Version:** 1.0.1
 **Last Updated:** 2026-07-15
-**Status:** Active Development (Stabilization Sprint)
+**Status:** Sprint 1 Complete — All objectives verified
 
 ---
 
@@ -67,3 +67,29 @@
 7. No auth rate limiting (brute force risk)
 8. Cart not persisted across server restarts
 9. Socket.IO has no authentication middleware
+
+## Sprint 1 Verification Fixes (2026-07-15)
+
+### Issues Found & Fixed
+
+| Issue | Root Cause | Files | Status |
+|-------|-----------|-------|--------|
+| Mark Unavailable broken | Missing `import { Shop }` in `routes/menu.js` — ReferenceError on toggle | `routes/menu.js` | ✅ |
+| Background regression | CSS referenced deleted `background-image copy.png` | `public/styles.css` | ✅ |
+| Vendor nav shows "Canteens" | Unconditional link in `header.ejs` | `views/partials/header.ejs` | ✅ |
+| Category filter missing | No `category` field in MenuItem schema; "Unknown" button shown | `models/MenuItem.js`, `routes/vendor.js`, `routes/admin.js`, `views/partials/menu-table.ejs` | ✅ |
+| Parcel charge | Verified working end-to-end | — | ✅ |
+| Pickup time banner | Verified implemented | — | ✅ |
+| Vendor login redirect | Verified working | — | ✅ |
+
+## Pilot Stability Sprint 1 — Vendor Workflow Optimization (2026-07-15)
+
+### Objectives Applied
+
+| # | Objective | Files | Status |
+|---|-----------|-------|--------|
+| 1 | Vendor login redirect → pending orders | `routes/auth.js` | ✅ |
+| 2 | Remove vendor canteens panel ("View menu" link) | `views/partials/vendor-nav.ejs` | ✅ |
+| 3 | Category filter on menu | `views/partials/menu-table.ejs`, `public/js/menu-table.js` | ✅ |
+| 4 | Parcel charges (per-shop, per-order) | `models/Shop.js`, `models/Order.js`, `routes/orders.js`, `routes/vendor.js`, `views/vendor/payment-settings.ejs`, `views/vendor/pending-orders.ejs`, `views/orders/show.ejs` | ✅ |
+| 5 | Pickup time visibility (color-coded banner on card) | `views/vendor/pending-orders.ejs`, `routes/vendor.js` | ✅ |

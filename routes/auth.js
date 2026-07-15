@@ -71,6 +71,9 @@ authRouter.post("/login", requireDb, async (req, res) => {
   req.session.userId = String(user._id);
 
   req.flash("success", "Logged in.");
+  if (user.role === "vendor") {
+    return res.redirect("/vendor/orders/pending");
+  }
   return res.redirect("/");
 });
 
