@@ -292,6 +292,7 @@ vendorRouter.patch(
         _id: String(item._id),
         name: item.name,
         description: item.description,
+        category: item.category,
         price: item.price,
         image: item.image,
         available: item.available,

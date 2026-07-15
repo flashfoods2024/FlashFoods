@@ -77,7 +77,8 @@
 | Mark Unavailable broken | Missing `import { Shop }` in `routes/menu.js` — ReferenceError on toggle | `routes/menu.js` | ✅ |
 | Background regression | CSS referenced deleted `background-image copy.png` | `public/styles.css` | ✅ |
 | Vendor nav shows "Canteens" | Unconditional link in `header.ejs` | `views/partials/header.ejs` | ✅ |
-| Category filter missing | No `category` field in MenuItem schema; "Unknown" button shown | `models/MenuItem.js`, `routes/vendor.js`, `routes/admin.js`, `views/partials/menu-table.ejs` | ✅ |
+| Category filter missing | No `category` field in MenuItem schema; import confirm route never saved it. Preview showed categories from temp session, but they were dropped during insertMany | `models/MenuItem.js`, `routes/vendor.js`, `routes/admin.js`, `views/partials/menu-table.ejs` | ✅ |
+| AI Import confirm not persisting categories | Import confirm route read item.name, .description, .foodType, .variants — but NOT .item.category | `routes/admin.js` | ✅ |
 | Parcel charge | Verified working end-to-end | — | ✅ |
 | Pickup time banner | Verified implemented | — | ✅ |
 | Vendor login redirect | Verified working | — | ✅ |

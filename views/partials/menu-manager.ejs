@@ -37,6 +37,10 @@
       <input name="description" type="text" maxlength="160" />
     </label>
     <label>
+      <span>Category (optional)</span>
+      <input name="category" type="text" maxlength="60" placeholder="e.g. Snacks, Beverages" />
+    </label>
+    <label>
       <span>Price (&#8377;)</span>
       <input name="price" type="number" min="1" step="0.01" required />
     </label>
@@ -78,6 +82,7 @@
                     <div class="vendor-menu-item__name" data-view-name><%= item.name %></div>
                     <div class="vendor-menu-item__desc" data-view-desc><%= item.description || "" %></div>
                     <div class="vendor-menu-item__price" data-view-price>&#8377;<%= Number(item.variants && item.variants[0] ? item.variants[0].price : item.price).toFixed(2) %></div>
+                    <div class="vendor-menu-item__cat" data-view-category><%= item.category || "" %></div>
                   </div>
                   <%# Edit mode (hidden by default) %>
                   <div data-edit-container style="display:none">
@@ -88,6 +93,10 @@
                     <label>
                       <span class="sr-only">Description</span>
                       <input data-edit-desc type="text" value="<%= item.description || "" %>" placeholder="Description (optional)" />
+                    </label>
+                    <label>
+                      <span class="sr-only">Category</span>
+                      <input data-edit-category type="text" value="<%= item.category || "" %>" placeholder="Category (optional)" />
                     </label>
                     <label>
                       <span class="sr-only">Price</span>
@@ -182,6 +191,11 @@
   font-weight: 600;
   color: var(--c-primary, #4361ee);
 }
+.vendor-menu-item__cat {
+  font-size: 0.85em;
+  color: var(--c-muted, #888);
+  margin-top: 2px;
+}
 [data-edit-container] label {
   display: block;
   margin-bottom: 6px;
@@ -257,10 +271,12 @@
   function exitEditMode(row) {
     var viewName = row.querySelector("[data-view-name]");
     var viewDesc = row.querySelector("[data-view-desc]");
+    var viewCat = row.querySelector("[data-view-category]");
     var viewPrice = row.querySelector("[data-view-price]");
 
     row.querySelector("[data-edit-name]").value = viewName.textContent.trim();
     row.querySelector("[data-edit-desc]").value = viewDesc.textContent.trim();
+    row.querySelector("[data-edit-category]").value = viewCat.textContent.trim();
     row.querySelector("[data-edit-price]").value = viewPrice.textContent.replace(/[^0-9.]/g, "").trim();
     row.querySelector("[data-edit-image]").value = "";
 
@@ -321,11 +337,13 @@
 
       var nameEl = row.querySelector("[data-edit-name]");
       var descEl = row.querySelector("[data-edit-desc]");
+      var catEl = row.querySelector("[data-edit-category]");
       var priceEl = row.querySelector("[data-edit-price]");
       var imageEl = row.querySelector("[data-edit-image]");
 
       var name = (nameEl && nameEl.value ? String(nameEl.value) : "").trim();
       var description = (descEl && descEl.value ? String(descEl.value) : "").trim();
+      var category = (catEl && catEl.value ? String(catEl.value) : "").trim();
       var price = priceEl && priceEl.value ? String(Number(priceEl.value)) : "0";
 
       if (!name) {
@@ -340,6 +358,7 @@
       var payload = new FormData();
       payload.append("name", name);
       payload.append("description", description);
+      payload.append("category", category);
       payload.append("price", price);
       if (imageEl && imageEl.files && imageEl.files[0]) {
         payload.append("image", imageEl.files[0]);
@@ -359,6 +378,9 @@
         }
         row.querySelector("[data-view-name]").textContent = item.name;
         row.querySelector("[data-view-desc]").textContent = item.description || "";
+        if (row.querySelector("[data-view-category]")) {
+          row.querySelector("[data-view-category]").textContent = item.category || "";
+        }
         var newPrice = item.variants && item.variants[0] ? item.variants[0].price : item.price;
         row.querySelector("[data-view-price]").textContent = "\u20B9" + Number(newPrice).toFixed(2);
 

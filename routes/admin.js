@@ -1595,6 +1595,7 @@ adminRouter.post(
       const docs = [];
       for (const item of items) {
         const name = String(item.name || "").trim();
+        const category = String(item.category || "").trim();
         const description = String(item.description || "").trim();
         const foodType = String(item.foodType || "unknown").trim().toLowerCase();
         const rawVariants = item.variants;
@@ -1624,6 +1625,7 @@ adminRouter.post(
         docs.push({
           shop: req.vendorShopId,
           name,
+          category,
           description,
           price,
           foodType: normalizedFoodType,

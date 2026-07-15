@@ -122,6 +122,43 @@ categories.sort();
 }
 .filter-btn.is-active .filter-btn--count { background: rgba(255,255,255,0.25); }
 
+/* category dropdown */
+.cat-filter-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.cat-filter-wrap::after {
+  content: '\25BC';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.cat-filter {
+  min-height: 30px;
+  padding: 4px 24px 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  font-family: inherit;
+  line-height: 1.4;
+  min-width: 100px;
+}
+.cat-filter:hover { border-color: var(--orange); color: var(--text); }
+.cat-filter option { font-weight: 400; color: var(--text); background: var(--card); }
+
 /* compact table */
 .import-table-wrap {
   overflow-x: auto;
@@ -328,6 +365,12 @@ categories.sort();
     font-size: 12px;
     flex-shrink: 0;
   }
+  .cat-filter-wrap { flex-shrink: 0; }
+  .cat-filter {
+    min-height: 32px;
+    font-size: 12px;
+    min-width: 80px;
+  }
 
   .import-table-wrap {
     overflow-x: visible;
@@ -519,12 +562,15 @@ categories.sort();
   <button type="button" class="filter-btn" data-filter="veg">Veg</button>
   <button type="button" class="filter-btn" data-filter="non-veg">Non-Veg</button>
   <button type="button" class="filter-btn" data-filter="egg">Egg</button>
-  <% if (categories.length > 0) { %>
   <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
-  <% categories.forEach(function(cat) { %>
-    <button type="button" class="filter-btn" data-filter="cat:<%= cat %>"><%= cat %></button>
-  <% }) %>
-  <% } %>
+  <div class="cat-filter-wrap">
+    <select class="cat-filter" id="cat-filter" aria-label="Filter by category">
+      <option value="">Category</option>
+      <% categories.forEach(function(cat) { %>
+        <option value="<%= cat %>"><%= cat %></option>
+      <% }) %>
+    </select>
+  </div>
   <% if (isVendor) { %>
   <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
   <button type="button" class="filter-btn" data-filter="ready">Ready</button>

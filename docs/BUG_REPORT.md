@@ -81,12 +81,30 @@
 - **Regression Risk**: Low — only affects vendor role. Admin and student still see the link.
 - **Status**: ✅ Fixed
 
-### H-4: Category filter missing — "Unknown" shown, categories not persisted
+### H-4: Category not persisted on import confirm — data lost between preview and database
 
-- **Root Cause**: `models/MenuItem.js` had no `category` field in the schema. The `menu-table.ejs` partial collected categories from items but they were never persisted to the database. The "Unknown" food type filter button was shown but not useful.
-- **Fix**: Added `category` field (String, default "", trim) to `MenuItem` schema. Added `category` to vendor and admin menu create/update endpoints. Removed "Unknown" button from food type filter in `menu-table.ejs`.
+- **Root Cause**: Two-part issue:
+  1. `models/MenuItem.js` had no `category` field in the schema (fixed earlier).
+  2. `routes/admin.js:1596-1632` — The import confirmation route (`POST /vendors/:vendorId/menu/import/confirm`) reads `item.name`, `item.description`, `item.foodType`, and `item.variants` from the submitted form data but **never reads `item.category`**. The `docs` array pushed to `MenuItem.insertMany()` omits `category`, so even though the AI extraction correctly identifies categories and the preview form includes `<input name="items[i][category]">`, the value is silently dropped during insert.
+
+- **Fix (part 1)**: Added `category` field (String, default "", trim) to `MenuItem` schema. Added `category` to vendor and admin menu create/update endpoints. Removed "Unknown" button from food type filter in `menu-table.ejs`.
+
+- **Fix (part 2)**: Added `const category = String(item.category || "").trim()` at line 1598 and added `category` to the `docs.push({})` object at line 1628 in `routes/admin.js`.
+
 - **Files**: `models/MenuItem.js`, `routes/vendor.js`, `routes/admin.js`, `views/partials/menu-table.ejs`
-- **Regression Risk**: Low — new field is optional with empty default. Existing items get empty string.
+
+- **Verification (all MenuItem write paths)**:
+  | Path | `category` saved? |
+  |------|:-:|
+  | AI Import Confirm (`admin.js:1642`) | ✅ Fixed |
+  | Admin Create Item (`admin.js:1250`) | ✅ |
+  | Admin Edit Item (`admin.js:1310`) | ✅ |
+  | Vendor Create Item (`vendor.js:225`) | ✅ |
+  | Vendor Edit Item (`vendor.js:286`) | ✅ |
+  | Seed Script (`seed.js:62`) | ⏹️ Optional — dev-only, uses schema default |
+  | Toggle Available (`menu.js:33`) | ✅ No category change needed |
+
+- **Regression Risk**: Low — new field is optional with empty default. Existing items retain empty string.
 - **Status**: ✅ Fixed
 
 ## Low (Not Fixed — Already Handled)
