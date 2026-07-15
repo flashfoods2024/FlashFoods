@@ -69,6 +69,10 @@
       <strong><%= order.shop?.name || "Canteen" %></strong>
     </div>
     <div>
+      <span>Order Type</span>
+      <strong><%= (order.orderType || "dinein") === "parcel" ? "Parcel" : "Dine In" %></strong>
+    </div>
+    <div>
       <span>Order Status</span>
       <strong><%= statusLabels[order.status] || "In Progress" %></strong>
     </div>

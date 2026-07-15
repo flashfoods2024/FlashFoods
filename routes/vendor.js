@@ -411,6 +411,7 @@ vendorRouter.get(
         id: String(order._id),
         shortId: String(order._id).slice(-6).toUpperCase(),
         customerName: order.customerName || null,
+        orderType: order.orderType || "dinein",
         status: order.status,
         total: Number(order.total),
         parcelCharge: Number(order.parcelCharge) || 0,
@@ -699,6 +700,34 @@ vendorRouter.post(
       `Pickup verified for ${order.customer?.name || "customer"}.`,
     );
     return res.redirect("/vendor/verify");
+  },
+);
+
+vendorRouter.post(
+  "/vendor/orders/:id/toggle-parcel",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid order." });
+    }
+
+    const order = await Order.findById(id);
+    if (!order || String(order.shop) !== req.vendorShopIdStr) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    if (!["paid", "accepted", "ready_for_pickup"].includes(order.status)) {
+      return res.status(400).json({ error: "Cannot change order type at this stage." });
+    }
+
+    order.orderType = order.orderType === "parcel" ? "dinein" : "parcel";
+    await order.save();
+
+    return res.json({ success: true, orderType: order.orderType });
   },
 );
 

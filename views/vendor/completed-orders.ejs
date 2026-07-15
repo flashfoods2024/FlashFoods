@@ -26,6 +26,7 @@
             <% const statusLabel = order.status === "completed" ? "Completed" : order.status === "cancelled" ? "Cancelled" : order.status; %>
             <% const statusClass = order.status === "completed" ? "ok" : order.status === "cancelled" ? "warn" : "muted"; %>
             <span class="tag tag--<%= statusClass %>"><%= statusLabel %></span>
+            <span class="order-type-badge order-type-badge--<%= order.orderType || 'dinein' %>"><%= (order.orderType || 'dinein') === 'parcel' ? 'Parcel' : 'Dine In' %></span>
             <span class="tag tag--muted">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
           </div>
         </div>

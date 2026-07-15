@@ -55,7 +55,7 @@ async function buildOrderItemFromLine(line) {
 // Build order line items + total from the session cart, validating each item
 // against the shop. Shared by all payment gateway flows. Returns null when
 // nothing orderable remains.
-async function buildOrderItemsFromCart(cart, parcelCharge) {
+async function buildOrderItemsFromCart(cart, parcelCharge, orderType) {
   const ids = cart.items.map((l) => l.menuItemId);
   const menuItems = await MenuItem.find({
     _id: { $in: ids },
@@ -92,7 +92,8 @@ async function buildOrderItemsFromCart(cart, parcelCharge) {
     total += price * q;
   }
   if (!orderItems.length) return null;
-  const charge = Math.max(0, Number(parcelCharge) || 0);
+  const isParcel = orderType === "parcel";
+  const charge = isParcel ? Math.max(0, Number(parcelCharge) || 0) : 0;
   return { orderItems, total: total + charge, parcelCharge: charge };
 }
 
@@ -132,7 +133,7 @@ ordersRouter.post(
   requireStudent,
   async (req, res) => {
     try {
-      const { pickupTime } = req.body;
+      const { pickupTime, orderType } = req.body;
       const cart = getCart(req);
 
       if (!cart.shopId || !cart.items.length) {
@@ -162,7 +163,7 @@ ordersRouter.post(
 
       // Build the order line items from the cart and compute the total
       // server-side so the charged amount cannot be tampered with client-side.
-      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge);
+      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge, orderType);
       if (!built) {
         return res
           .status(400)
@@ -188,6 +189,7 @@ ordersRouter.post(
         shop: cart.shopId,
         items: orderItems,
         total,
+        orderType: orderType || "dinein",
         parcelCharge,
         pickupTime: pickupValidation.date || null,
         status: "pending_payment",
@@ -305,7 +307,7 @@ ordersRouter.post(
   requireStudent,
   async (req, res) => {
     try {
-      const { pickupTime } = req.body;
+      const { pickupTime, orderType } = req.body;
       const cart = getCart(req);
 
       if (!cart.shopId || !cart.items.length) {
@@ -333,7 +335,7 @@ ordersRouter.post(
         });
       }
 
-      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge);
+      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge, orderType);
       if (!built) {
         return res
           .status(400)
@@ -365,6 +367,7 @@ ordersRouter.post(
         shop: cart.shopId,
         items: orderItems,
         total,
+        orderType: orderType || "dinein",
         parcelCharge,
         pickupTime: pickupValidation.date || null,
         status: "pending_payment",
@@ -469,7 +472,7 @@ ordersRouter.post(
   requireStudent,
   async (req, res) => {
     try {
-      const { pickupTime } = req.body;
+      const { pickupTime, orderType } = req.body;
       const cart = getCart(req);
 
       if (!cart.shopId || !cart.items.length) {
@@ -497,7 +500,7 @@ ordersRouter.post(
         });
       }
 
-      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge);
+      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge, orderType);
       if (!built) {
         return res
           .status(400)
@@ -540,6 +543,7 @@ ordersRouter.post(
         shop: cart.shopId,
         items: orderItems,
         total,
+        orderType: orderType || "dinein",
         parcelCharge,
         pickupTime: pickupValidation.date || null,
         status: "pending_payment",
@@ -697,7 +701,8 @@ ordersRouter.post(
       return res.redirect("/cart");
     }
 
-    const built = await buildOrderItemsFromCart(cart, shop.parcelCharge);
+    const orderType = req.body.orderType || "dinein";
+    const built = await buildOrderItemsFromCart(cart, shop.parcelCharge, orderType);
     if (!built) {
       req.flash("error", "Nothing in your cart is available to order.");
       return res.redirect("/cart");
@@ -717,6 +722,7 @@ ordersRouter.post(
       shop: cart.shopId,
       items: orderItems,
       total,
+      orderType,
       parcelCharge,
       pickupTime: pickupValidation.date || null,
       status: "paid",

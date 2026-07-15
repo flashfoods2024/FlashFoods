@@ -1163,6 +1163,26 @@ adminRouter.get("/orders/:id", async (req, res) => {
   });
 });
 
+adminRouter.post("/orders/:id/toggle-parcel", async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) {
+    req.flash("error", "Invalid order.");
+    return res.redirect("/admin/orders");
+  }
+
+  const order = await Order.findById(id);
+  if (!order) {
+    req.flash("error", "Order not found.");
+    return res.redirect("/admin/orders");
+  }
+
+  order.orderType = order.orderType === "parcel" ? "dinein" : "parcel";
+  await order.save();
+
+  req.flash("success", `Order type changed to ${order.orderType === "parcel" ? "Parcel" : "Dine In"}.`);
+  return res.redirect(`/admin/orders/${id}`);
+});
+
 // ---------------------------------------------------------------------------
 // Manage Menus – Admin can manage every vendor's menu
 // ---------------------------------------------------------------------------

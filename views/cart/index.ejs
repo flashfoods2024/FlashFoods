@@ -130,6 +130,21 @@
       </div>
     <% } %>
 
+    <div class="order-type-section" style="margin-bottom:14px;">
+      <label><strong>Order type</strong></label>
+      <div style="display:flex;gap:12px;margin-top:6px;">
+        <label class="btn btn--outline order-type-option" data-value="parcel" style="cursor:pointer;padding:6px 16px;">
+          <input type="radio" name="orderType" value="parcel" style="display:none;" /> Parcel
+        </label>
+        <label class="btn btn--filled order-type-option" data-value="dinein" style="cursor:pointer;padding:6px 16px;">
+          <input type="radio" name="orderType" value="dinein" checked style="display:none;" /> Dine In
+        </label>
+      </div>
+      <p class="muted small" style="margin-top:4px;">
+        Choose Parcel to include a parcel charge.
+      </p>
+    </div>
+
     <div class="pickup-time-section">
       <label for="pickupTime">
         <strong>Pickup Time</strong>
@@ -178,6 +193,25 @@
 
 <script>
   var allVariantsSelected = <%= allVariantsSelected ? 'true' : 'false' %>;
+
+  // ── ORDER TYPE TOGGLE ──
+  var orderTypeRadios = document.querySelectorAll('input[name="orderType"]');
+  var orderTypeLabels = document.querySelectorAll(".order-type-option");
+  function getOrderType() {
+    var checked = document.querySelector('input[name="orderType"]:checked');
+    return checked ? checked.value : "dinein";
+  }
+  orderTypeLabels.forEach(function (label) {
+    label.addEventListener("click", function () {
+      var value = label.getAttribute("data-value");
+      orderTypeLabels.forEach(function (l) {
+        l.className = l.className.replace(/btn--filled|btn--outline/g, "").trim() + " btn btn--outline";
+      });
+      label.className = label.className.replace(/btn--filled|btn--outline/g, "").trim() + " btn btn--filled";
+      var radio = label.querySelector("input");
+      if (radio) radio.checked = true;
+    });
+  });
 
   // ── PICKUP TIME OPTIONS ──
   var pickupSelect = document.getElementById("pickupTime");
@@ -292,7 +326,7 @@
         var response = await fetch("/create-razorpay-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: Number("<%= subtotal %>"), pickupTime: pickupTime }),
+          body: JSON.stringify({ amount: Number("<%= subtotal %>"), pickupTime: pickupTime, orderType: getOrderType() }),
         });
         var data = await response.json();
         if (!response.ok) {
@@ -346,7 +380,7 @@
         var response = await fetch("/easebuzz/initiate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pickupTime: pickupTime }),
+          body: JSON.stringify({ pickupTime: pickupTime, orderType: getOrderType() }),
         });
         var data = await response.json();
         if (!response.ok || !data.redirectUrl) {
@@ -380,7 +414,7 @@
         var response = await fetch("/phonepe/initiate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pickupTime: pickupTime }),
+          body: JSON.stringify({ pickupTime: pickupTime, orderType: getOrderType() }),
         });
         var data = await response.json();
         if (!response.ok || !data.redirectUrl) {

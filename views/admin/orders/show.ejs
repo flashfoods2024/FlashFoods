@@ -34,6 +34,13 @@
   <div class="admin-detail-grid">
     <div><span>Customer</span><strong><%= order.customer?.name || "Customer" %> (<%= order.customer?.email || "Unknown" %>)</strong></div>
     <div><span>Shop</span><strong><%= order.shop?.name || "Deleted shop" %></strong></div>
+    <div>
+      <span>Order Type</span>
+      <strong><%= (order.orderType || "dinein") === "parcel" ? "Parcel" : "Dine In" %></strong>
+      <form method="post" action="/admin/orders/<%= order._id %>/toggle-parcel" style="display:inline;margin-left:8px;">
+        <button class="btn btn--ghost btn--small" type="submit">Toggle</button>
+      </form>
+    </div>
     <div><span>Vendor</span><strong><%= order.shop?.vendor?.name || "Unassigned" %></strong></div>
     <div><span>Transaction ID</span><strong class="mono"><%= order.transactionId || order.paymentNote || "Not available" %></strong></div>
     <div><span>Refund status</span><strong><%= order.refundStatus %></strong></div>

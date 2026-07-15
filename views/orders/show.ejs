@@ -27,7 +27,7 @@
   <p class="muted"><%= order.shop?.name || "Canteen" %> &middot; <%= new Date(order.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
-  <p class="pickup-meta"><strong>Pickup time:</strong> <%= formatPickupTime(order.pickupTime) %></p>
+  <p class="pickup-meta"><strong><%= (order.orderType || "dinein") === "parcel" ? "Parcel" : "Dine In" %></strong> &middot; <strong>Pickup time:</strong> <%= formatPickupTime(order.pickupTime) %></p>
 
   <% if (isAdjusted) { %>
     <div class="adjust-notice">

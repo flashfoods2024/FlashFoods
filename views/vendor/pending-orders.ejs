@@ -50,6 +50,29 @@
   color: #111827;
   margin: 2px 0 0 0;
 }
+.order-type-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+}
+.order-type-badge--parcel {
+  background: #fef3c7;
+  color: #92400e;
+}
+.order-type-badge--dinein {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.order-type-badge:hover {
+  opacity: 0.8;
+}
 .verify-form--inline {
   display: flex;
   align-items: center;
@@ -204,6 +227,7 @@
           </div>
           <div class="vendor-order-card__status">
             <span class="tag tag--<%= order.status === 'ready_for_pickup' ? 'ready' : 'pending' %>"><%= order.status === 'ready_for_pickup' ? 'Ready' : 'Preparing' %></span>
+            <span class="order-type-badge order-type-badge--<%= order.orderType || 'dinein' %>"><%= (order.orderType || 'dinein') === 'parcel' ? 'Parcel' : 'Dine In' %></span>
             <span class="tag tag--<%= pickupUrgency %>">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
           </div>
         </div>
@@ -311,6 +335,7 @@
       var id = esc(order.id);
       var shortId = esc(order.shortId);
       var customerName = order.customerName ? esc(order.customerName) : null;
+      var orderType = order.orderType || "dinein";
       var st = order.status;
       var statusLabel = st === "ready_for_pickup" ? "Ready" : "Preparing";
       var statusClass = st === "ready_for_pickup" ? "ready" : "pending";
@@ -373,6 +398,7 @@
         "</div>" +
         '<div class="vendor-order-card__status">' +
         '<span class="tag tag--' + statusClass + '">' + statusLabel + '</span>' +
+        '<span class="order-type-badge order-type-badge--' + orderType + '">' + (orderType === "parcel" ? "Parcel" : "Dine In") + '</span>' +
         "</div></div>" +
         pickupBannerHtml +
         '<ul class="vendor-order-card__items">' +
@@ -527,6 +553,35 @@
           });
       });
     }
+
+    // Order type toggle — one tap to switch Parcel / Dine In
+    region.addEventListener("click", function (e) {
+      var badge = e.target.closest(".order-type-badge");
+      if (!badge) return;
+      var card = badge.closest(".vendor-order-card");
+      if (!card) return;
+      var link = card.querySelector(".vendor-order-card__overlay");
+      if (!link) return;
+      var orderId = link.getAttribute("href").replace("/vendor/orders/", "");
+      if (!orderId) return;
+
+      badge.style.opacity = "0.5";
+      fetch("/vendor/orders/" + encodeURIComponent(orderId) + "/toggle-parcel", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error("Toggle failed");
+          return res.json();
+        })
+        .then(function () {
+          poll();
+        })
+        .catch(function () {
+          badge.style.opacity = "1";
+        });
+    });
 
     function poll() {
       if (inFlight || document.hidden) return;

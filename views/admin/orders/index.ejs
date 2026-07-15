@@ -43,6 +43,7 @@
           <tr>
             <th>Order</th>
             <th>Customer</th>
+            <th>Type</th>
             <th>Shop</th>
             <th>Vendor</th>
             <th>Status</th>
@@ -56,6 +57,7 @@
             <tr>
               <td><a class="admin-link" href="/admin/orders/<%= order._id %>">#<%= order.orderNumber %></a></td>
               <td><%= order.customerName %></td>
+              <td><%= (order.orderType || "dinein") === "parcel" ? "Parcel" : "Dine In" %></td>
               <td><%= order.shopName %></td>
               <td><%= order.vendorName %></td>
               <td><span class="tag tag--<%= order.status === "completed" ? "ok" : order.status === "cancelled" ? "danger" : order.status === "ready_for_pickup" ? "pending" : "muted" %>"><%= order.statusLabel %></span></td>
