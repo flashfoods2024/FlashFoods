@@ -341,12 +341,27 @@ async function getPendingOrders(shopId) {
     {
       $match: {
         shop: shopId,
-        status: { $in: ["paid", "accepted"] },
+        status: { $in: ["paid", "accepted", "ready_for_pickup"] },
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "customer",
+        foreignField: "_id",
+        as: "_customer",
       },
     },
     {
       $addFields: {
         priorityTime: { $ifNull: ["$pickupTime", "$createdAt"] },
+        customerName: {
+          $cond: [
+            { $gt: [{ $size: "$_customer" }, 0] },
+            { $arrayElemAt: ["$_customer.name", 0] },
+            null,
+          ],
+        },
       },
     },
     {
@@ -358,6 +373,7 @@ async function getPendingOrders(shopId) {
     {
       $project: {
         priorityTime: 0,
+        _customer: 0,
       },
     },
   ]);
@@ -394,9 +410,11 @@ vendorRouter.get(
       const payload = orders.map((order) => ({
         id: String(order._id),
         shortId: String(order._id).slice(-6).toUpperCase(),
+        customerName: order.customerName || null,
         status: order.status,
         total: Number(order.total),
         parcelCharge: Number(order.parcelCharge) || 0,
+        pickupOtp: order.status === "ready_for_pickup" ? order.pickupOtp : null,
         pickupTime: order.pickupTime ? order.pickupTime.toISOString() : null,
         pickupUrgency: getPickupUrgency(order.pickupTime),
         pickupTimeLabel: formatPickupTime(order.pickupTime),
@@ -629,6 +647,9 @@ vendorRouter.post(
     const otp = raw.slice(0, 6);
 
     if (otp.length !== 6) {
+      if (req.accepts("json")) {
+        return res.status(400).json({ error: "Enter the 6-digit pickup code." });
+      }
       req.flash("error", "Enter the 6-digit pickup code.");
       return res.redirect("/vendor/verify");
     }
@@ -640,6 +661,9 @@ vendorRouter.post(
     }).populate("customer", "name email");
 
     if (!order) {
+      if (req.accepts("json")) {
+        return res.status(404).json({ error: "No order waiting for pickup matches that code." });
+      }
       req.flash("error", "No order waiting for pickup matches that code.");
       return res.redirect("/vendor/verify");
     }
@@ -665,6 +689,10 @@ vendorRouter.post(
       statusAfter: persistedCollection?.status || order.status,
       collectedAtAfter: persistedCollection?.collectedAt || null,
     });
+
+    if (req.accepts("json")) {
+      return res.json({ success: true, message: `Pickup verified for ${order.customer?.name || "customer"}.` });
+    }
 
     req.flash(
       "success",

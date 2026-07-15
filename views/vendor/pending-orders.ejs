@@ -44,6 +44,118 @@
   border-radius: 4px;
   background: rgba(0,0,0,0.08);
 }
+.vendor-order-card__customer {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin: 2px 0 0 0;
+}
+.verify-form--inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.verify-form--inline label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+.verify-form--inline input {
+  width: 100px;
+  padding: 6px 8px;
+  font-size: 16px;
+  letter-spacing: 0.15em;
+  text-align: center;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: monospace;
+}
+.verify-form--inline .btn {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  font-size: 14px;
+}
+.verify-error {
+  color: #dc2626;
+  font-size: 13px;
+  margin: 4px 0 0 0;
+}
+.verify-success {
+  color: #16a34a;
+  font-size: 13px;
+  margin: 4px 0 0 0;
+}
+.global-verify-bar {
+  margin-bottom: 20px;
+}
+.global-verify-bar .card {
+  padding: 16px 20px;
+}
+.global-verify-bar__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.global-verify-bar__head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.global-verify-bar__count {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #dbeafe;
+  color: #1e40af;
+}
+.global-verify-bar__form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.global-verify-bar__form label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  flex-shrink: 0;
+}
+.global-verify-bar__form input {
+  width: 120px;
+  padding: 8px 10px;
+  font-size: 18px;
+  letter-spacing: 0.15em;
+  text-align: center;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: monospace;
+}
+.global-verify-bar__form .btn {
+  padding: 8px 20px;
+  font-size: 15px;
+}
+.global-verify-bar__status {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.global-verify-bar__status--success {
+  color: #16a34a;
+}
+.global-verify-bar__status--error {
+  color: #dc2626;
+}
 @media (max-width: 768px) {
   .pickup-banner { font-size: 14px; padding: 6px 10px; }
   .pickup-banner__time { font-size: 15px; }
@@ -53,8 +165,25 @@
 <section class="hero hero--compact">
   <p class="eyebrow">Rush hour control</p>
   <h1>Pending orders</h1>
-  <p class="muted">New paid orders. Confirm when prepared and move them to pickup verification.</p>
+  <p class="muted">Accept new orders, mark them ready, and verify pickup codes when students arrive.</p>
 </section>
+
+<div class="global-verify-bar">
+  <div class="card">
+    <div class="global-verify-bar__head">
+      <h2>Pickup Verification</h2>
+      <span class="global-verify-bar__count" id="ready-count">0 ready</span>
+    </div>
+    <form id="global-verify-form" class="global-verify-bar__form">
+      <label>
+        <span>Pickup code</span>
+        <input id="global-otp-input" name="otp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="12" autocomplete="one-time-code" placeholder="000000" required />
+      </label>
+      <button class="btn" type="submit">Verify Pickup</button>
+    </form>
+    <div id="global-verify-status" class="global-verify-bar__status"></div>
+  </div>
+</div>
 
 <div id="pending-orders-region">
 <% if (!orders.length) { %>
@@ -71,9 +200,10 @@
           <div>
             <p class="eyebrow">Order</p>
             <h2>#<%= String(order._id).slice(-6).toUpperCase() %></h2>
+            <% if (order.customerName) { %><p class="vendor-order-card__customer"><%= order.customerName %></p><% } %>
           </div>
           <div class="vendor-order-card__status">
-            <span class="tag tag--pending">Preparing</span>
+            <span class="tag tag--<%= order.status === 'ready_for_pickup' ? 'ready' : 'pending' %>"><%= order.status === 'ready_for_pickup' ? 'Ready' : 'Preparing' %></span>
             <span class="tag tag--<%= pickupUrgency %>">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
           </div>
         </div>
@@ -109,6 +239,14 @@
             <form method="post" action="/vendor/orders/<%= order._id %>/ready">
               <button class="btn btn--wide" type="submit">Mark ready</button>
             </form>
+          <% } else if (order.status === "ready_for_pickup") { %>
+            <form method="post" action="/vendor/verify" class="form verify-form verify-form--inline">
+              <label>
+                <span>Pickup code</span>
+                <input name="otp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="12" autocomplete="one-time-code" placeholder="000000" required />
+              </label>
+              <button class="btn" type="submit">Verify</button>
+            </form>
           <% } %>
           <% if (["paid", "accepted"].includes(order.status)) { %>
             <a href="/vendor/orders/<%= order._id %>/adjust" class="btn btn--outline btn--wide">Adjust Order</a>
@@ -138,6 +276,7 @@
     var ENDPOINT = "/vendor/orders/pending.json";
     var lastSignature = null;
     var inFlight = false;
+    var currentOrders = [];
 
     // Escape dynamic text before injecting into markup (item names are
     // vendor-supplied, so treat them as untrusted).
@@ -171,7 +310,10 @@
 
       var id = esc(order.id);
       var shortId = esc(order.shortId);
+      var customerName = order.customerName ? esc(order.customerName) : null;
       var st = order.status;
+      var statusLabel = st === "ready_for_pickup" ? "Ready" : "Preparing";
+      var statusClass = st === "ready_for_pickup" ? "ready" : "pending";
       var urgency = esc(order.pickupUrgency);
       var pickupLabel = esc(order.pickupTimeLabel);
       var total = Number(order.total).toFixed(2);
@@ -188,6 +330,14 @@
           '<form method="post" action="/vendor/orders/' +
           id +
           '/ready"><button class="btn btn--wide" type="submit">Mark ready</button></form>';
+      } else if (st === "ready_for_pickup") {
+        actionHtml =
+          '<form method="post" action="/vendor/verify" class="form verify-form verify-form--inline">' +
+          '<label><span>Pickup code</span>' +
+          '<input name="otp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="12" autocomplete="one-time-code" placeholder="000000" required />' +
+          '</label>' +
+          '<button class="btn" type="submit">Verify</button>' +
+          '</form>';
       } else {
         actionHtml = "";
       }
@@ -218,9 +368,11 @@
         '<div class="vendor-order-card__head">' +
         '<div><p class="eyebrow">Order</p><h2>#' +
         shortId +
-        "</h2></div>" +
+        "</h2>" +
+        (customerName ? '<p class="vendor-order-card__customer">' + customerName + "</p>" : "") +
+        "</div>" +
         '<div class="vendor-order-card__status">' +
-        '<span class="tag tag--pending">Preparing</span>' +
+        '<span class="tag tag--' + statusClass + '">' + statusLabel + '</span>' +
         "</div></div>" +
         pickupBannerHtml +
         '<ul class="vendor-order-card__items">' +
@@ -239,6 +391,10 @@
     }
 
     function render(orders) {
+      currentOrders = orders;
+      var readyCount = orders.filter(function (o) { return o.status === "ready_for_pickup"; }).length;
+      var countEl = document.getElementById("ready-count");
+      if (countEl) countEl.textContent = readyCount + " ready";
       if (!orders.length) {
         region.innerHTML =
           '<div class="card empty-state"><p class="muted">No pending orders.</p></div>';
@@ -248,6 +404,128 @@
         '<div class="vendor-order-grid">' +
         orders.map(cardHtml).join("") +
         "</div>";
+    }
+
+    // Handle OTP verification via AJAX so the vendor stays on the pending
+    // orders page. Falls back to regular form POST if JS is unavailable.
+    region.addEventListener("submit", function (e) {
+      var form = e.target;
+      if (!form.classList.contains("verify-form")) return;
+      e.preventDefault();
+
+      var otpInput = form.querySelector("[name=otp]");
+      if (!otpInput) return;
+      var otp = otpInput.value.replace(/\D/g, "").slice(0, 6);
+
+      if (otp.length !== 6) {
+        showVerifyError(form, "Enter the 6-digit pickup code.");
+        return;
+      }
+
+      var btn = form.querySelector(".btn");
+      if (btn) btn.disabled = true;
+
+      fetch("/vendor/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ otp: otp }),
+        credentials: "same-origin",
+      })
+        .then(function (res) {
+          if (!res.ok) {
+            return res.json().then(function (data) {
+              throw new Error(data.error || "Verification failed");
+            });
+          }
+          return res.json();
+        })
+        .then(function () {
+          poll();
+        })
+        .catch(function (err) {
+          showVerifyError(form, err.message);
+        })
+        .finally(function () {
+          if (btn) btn.disabled = false;
+        });
+    });
+
+    function showVerifyError(form, msg) {
+      var existing = form.querySelector(".verify-error");
+      if (existing) existing.remove();
+      var el = document.createElement("p");
+      el.className = "verify-error";
+      el.textContent = msg;
+      form.appendChild(el);
+    }
+
+    // Global Pickup Verification Bar
+    var globalForm = document.getElementById("global-verify-form");
+    var globalInput = document.getElementById("global-otp-input");
+    var globalStatus = document.getElementById("global-verify-status");
+
+    if (globalForm && globalInput && globalStatus) {
+      globalForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        globalStatus.textContent = "";
+        globalStatus.className = "global-verify-bar__status";
+
+        var otp = globalInput.value.replace(/\D/g, "").slice(0, 6);
+        if (otp.length !== 6) {
+          globalStatus.textContent = "Enter the 6-digit pickup code.";
+          globalStatus.className = "global-verify-bar__status global-verify-bar__status--error";
+          return;
+        }
+
+        var matches = currentOrders.filter(function (o) {
+          return o.status === "ready_for_pickup" && o.pickupOtp === otp;
+        });
+
+        if (matches.length === 0) {
+          globalStatus.textContent = "No Ready order matches this OTP.";
+          globalStatus.className = "global-verify-bar__status global-verify-bar__status--error";
+          return;
+        }
+
+        if (matches.length > 1) {
+          globalStatus.textContent = "Multiple matching orders found.";
+          globalStatus.className = "global-verify-bar__status global-verify-bar__status--error";
+          return;
+        }
+
+        var btn = globalForm.querySelector(".btn");
+        if (btn) btn.disabled = true;
+
+        fetch("/vendor/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ otp: otp }),
+          credentials: "same-origin",
+        })
+          .then(function (res) {
+            if (!res.ok) {
+              return res.json().then(function (data) {
+                throw new Error(data.error || "Verification failed");
+              });
+            }
+            return res.json();
+          })
+          .then(function (data) {
+            globalStatus.textContent = "Order #" + matches[0].shortId + " verified.";
+            globalStatus.className = "global-verify-bar__status global-verify-bar__status--success";
+            globalInput.value = "";
+            poll();
+            globalInput.focus();
+          })
+          .catch(function (err) {
+            globalStatus.textContent = err.message;
+            globalStatus.className = "global-verify-bar__status global-verify-bar__status--error";
+            globalInput.focus();
+          })
+          .finally(function () {
+            if (btn) btn.disabled = false;
+          });
+      });
     }
 
     function poll() {
