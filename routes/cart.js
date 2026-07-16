@@ -4,6 +4,7 @@ import { MenuItem } from "../models/MenuItem.js";
 import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
+import { computeParcelCharge } from "../utils/pricing.js";
 
 export const cartRouter = express.Router();
 
@@ -78,11 +79,15 @@ cartRouter.get(
         "";
     }
 
+    const parcelCharge = computeParcelCharge(shop, "parcel");
+
     return res.render("cart/index", {
       pageTitle: "Cart",
       shop,
       lines,
       subtotal,
+      parcelCharge,
+      totalParcel: subtotal + parcelCharge,
       allVariantsSelected,
       razorpayKeyId,
     });
@@ -226,11 +231,16 @@ cartRouter.post(
       subtotal += price * (li.quantity || 1);
     });
 
+    const shop = cart.shopId ? await Shop.findById(cart.shopId).select("parcelChargeEnabled parcelCharge").lean() : null;
+    const parcelCharge = computeParcelCharge(shop, "parcel");
+
     return res.json({
       success: true,
       variantName: line.variantName,
       variantPrice: vi != null && variants[vi] ? variants[vi].price : null,
       subtotal: subtotal,
+      parcelCharge: parcelCharge,
+      totalParcel: subtotal + parcelCharge,
       allVariantsSelected: allVariantsSelected,
     });
   },

@@ -41,6 +41,9 @@
         <button class="btn btn--ghost btn--small" type="submit">Toggle</button>
       </form>
     </div>
+    <% if (order.parcelCharge) { %>
+    <div><span>Parcel Charge</span><strong><%= formatMoney(order.parcelCharge) %></strong></div>
+    <% } %>
     <div><span>Vendor</span><strong><%= order.shop?.vendor?.name || "Unassigned" %></strong></div>
     <div><span>Transaction ID</span><strong class="mono"><%= order.transactionId || order.paymentNote || "Not available" %></strong></div>
     <div><span>Refund status</span><strong><%= order.refundStatus %></strong></div>

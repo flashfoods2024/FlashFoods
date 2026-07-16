@@ -63,6 +63,10 @@ const shopSchema = new mongoose.Schema(
       default: null,
     },
 
+    parcelChargeEnabled: {
+      type: Boolean,
+      default: false,
+    },
     parcelCharge: {
       type: Number,
       default: 0,

@@ -88,6 +88,12 @@
       <span>Total Amount</span>
       <strong>&#8377;<%= Number(order.total).toFixed(2) %></strong>
     </div>
+    <% if (order.parcelCharge) { %>
+    <div>
+      <span>Parcel Charge</span>
+      <strong>&#8377;<%= Number(order.parcelCharge).toFixed(2) %></strong>
+    </div>
+    <% } %>
     <div>
       <span>Payment Status</span>
       <strong><%= paymentStatus %></strong>

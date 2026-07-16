@@ -26,7 +26,11 @@
             <% const statusLabel = order.status === "completed" ? "Completed" : order.status === "cancelled" ? "Cancelled" : order.status; %>
             <% const statusClass = order.status === "completed" ? "ok" : order.status === "cancelled" ? "warn" : "muted"; %>
             <span class="tag tag--<%= statusClass %>"><%= statusLabel %></span>
-            <span class="order-type-badge order-type-badge--<%= order.orderType || 'dinein' %>"><%= (order.orderType || 'dinein') === 'parcel' ? 'Parcel' : 'Dine In' %></span>
+            <% if ((order.orderType || 'dinein') === 'parcel') { %>
+              <span class="tag tag--warn">Parcel</span>
+            <% } else { %>
+              <span class="order-type-badge order-type-badge--dinein">Dine In</span>
+            <% } %>
             <span class="tag tag--muted">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
           </div>
         </div>
@@ -42,6 +46,9 @@
             </li>
           <% }) %>
         </ul>
+        <% if (order.parcelCharge) { %>
+          <p class="cart-total"><strong>Parcel Charge:</strong> &#8377;<%= Number(order.parcelCharge).toFixed(2) %></p>
+        <% } %>
         <p class="cart-total"><strong>Total:</strong> &#8377;<%= Number(order.total).toFixed(2) %></p>
       </article>
     <% }) %>

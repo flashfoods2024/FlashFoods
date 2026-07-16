@@ -9,6 +9,7 @@
     toggleApiUrl  – Base URL for toggle availability (/:id/toggle). Defaults to apiUrl.
     showShopToggle – if truthy, renders the shop open/close toggle button
     shopToggleAction – POST URL for the shop toggle form (required when showShopToggle is true)
+    parcelChargeAction – POST URL for the parcel settings form (optional). When provided, renders the Parcel Packaging card between Shop Status and Add New Item.
 %>
 <div class="card">
   <div class="row row--split">
@@ -24,6 +25,34 @@
     <% } %>
   </div>
 </div>
+
+<% if (locals.parcelChargeAction) { %>
+<div class="card" style="border-left:4px solid var(--orange,#ff7a00);">
+  <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
+    <span style="font-size:22px;line-height:1;">&#x1F4E6;</span>
+    <div>
+      <h2 class="h2" style="margin:0;">Parcel Packaging</h2>
+      <p class="muted small" style="margin:2px 0 0;">Configure packaging charges for this shop.</p>
+    </div>
+  </div>
+  <form method="post" action="<%= parcelChargeAction %>" class="form">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:12px;">
+      <input name="parcelChargeEnabled" type="checkbox" value="true" <%= shop.parcelChargeEnabled ? "checked" : "" %> />
+      Enable Parcel Orders
+    </label>
+    <label>
+      <span>Parcel Charge (&#8377;)</span>
+      <input name="parcelCharge" type="number" min="0" step="0.50"
+        value="<%= Number(shop.parcelCharge || 0).toFixed(2) %>" placeholder="0.00"
+        style="max-width:220px;width:100%;" />
+      <p class="muted small" style="margin-top:4px;">Customers selecting Parcel will automatically be charged this amount. Historical orders are unaffected.</p>
+    </label>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn" type="submit">Save Settings</button>
+    </div>
+  </form>
+</div>
+<% } %>
 
 <div class="card">
   <h2 class="h2">Add new item</h2>

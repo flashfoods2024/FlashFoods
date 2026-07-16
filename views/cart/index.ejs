@@ -121,6 +121,12 @@
     <p class="cart-total">
       <strong>Cart Subtotal:</strong> ₹<span id="cart-subtotal"><%= subtotal.toFixed(2) %></span>
     </p>
+    <p class="cart-total" id="parcel-charge-row" style="display:none;">
+      <strong>Parcel Charge:</strong> ₹<span id="parcel-charge-amount"><%= Number(parcelCharge).toFixed(2) %></span>
+    </p>
+    <p class="cart-total" id="total-row">
+      <strong>Total:</strong> ₹<span id="cart-total"><%= subtotal.toFixed(2) %></span>
+    </p>
 
     <% if (!allVariantsSelected) { %>
       <div class="card" style="border-left:4px solid #e63946;margin-bottom:14px;padding:12px;">
@@ -141,7 +147,11 @@
         </label>
       </div>
       <p class="muted small" style="margin-top:4px;">
-        Choose Parcel to include a parcel charge.
+        <% if (shop?.parcelChargeEnabled) { %>
+          Choose Parcel to add a &#8377;<%= Number(shop.parcelCharge || 0).toFixed(2) %> packaging charge.
+        <% } else { %>
+          Parcel option is not available for this shop.
+        <% } %>
       </p>
     </div>
 
@@ -197,6 +207,25 @@
   // ── ORDER TYPE TOGGLE ──
   var orderTypeRadios = document.querySelectorAll('input[name="orderType"]');
   var orderTypeLabels = document.querySelectorAll(".order-type-option");
+  var parcelChargeEnabled = <%= shop?.parcelChargeEnabled ? 'true' : 'false' %>;
+  var parcelChargeParcel = <%= Number(parcelCharge) %>;
+  var cartSubtotal = <%= subtotal %>;
+  var parcelRow = document.getElementById("parcel-charge-row");
+  var parcelAmountEl = document.getElementById("parcel-charge-amount");
+  var subtotalEl = document.getElementById("cart-subtotal");
+  var totalEl = document.getElementById("cart-total");
+
+  function updateParcelDisplay() {
+    var isParcel = getOrderType() === "parcel" && parcelChargeEnabled;
+    if (parcelRow) {
+      parcelRow.style.display = isParcel ? "" : "none";
+    }
+    if (totalEl) {
+      var total = cartSubtotal + (isParcel ? parcelChargeParcel : 0);
+      totalEl.textContent = total.toFixed(2);
+    }
+  }
+
   function getOrderType() {
     var checked = document.querySelector('input[name="orderType"]:checked');
     return checked ? checked.value : "dinein";
@@ -210,8 +239,11 @@
       label.className = label.className.replace(/btn--filled|btn--outline/g, "").trim() + " btn btn--filled";
       var radio = label.querySelector("input");
       if (radio) radio.checked = true;
+      updateParcelDisplay();
     });
   });
+
+  updateParcelDisplay();
 
   // ── PICKUP TIME OPTIONS ──
   var pickupSelect = document.getElementById("pickupTime");
@@ -264,8 +296,17 @@
           warnBanner.remove();
         }
 
-        // Update cart subtotal
-        document.getElementById('cart-subtotal').textContent = Number(data.subtotal).toFixed(2);
+        // Update cart subtotal and parcel info from server-computed values
+        cartSubtotal = Number(data.subtotal);
+        if (data.parcelCharge != null) {
+          parcelChargeParcel = Number(data.parcelCharge);
+        }
+        if (subtotalEl) {
+          subtotalEl.textContent = cartSubtotal.toFixed(2);
+        }
+        if (parcelAmountEl) {
+          parcelAmountEl.textContent = parcelChargeParcel.toFixed(2);
+        }
 
         // Re-evaluate all-variants state
         allVariantsSelected = data.allVariantsSelected;
@@ -274,6 +315,9 @@
         document.querySelectorAll('#rzp-button, #easebuzz-button, #phonepe-button').forEach(function(btn) {
           btn.disabled = !allVariantsSelected;
         });
+
+        // Refresh the total display with the updated subtotal
+        updateParcelDisplay();
 
         // Show/hide validation banner
         var valBanner = document.querySelector('.card[style*="border-left:4px solid #e63946"]');

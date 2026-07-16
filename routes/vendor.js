@@ -18,6 +18,7 @@ import {
 } from "../config/phonepe.js";
 import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
 import { emitPendingCount } from "../socket/index.js";
+import { computeParcelCharge } from "../utils/pricing.js";
 
 export const vendorRouter = express.Router();
 
@@ -329,6 +330,39 @@ vendorRouter.delete(
     }
 
     return res.json({ success: true, message: "Menu item deleted." });
+  },
+);
+
+vendorRouter.post(
+  "/vendor/menu/parcel-charge",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/menu");
+      }
+
+      shop.parcelChargeEnabled = req.body.parcelChargeEnabled === "true";
+
+      const charge = Number(req.body.parcelCharge);
+      if (!isNaN(charge) && charge >= 0) {
+        shop.parcelCharge = charge;
+      }
+
+      await shop.save();
+
+      req.flash("success", "Parcel settings saved.");
+      return res.redirect("/vendor/menu");
+    } catch (err) {
+      console.error("Error saving parcel settings:", err);
+      req.flash("error", "Failed to save parcel settings.");
+      return res.redirect("/vendor/menu");
+    }
   },
 );
 
@@ -724,10 +758,23 @@ vendorRouter.post(
       return res.status(400).json({ error: "Cannot change order type at this stage." });
     }
 
-    order.orderType = order.orderType === "parcel" ? "dinein" : "parcel";
+    const wasParcel = order.orderType === "parcel";
+
+    if (wasParcel) {
+      order.total -= order.parcelCharge;
+      order.parcelCharge = 0;
+      order.orderType = "dinein";
+    } else {
+      const shop = await Shop.findById(order.shop).select("parcelChargeEnabled parcelCharge").lean();
+      const charge = computeParcelCharge(shop, "parcel");
+      order.parcelCharge = charge;
+      order.total += charge;
+      order.orderType = "parcel";
+    }
+
     await order.save();
 
-    return res.json({ success: true, orderType: order.orderType });
+    return res.json({ success: true, orderType: order.orderType, parcelCharge: order.parcelCharge, total: order.total });
   },
 );
 
@@ -825,6 +872,10 @@ vendorRouter.post(
       } else {
         item.status = "removed";
       }
+    }
+
+    if (order.orderType === "parcel") {
+      updatedTotal += Number(order.parcelCharge);
     }
 
     const refundAmount = originalTotal - updatedTotal;
@@ -996,7 +1047,6 @@ vendorRouter.post(
     try {
       const {
         paymentGateway,
-        parcelCharge,
         razorpayKeyId,
         razorpayKeySecret,
         easebuzzMerchantKey,
@@ -1012,13 +1062,6 @@ vendorRouter.post(
       if (!shop) {
         req.flash("error", "Shop not found.");
         return res.redirect("/vendor/payment/settings");
-      }
-
-      if (parcelCharge !== undefined) {
-        const charge = Number(parcelCharge);
-        if (!isNaN(charge) && charge >= 0) {
-          shop.parcelCharge = charge;
-        }
       }
 
       if (paymentGateway !== undefined) {

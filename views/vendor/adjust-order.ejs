@@ -99,6 +99,8 @@
     var confirmBtn = document.getElementById("confirm-adjust-btn");
 
     var originalTotal = <%= Number(order.total) %>;
+    var parcelCharge = <%= Number(order.parcelCharge) %>;
+    var isParcel = "<%= order.orderType %>" === "parcel";
 
     function updateTotals() {
       var updatedTotal = 0;
@@ -112,6 +114,9 @@
           }
         }
       });
+      if (isParcel) {
+        updatedTotal += parcelCharge;
+      }
       var refund = originalTotal - updatedTotal;
       updatedTotalEl.textContent = "\u20B9" + updatedTotal.toFixed(2);
       refundAmountEl.textContent = "\u20B9" + Math.max(0, refund).toFixed(2);

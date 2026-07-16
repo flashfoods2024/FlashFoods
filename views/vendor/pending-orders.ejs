@@ -50,6 +50,21 @@
   color: #111827;
   margin: 2px 0 0 0;
 }
+.parcel-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  background: #f97316;
+  color: #fff;
+}
+.parcel-badge:hover {
+  opacity: 0.85;
+}
 .order-type-badge {
   display: inline-block;
   font-size: 11px;
@@ -61,10 +76,6 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   user-select: none;
-}
-.order-type-badge--parcel {
-  background: #fef3c7;
-  color: #92400e;
 }
 .order-type-badge--dinein {
   background: #dbeafe;
@@ -227,7 +238,11 @@
           </div>
           <div class="vendor-order-card__status">
             <span class="tag tag--<%= order.status === 'ready_for_pickup' ? 'ready' : 'pending' %>"><%= order.status === 'ready_for_pickup' ? 'Ready' : 'Preparing' %></span>
-            <span class="order-type-badge order-type-badge--<%= order.orderType || 'dinein' %>"><%= (order.orderType || 'dinein') === 'parcel' ? 'Parcel' : 'Dine In' %></span>
+            <% if ((order.orderType || 'dinein') === 'parcel') { %>
+              <span class="parcel-badge">&#x1F4E6; PARCEL</span>
+            <% } else { %>
+              <span class="order-type-badge order-type-badge--dinein">Dine In</span>
+            <% } %>
             <span class="tag tag--<%= pickupUrgency %>">Pickup: <%= formatPickupTime(order.pickupTime) %></span>
           </div>
         </div>
@@ -250,9 +265,11 @@
             </li>
           <% }) %>
         </ul>
+        <% if (order.parcelCharge) { %>
+          <p class="cart-total"><strong>Parcel Charge:</strong> &#8377;<%= Number(order.parcelCharge).toFixed(2) %></p>
+        <% } %>
         <p class="cart-total">
           <strong>Total:</strong> &#8377;<%= Number(order.total).toFixed(2) %>
-          <% if (order.parcelCharge) { %><span class="muted small"> (incl. &#8377;<%= Number(order.parcelCharge).toFixed(2) %> parcel fee)</span><% } %>
         </p>
         <div class="vendor-order-card__actions">
           <% if (order.status === "paid") { %>
@@ -398,15 +415,15 @@
         "</div>" +
         '<div class="vendor-order-card__status">' +
         '<span class="tag tag--' + statusClass + '">' + statusLabel + '</span>' +
-        '<span class="order-type-badge order-type-badge--' + orderType + '">' + (orderType === "parcel" ? "Parcel" : "Dine In") + '</span>' +
+        (orderType === "parcel" ? '<span class="parcel-badge">\uD83D\uDCE6 PARCEL</span>' : '<span class="order-type-badge order-type-badge--dinein">Dine In</span>') +
         "</div></div>" +
         pickupBannerHtml +
         '<ul class="vendor-order-card__items">' +
         itemsHtml +
         "</ul>" +
+        (parcelCharge > 0 ? '<p class="cart-total"><strong>Parcel Charge:</strong> &#8377;' + parcelCharge.toFixed(2) + '</p>' : '') +
         '<p class="cart-total"><strong>Total:</strong> &#8377;' +
         esc(total) +
-        (parcelCharge > 0 ? '<span class="muted small"> (incl. &#8377;' + parcelCharge.toFixed(2) + ' parcel fee)</span>' : '') +
         "</p>" +
         '<div class="vendor-order-card__actions">' +
         actionHtml +

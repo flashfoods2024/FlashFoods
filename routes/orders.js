@@ -23,6 +23,7 @@ import {
   getOrderStatus,
 } from "../config/phonepe.js";
 import { emitPendingCount } from "../socket/index.js";
+import { computeParcelCharge } from "../utils/pricing.js";
 export const ordersRouter = express.Router();
 
 // Build a single order item from a cart line, looking up current MenuItem data.
@@ -55,7 +56,7 @@ async function buildOrderItemFromLine(line) {
 // Build order line items + total from the session cart, validating each item
 // against the shop. Shared by all payment gateway flows. Returns null when
 // nothing orderable remains.
-async function buildOrderItemsFromCart(cart, parcelCharge, orderType) {
+async function buildOrderItemsFromCart(cart, shop, orderType) {
   const ids = cart.items.map((l) => l.menuItemId);
   const menuItems = await MenuItem.find({
     _id: { $in: ids },
@@ -65,7 +66,7 @@ async function buildOrderItemsFromCart(cart, parcelCharge, orderType) {
   const byId = new Map(menuItems.map((m) => [String(m._id), m]));
 
   const orderItems = [];
-  let total = 0;
+  let foodTotal = 0;
   for (const line of cart.items) {
     const m = byId.get(String(line.menuItemId));
     if (!m) continue;
@@ -89,12 +90,11 @@ async function buildOrderItemsFromCart(cart, parcelCharge, orderType) {
       variantName: variantName,
       variantPrice: variantPrice,
     });
-    total += price * q;
+    foodTotal += price * q;
   }
   if (!orderItems.length) return null;
-  const isParcel = orderType === "parcel";
-  const charge = isParcel ? Math.max(0, Number(parcelCharge) || 0) : 0;
-  return { orderItems, total: total + charge, parcelCharge: charge };
+  const charge = computeParcelCharge(shop, orderType);
+  return { orderItems, foodTotal, total: foodTotal + charge, parcelCharge: charge };
 }
 
 // Validate that every cart item requiring variant selection has one.
@@ -163,7 +163,7 @@ ordersRouter.post(
 
       // Build the order line items from the cart and compute the total
       // server-side so the charged amount cannot be tampered with client-side.
-      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge, orderType);
+      const built = await buildOrderItemsFromCart(cart, shop, orderType);
       if (!built) {
         return res
           .status(400)
@@ -335,7 +335,7 @@ ordersRouter.post(
         });
       }
 
-      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge, orderType);
+      const built = await buildOrderItemsFromCart(cart, shop, orderType);
       if (!built) {
         return res
           .status(400)
@@ -500,7 +500,7 @@ ordersRouter.post(
         });
       }
 
-      const built = await buildOrderItemsFromCart(cart, shop.parcelCharge, orderType);
+      const built = await buildOrderItemsFromCart(cart, shop, orderType);
       if (!built) {
         return res
           .status(400)
@@ -702,7 +702,7 @@ ordersRouter.post(
     }
 
     const orderType = req.body.orderType || "dinein";
-    const built = await buildOrderItemsFromCart(cart, shop.parcelCharge, orderType);
+    const built = await buildOrderItemsFromCart(cart, shop, orderType);
     if (!built) {
       req.flash("error", "Nothing in your cart is available to order.");
       return res.redirect("/cart");

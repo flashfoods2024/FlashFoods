@@ -14,6 +14,7 @@ import { stageImport, markProcessing, markError, discardImport } from "../menu-i
 import { updateSession, getSession } from "../menu-import/store.js";
 import { extractMenu } from "../menu-import/vision.js";
 import { isGatewayConfigured } from "./vendor.js";
+import { computeParcelCharge } from "../utils/pricing.js";
 import {
   formatOrderStatus,
   normalizeQuery,
@@ -1176,7 +1177,20 @@ adminRouter.post("/orders/:id/toggle-parcel", async (req, res) => {
     return res.redirect("/admin/orders");
   }
 
-  order.orderType = order.orderType === "parcel" ? "dinein" : "parcel";
+  const wasParcel = order.orderType === "parcel";
+
+  if (wasParcel) {
+    order.total -= order.parcelCharge;
+    order.parcelCharge = 0;
+    order.orderType = "dinein";
+  } else {
+    const shop = await Shop.findById(order.shop).select("parcelChargeEnabled parcelCharge").lean();
+    const charge = computeParcelCharge(shop, "parcel");
+    order.parcelCharge = charge;
+    order.total += charge;
+    order.orderType = "parcel";
+  }
+
   await order.save();
 
   req.flash("success", `Order type changed to ${order.orderType === "parcel" ? "Parcel" : "Dine In"}.`);
@@ -1427,6 +1441,36 @@ adminRouter.post(
     } catch (error) {
       console.error(error);
       req.flash("error", "Failed to update shop status.");
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    }
+  },
+);
+
+adminRouter.post(
+  "/vendors/:vendorId/parcel-charge",
+  resolveAdminVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+      }
+
+      shop.parcelChargeEnabled = req.body.parcelChargeEnabled === "true";
+
+      const charge = Number(req.body.parcelCharge);
+      if (!isNaN(charge) && charge >= 0) {
+        shop.parcelCharge = charge;
+      }
+
+      await shop.save();
+
+      req.flash("success", "Parcel settings saved.");
+      return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
+    } catch (err) {
+      console.error("Error saving parcel settings:", err);
+      req.flash("error", "Failed to save parcel settings.");
       return res.redirect(`/admin/vendors/${req.params.vendorId}/menu`);
     }
   },

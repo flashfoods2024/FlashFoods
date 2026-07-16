@@ -8,14 +8,6 @@
   <div class="card admin-panel">
     <form method="post" action="/vendor/payment/settings" class="form">
 
-      <label>
-        <span>Parcel Charge (&#8377;)</span>
-        <input name="parcelCharge" type="number" min="0" step="0.50"
-          value="<%= Number(shop.parcelCharge || 0).toFixed(2) %>"
-          placeholder="0.00" />
-        <p class="muted small">A flat fee added to every order (e.g. packaging cost). Set to 0 to disable.</p>
-      </label>
-
       <hr />
 
       <label>
