@@ -200,7 +200,7 @@ try {
   process.exit(1);
 }
 
-const server = app.listen(port, () => {
+const server = app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${port}`);
 });
 
