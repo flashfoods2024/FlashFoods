@@ -190,6 +190,15 @@
 .global-verify-bar__status--error {
   color: #dc2626;
 }
+.vendor-order-card--reminder {
+  border-color: #f97316 !important;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25), var(--shadow) !important;
+  animation: reminder-pulse 1.5s ease-in-out 3;
+}
+@keyframes reminder-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25), var(--shadow); }
+  50% { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.4), var(--shadow); }
+}
 @media (max-width: 768px) {
   .pickup-banner { font-size: 14px; padding: 6px 10px; }
   .pickup-banner__time { font-size: 15px; }
@@ -318,6 +327,13 @@
     var lastSignature = null;
     var inFlight = false;
     var currentOrders = [];
+    var remindedOrders = {};
+
+    // Request notification permission early so the browser prompt does not
+    // feel jarring when it appears at reminder time.
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(function () {});
+    }
 
     // Escape dynamic text before injecting into markup (item names are
     // vendor-supplied, so treat them as untrusted).
@@ -447,6 +463,64 @@
         '<div class="vendor-order-grid">' +
         orders.map(cardHtml).join("") +
         "</div>";
+    }
+
+    // ----- Pickup Reminder Logic -----
+    // Fires an alert (sound + browser notification + card highlight) for each
+    // order whose pickup time is within 60 seconds. Each order rings at most
+    // once — the server-side pickupReminderSent flag persists across refreshes.
+
+    function checkReminders(orders) {
+      var now = Date.now();
+      orders.forEach(function (order) {
+        if (!order.pickupTime) return;
+        if (remindedOrders[order.id]) return;
+        if (order.pickupReminderSent) {
+          remindedOrders[order.id] = true;
+          return;
+        }
+        var pickupTime = new Date(order.pickupTime).getTime();
+        var diff = pickupTime - now;
+        if (diff <= 60000) {
+          remindedOrders[order.id] = true;
+          fireReminder(order);
+        }
+      });
+    }
+
+    function fireReminder(order) {
+      // Play existing notification sound once
+      try {
+        var audio = new Audio("/audio/ringing_sound.mp3");
+        audio.volume = 1.0;
+        audio.play().catch(function () {});
+      } catch (e) {}
+
+      // Browser Notification
+      if ("Notification" in window && Notification.permission === "granted") {
+        try {
+          new Notification("Upcoming Pickup", {
+            body: "Order #" + order.shortId + "\n" + (order.customerName || "Customer") + "\nPickup in 1 minute."
+          });
+        } catch (e) {}
+      }
+
+      // Highlight the matching card
+      var cards = document.querySelectorAll(".vendor-order-card");
+      for (var i = 0; i < cards.length; i++) {
+        var link = cards[i].querySelector(".vendor-order-card__overlay");
+        if (link && link.getAttribute("href").indexOf(order.id) !== -1) {
+          cards[i].classList.add("vendor-order-card--reminder");
+          break;
+        }
+      }
+
+      // Tell the server to mark the reminder as sent (survives refresh)
+      fetch("/vendor/orders/" + encodeURIComponent(order.id) + "/mark-reminder-sent", {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      }).catch(function () {});
     }
 
     // Handle OTP verification via AJAX so the vendor stays on the pending
@@ -620,6 +694,7 @@
             lastSignature = signature;
             render(orders);
           }
+          checkReminders(orders);
         })
         .catch(function (err) {
           // Network/server hiccup: log and keep polling, leave current list.

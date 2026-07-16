@@ -41,6 +41,8 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+    pickupReminderSent: { type: Boolean, default: false },
+
     collectedAt: {
       type: Date,
       default: null,

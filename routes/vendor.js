@@ -451,6 +451,7 @@ vendorRouter.get(
         parcelCharge: Number(order.parcelCharge) || 0,
         pickupOtp: order.status === "ready_for_pickup" ? order.pickupOtp : null,
         pickupTime: order.pickupTime ? order.pickupTime.toISOString() : null,
+        pickupReminderSent: !!order.pickupReminderSent,
         pickupUrgency: getPickupUrgency(order.pickupTime),
         pickupTimeLabel: formatPickupTime(order.pickupTime),
         items: (order.items || [])
@@ -465,6 +466,35 @@ vendorRouter.get(
     } catch (err) {
       console.error("Failed to load pending orders JSON:", err);
       return res.status(500).json({ error: "Failed to load pending orders." });
+    }
+  },
+);
+
+// Lightweight endpoint called by the client-side polling loop after it fires
+// a pickup reminder (sound + notification). Sets the server-side flag so the
+// reminder is never replayed on subsequent polls or after a page refresh.
+vendorRouter.post(
+  "/vendor/orders/:id/mark-reminder-sent",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!mongoose.isValidObjectId(id)) {
+        return res.status(400).json({ error: "Invalid order ID." });
+      }
+      const order = await Order.findById(id);
+      if (!order || String(order.shop) !== req.vendorShopIdStr) {
+        return res.status(404).json({ error: "Order not found." });
+      }
+      order.pickupReminderSent = true;
+      await order.save();
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to mark reminder sent:", err);
+      return res.status(500).json({ error: "Server error." });
     }
   },
 );
