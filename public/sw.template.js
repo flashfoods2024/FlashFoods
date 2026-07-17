@@ -23,10 +23,16 @@ const PRECACHE = [
 
 // ---- Install ----------------------------------------------------------------
 self.addEventListener('install', (e) => {
-  self.skipWaiting();
   e.waitUntil(
     caches.open(STATIC_CACHE).then((c) => c.addAll(PRECACHE)),
   );
+});
+
+// ---- Message (page → SW) ---------------------------------------------------
+self.addEventListener('message', (e) => {
+  if (e.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // ---- Activate / cleanup -----------------------------------------------------

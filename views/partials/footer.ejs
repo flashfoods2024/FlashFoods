@@ -60,16 +60,56 @@
         btn.innerHTML = hidden ? _eyeSlash : _eye;
       }
     </script>
+    <%- include("./update-banner") %>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/sw.js').catch(function (err) {
-            if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-              console.warn('Service Worker registration failed', err);
+      (function () {
+        var um = new UpdateManager();
+        window.__updateManager = um;
+        var banner = document.getElementById('update-banner');
+        if (banner) um.setBannerElement(banner);
+        um.addEventListener('statechange', function (e) {
+          var state = e.state;
+          var titleEl = banner && banner.querySelector('.update-banner__title');
+          var descEl = banner && banner.querySelector('.update-banner__desc');
+          var laterBtn = document.getElementById('update-banner-later');
+          var applyBtn = document.getElementById('update-banner-apply');
+          if (state === 'update-available') {
+            var rel = um.getRelease();
+            if (titleEl && descEl) {
+              descEl.textContent = rel ? 'Version ' + rel.version + ' (' + rel.buildId.slice(0, 7) + ') is ready.' : 'A newer version of FlashFoods is ready.';
+              if (rel && rel.critical && titleEl) titleEl.textContent = 'Critical Update Available';
             }
-          });
+            if (laterBtn) laterBtn.disabled = false;
+            if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Update'; }
+          } else if (state === 'updating') {
+            if (titleEl) titleEl.textContent = 'Updating\u2026';
+            if (descEl) descEl.textContent = 'Please wait while the update is applied.';
+            if (laterBtn) laterBtn.disabled = true;
+            if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Updating\u2026'; }
+          }
         });
-      }
+        var laterBtn = document.getElementById('update-banner-later');
+        if (laterBtn) {
+          laterBtn.addEventListener('click', function () {
+            banner.hidden = true;
+          });
+        }
+        var applyBtn = document.getElementById('update-banner-apply');
+        if (applyBtn) {
+          applyBtn.addEventListener('click', function () {
+            um.applyUpdate();
+          });
+        }
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', function () {
+            um.init().catch(function (err) {
+              if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                console.warn('UpdateManager init failed', err);
+              }
+            });
+          });
+        }
+      })();
     </script>
   </body>
 </html>
