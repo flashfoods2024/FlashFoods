@@ -13,6 +13,7 @@ const connectDb = async () => {
     await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 8000,
       socketTimeoutMS: 20000,
+      family: 4,
     });
     console.log("MongoDB connected");
     return true;
