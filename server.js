@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import session from "express-session";
 import flash from "connect-flash";
 import path from "path";
+import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import connectDb from "./config/db.js";
@@ -81,8 +82,31 @@ const port = Number(process.env.PORT || 3000);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ---------------------------------------------------------------------------
+// App version metadata — read at startup, injected into every response
+// ---------------------------------------------------------------------------
+let appVersion;
+try {
+  appVersion = JSON.parse(
+    readFileSync(path.join(__dirname, "public", "version.json"), "utf-8"),
+  );
+} catch {
+  appVersion = { version: "1.0.0", buildId: "dev", buildTimestamp: null };
+}
+
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+
+// Serve key PWA files with no-cache so browsers always fetch the latest version
+app.get("/sw.js", (req, res) => {
+  res.set("Cache-Control", "no-cache");
+  res.sendFile(path.join(__dirname, "public", "sw.js"));
+});
+
+app.get("/version.json", (req, res) => {
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.sendFile(path.join(__dirname, "public", "version.json"));
+});
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -145,6 +169,8 @@ app.use(async (req, res, next) => {
   res.locals.env = {
     RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   };
+
+  res.locals.appVersion = appVersion;
 
   res.locals.formatPickupTime = formatPickupTime;
   res.locals.formatLocalDateTime = formatLocalDateTime;

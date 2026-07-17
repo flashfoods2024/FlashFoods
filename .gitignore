@@ -9,6 +9,10 @@ temp/
 /playwright/.cache/
 /playwright/.auth/
 
+# Build artifacts
+public/version.json
+public/sw.js
+
 # Bakcup files
 *.bak
 

@@ -7,9 +7,12 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "prestart": "npm run build:version",
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "build:version": "node build-scripts/generate-version.js",
+    "build": "npm run build:version"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

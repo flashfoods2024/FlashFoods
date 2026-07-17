@@ -3,9 +3,10 @@
 // Purpose: Unlock standalone PWA install (Android Chrome requirement).
 //          Cache only stable static assets. No offline support.
 // =============================================================================
-// Version — bump on every deploy to trigger SW update
-// TODO: automate injection during deployment (prestart script)
-const CACHE_VERSION = 'v3';
+// BUILD_ID is injected at build time by build-scripts/generate-version.js.
+// The browser naturally detects byte differences and triggers updates.
+const BUILD_ID = '__BUILD_ID__';
+const CACHE_VERSION = `v-${BUILD_ID}`;
 const STATIC_CACHE = `flashfoods-static-${CACHE_VERSION}`;
 
 // Only stable shell assets — NO JS, NO audio, NO HTML, NO API
@@ -50,14 +51,16 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(fetch(req));
     return;
   }
-  if (new URL(req.url).pathname.startsWith('/socket.io/')) return;
+  const url = new URL(req.url);
+  if (url.pathname.startsWith('/socket.io/')) return;
+  if (url.pathname === '/version.json') return;
 
   // Cache-first for precached assets; everything else goes network-only
   e.respondWith(caches.match(req).then((hit) => hit || fetch(req)));
 });
 
 // -----------------------------------------------------------------------------
-// Development unregister: open DevTools → Console and run:
+// Development unregister: open DevTools -> Console and run:
 //   navigator.serviceWorker.getRegistrations().then(r => r.forEach(r => r.unregister()))
 // Then hard-reload (Cmd/Ctrl+Shift+R) to clear all caches.
 // -----------------------------------------------------------------------------
