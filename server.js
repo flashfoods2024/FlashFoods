@@ -209,7 +209,9 @@ app.use((err, req, res, _next) => {
     return res.status(500).json({ error: "Internal server error." });
   }
 
-  req.flash("error", "Something went wrong. Please try again.");
+  if (typeof req.flash === "function") {
+    req.flash("error", "Something went wrong. Please try again.");
+  }
   const fallback =
     req.headers.referer ||
     (req.user?.role === "admin" ? "/admin/dashboard" : "/");
