@@ -5,7 +5,7 @@
 // =============================================================================
 // Version — bump on every deploy to trigger SW update
 // TODO: automate injection during deployment (prestart script)
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = `flashfoods-static-${CACHE_VERSION}`;
 
 // Only stable shell assets — NO JS, NO audio, NO HTML, NO API
@@ -17,6 +17,7 @@ const PRECACHE = [
   '/fonts/Transcity-DEMO.otf',
   '/icon.png',
   '/icons/icon-192x192.png',
+  '/manifest.json',
 ];
 
 // ---- Install ----------------------------------------------------------------
