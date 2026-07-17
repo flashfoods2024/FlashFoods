@@ -5,7 +5,7 @@
 // =============================================================================
 // Version — bump on every deploy to trigger SW update
 // TODO: automate injection during deployment (prestart script)
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `flashfoods-static-${CACHE_VERSION}`;
 
 // Only stable shell assets — NO JS, NO audio, NO HTML, NO API
@@ -22,6 +22,7 @@ const PRECACHE = [
 
 // ---- Install ----------------------------------------------------------------
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(STATIC_CACHE).then((c) => c.addAll(PRECACHE)),
   );

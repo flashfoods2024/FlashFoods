@@ -490,11 +490,9 @@
 
     function fireReminder(order) {
       // Play existing notification sound once
-      try {
-        var audio = new Audio("/audio/ringing_sound.mp3");
-        audio.volume = 1.0;
-        audio.play().catch(function () {});
-      } catch (e) {}
+      if (window._notificationManager && typeof window._notificationManager.playReminder === 'function') {
+        window._notificationManager.playReminder();
+      }
 
       // Browser Notification
       if ("Notification" in window && Notification.permission === "granted") {
