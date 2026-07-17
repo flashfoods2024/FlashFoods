@@ -45,7 +45,10 @@ self.addEventListener('fetch', (e) => {
 
   // Bypass — never intercept these
   if (req.method !== 'GET') return;
-  if (req.mode === 'navigate') return;
+  if (req.mode === 'navigate') {
+    e.respondWith(fetch(req));
+    return;
+  }
   if (new URL(req.url).pathname.startsWith('/socket.io/')) return;
 
   // Cache-first for precached assets; everything else goes network-only
