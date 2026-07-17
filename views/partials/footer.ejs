@@ -60,6 +60,17 @@
         btn.innerHTML = hidden ? _eyeSlash : _eye;
       }
     </script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function (err) {
+            if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+              console.warn('Service Worker registration failed', err);
+            }
+          });
+        });
+      }
+    </script>
   </body>
 </html>
 
