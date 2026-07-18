@@ -228,7 +228,7 @@ app.use(cartRouter);
 app.use(ordersRouter);
 app.use(menuRouter);
 app.use(vendorRouter);
-app.use(fcmRouter);
+app.use("/api/fcm", fcmRouter);
 app.use("/admin", adminRouter);
 
 // ---------------------------------------------------------------------------

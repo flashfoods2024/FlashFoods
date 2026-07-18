@@ -6,7 +6,7 @@ export const fcmRouter = Router();
 
 fcmRouter.use(requireAuth, requireVendor);
 
-fcmRouter.post("/api/fcm/register", async (req, res) => {
+fcmRouter.post("/register", async (req, res) => {
   try {
     const { token, deviceInfo } = req.body;
 
@@ -30,7 +30,7 @@ fcmRouter.post("/api/fcm/register", async (req, res) => {
   }
 });
 
-fcmRouter.post("/api/fcm/unregister", async (req, res) => {
+fcmRouter.post("/unregister", async (req, res) => {
   try {
     const { token } = req.body;
 
