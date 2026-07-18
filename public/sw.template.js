@@ -1,72 +1,115 @@
 // =============================================================================
 // Flash Foods — Service Worker
-// Purpose: Unlock standalone PWA install (Android Chrome requirement).
-//          Cache only stable static assets. No offline support.
+// Purpose: PWA caching + Firebase Cloud Messaging background notifications
 // =============================================================================
-// BUILD_ID is injected at build time by build-scripts/generate-version.js.
-// The browser naturally detects byte differences and triggers updates.
-const BUILD_ID = '__BUILD_ID__';
-const CACHE_VERSION = `v-${BUILD_ID}`;
-const STATIC_CACHE = `flashfoods-static-${CACHE_VERSION}`;
 
-// Only stable shell assets — NO JS, NO audio, NO HTML, NO API
-const PRECACHE = [
-  '/styles.css',
-  '/food-placeholder.svg',
-  '/background-image.png',
-  '/images/canteen-bg.png',
-  '/fonts/Transcity-DEMO.otf',
-  '/icon.png',
-  '/icons/icon-192x192.png',
-  '/manifest.json',
-];
+// ---- Firebase Messaging ----------------------------------------------------
+importScripts("https://www.gstatic.com/firebasejs/11.1.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/11.1.0/firebase-messaging-compat.js");
 
-// ---- Install ----------------------------------------------------------------
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(STATIC_CACHE).then((c) => c.addAll(PRECACHE)),
+firebase.initializeApp({
+  apiKey: "__FIREBASE_API_KEY__",
+  authDomain: "__FIREBASE_AUTH_DOMAIN__",
+  projectId: "__FIREBASE_PROJECT_ID__",
+  storageBucket: "__FIREBASE_STORAGE_BUCKET__",
+  messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
+  appId: "__FIREBASE_APP_ID__",
+});
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage(function (payload) {
+  var data = payload.data || {};
+  var notification = payload.notification || {};
+  var tag = data.tag || "flashfoods-order-" + (data.orderId || Date.now());
+
+  self.registration.showNotification(notification.title || "New Order", {
+    body: notification.body || "A new order has been placed.",
+    icon: "/icons/icon-192x192.png",
+    badge: "/icons/icon-192x192.png",
+    tag: tag,
+    renotify: false,
+    requireInteraction: false,
+    data: {
+      click_action: data.click_action || "/vendor/orders/pending",
+      vendorId: data.vendorId || null,
+      orderId: data.orderId || null,
+      timestamp: data.timestamp || Date.now(),
+    },
+  });
+});
+
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+
+  var clickAction = event.notification.data.click_action || "/vendor/orders/pending";
+  var urlToOpen = new URL(clickAction, self.location.origin).href;
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then(function (windowClients) {
+        for (var i = 0; i < windowClients.length; i++) {
+          var client = windowClients[i];
+          if (client.url.indexOf(self.location.origin) === 0) {
+            return client.focus().then(function (c) {
+              return c.navigate(urlToOpen);
+            });
+          }
+        }
+        return clients.openWindow(urlToOpen);
+      }),
   );
 });
 
-// ---- Message (page → SW) ---------------------------------------------------
-self.addEventListener('message', (e) => {
-  if (e.data === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+// ---- PWA Caching -----------------------------------------------------------
+const BUILD_ID = "__BUILD_ID__";
+const CACHE_VERSION = "v-" + BUILD_ID;
+const STATIC_CACHE = "flashfoods-static-" + CACHE_VERSION;
+
+const PRECACHE = [
+  "/styles.css",
+  "/food-placeholder.svg",
+  "/background-image.png",
+  "/images/canteen-bg.png",
+  "/fonts/Transcity-DEMO.otf",
+  "/icon.png",
+  "/icons/icon-192x192.png",
+  "/manifest.json",
+];
+
+self.addEventListener("install", function (e) {
+  e.waitUntil(caches.open(STATIC_CACHE).then(function (c) { return c.addAll(PRECACHE); }));
 });
 
-// ---- Activate / cleanup -----------------------------------------------------
-self.addEventListener('activate', (e) => {
+self.addEventListener("activate", function (e) {
   e.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((k) => k !== STATIC_CACHE).map((k) => caches.delete(k))),
-      )
-      .then(() => clients.claim()),
+      .then(function (keys) {
+        return Promise.all(
+          keys
+            .filter(function (k) { return k !== STATIC_CACHE; })
+            .map(function (k) { return caches.delete(k); }),
+        );
+      })
+      .then(function () { return clients.claim(); }),
   );
 });
 
-// ---- Fetch ------------------------------------------------------------------
-self.addEventListener('fetch', (e) => {
-  const { request: req } = e;
+self.addEventListener("message", function (e) {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
+});
 
-  // Bypass — never intercept these
-  if (req.method !== 'GET') return;
-  if (req.mode === 'navigate') {
+self.addEventListener("fetch", function (e) {
+  var req = e.request;
+  if (req.method !== "GET") return;
+  if (req.mode === "navigate") {
     e.respondWith(fetch(req));
     return;
   }
-  const url = new URL(req.url);
-  if (url.pathname.startsWith('/socket.io/')) return;
-  if (url.pathname === '/version.json') return;
-
-  // Cache-first for precached assets; everything else goes network-only
-  e.respondWith(caches.match(req).then((hit) => hit || fetch(req)));
+  var url = new URL(req.url);
+  if (url.pathname.startsWith("/socket.io/")) return;
+  if (url.pathname === "/version.json") return;
+  e.respondWith(caches.match(req).then(function (hit) { return hit || fetch(req); }));
 });
-
-// -----------------------------------------------------------------------------
-// Development unregister: open DevTools -> Console and run:
-//   navigator.serviceWorker.getRegistrations().then(r => r.forEach(r => r.unregister()))
-// Then hard-reload (Cmd/Ctrl+Shift+R) to clear all caches.
-// -----------------------------------------------------------------------------

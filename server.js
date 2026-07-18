@@ -101,8 +101,33 @@ app.set("views", path.join(__dirname, "views"));
 
 // Serve key PWA files with no-cache so browsers always fetch the latest version
 app.get("/sw.js", (req, res) => {
+  res.set("Content-Type", "application/javascript");
   res.set("Cache-Control", "no-cache");
-  res.sendFile(path.join(__dirname, "public", "sw.js"));
+  const swPath = path.join(__dirname, "public", "sw.js");
+  const raw = readFileSync(swPath, "utf-8");
+  const injected = raw
+    .replace(/__FIREBASE_API_KEY__/g, process.env.FIREBASE_API_KEY || "")
+    .replace(/__FIREBASE_AUTH_DOMAIN__/g, process.env.FIREBASE_AUTH_DOMAIN || "")
+    .replace(/__FIREBASE_PROJECT_ID__/g, process.env.FIREBASE_PROJECT_ID || "")
+    .replace(/__FIREBASE_STORAGE_BUCKET__/g, process.env.FIREBASE_STORAGE_BUCKET || "")
+    .replace(/__FIREBASE_MESSAGING_SENDER_ID__/g, process.env.FIREBASE_MESSAGING_SENDER_ID || "")
+    .replace(/__FIREBASE_APP_ID__/g, process.env.FIREBASE_APP_ID || "");
+  res.send(injected);
+});
+
+app.get("/firebase-messaging-sw.js", (req, res) => {
+  res.set("Content-Type", "application/javascript");
+  res.set("Cache-Control", "no-cache");
+  const swPath = path.join(__dirname, "public", "firebase-messaging-sw.js");
+  const raw = readFileSync(swPath, "utf-8");
+  const injected = raw
+    .replace(/__FIREBASE_API_KEY__/g, process.env.FIREBASE_API_KEY || "")
+    .replace(/__FIREBASE_AUTH_DOMAIN__/g, process.env.FIREBASE_AUTH_DOMAIN || "")
+    .replace(/__FIREBASE_PROJECT_ID__/g, process.env.FIREBASE_PROJECT_ID || "")
+    .replace(/__FIREBASE_STORAGE_BUCKET__/g, process.env.FIREBASE_STORAGE_BUCKET || "")
+    .replace(/__FIREBASE_MESSAGING_SENDER_ID__/g, process.env.FIREBASE_MESSAGING_SENDER_ID || "")
+    .replace(/__FIREBASE_APP_ID__/g, process.env.FIREBASE_APP_ID || "");
+  res.send(injected);
 });
 
 app.get("/version.json", (req, res) => {

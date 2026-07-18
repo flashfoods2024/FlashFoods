@@ -22,5 +22,6 @@ const fcmTokenSchema = new mongoose.Schema(
 );
 
 fcmTokenSchema.index({ vendorId: 1, updatedAt: -1 });
+fcmTokenSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
 
 export const FcmToken = mongoose.model("FcmToken", fcmTokenSchema);

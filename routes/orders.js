@@ -23,6 +23,7 @@ import {
   getOrderStatus,
 } from "../config/phonepe.js";
 import { emitPendingCount } from "../socket/index.js";
+import { dispatchNewOrderNotification } from "../utils/notification-dispatch.js";
 import { computeParcelCharge } from "../utils/pricing.js";
 export const ordersRouter = express.Router();
 
@@ -278,6 +279,7 @@ ordersRouter.post(
       await order.save();
 
       emitPendingCount(order.shop);
+      dispatchNewOrderNotification(order);
 
       req.session.cart = {
         shopId: null,
@@ -454,7 +456,10 @@ ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
       order.transactionId = payload.easepayid || "";
       await order.save();
 
-      if (success) emitPendingCount(order.shop);
+      if (success) {
+        emitPendingCount(order.shop);
+        dispatchNewOrderNotification(order);
+      }
     }
 
     return res.redirect(`/orders/${order._id}`);
@@ -634,6 +639,7 @@ ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
       await order.save();
 
       emitPendingCount(order.shop);
+      dispatchNewOrderNotification(order);
 
       if (req.session) {
         req.session.cart = { shopId: null, items: [] };
@@ -732,6 +738,7 @@ ordersRouter.post(
     });
 
     emitPendingCount(cart.shopId);
+    dispatchNewOrderNotification(order);
 
     req.session.cart = { shopId: null, items: [] };
     req.flash(
