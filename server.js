@@ -24,6 +24,8 @@ import {
   getPickupUrgency,
 } from "./utils/time.js";
 import { initSocket } from "./socket/index.js";
+import { fcmRouter } from "./routes/api/fcm.js";
+import "./config/firebase-admin.js";
 
 dotenv.config();
 console.log(
@@ -170,6 +172,18 @@ app.use(async (req, res, next) => {
     RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   };
 
+  res.locals.firebaseConfig = process.env.FIREBASE_API_KEY
+    ? {
+        apiKey: process.env.FIREBASE_API_KEY,
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.FIREBASE_APP_ID,
+        vapidKey: process.env.FIREBASE_VAPID_KEY || null,
+      }
+    : null;
+
   res.locals.appVersion = appVersion;
 
   res.locals.formatPickupTime = formatPickupTime;
@@ -189,6 +203,7 @@ app.use(cartRouter);
 app.use(ordersRouter);
 app.use(menuRouter);
 app.use(vendorRouter);
+app.use(fcmRouter);
 app.use("/admin", adminRouter);
 
 // ---------------------------------------------------------------------------
