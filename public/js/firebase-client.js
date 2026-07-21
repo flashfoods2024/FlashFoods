@@ -13,9 +13,7 @@
     try {
       firebase.initializeApp(config);
     } catch (e) {
-      if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-        console.warn("[FCM] Firebase init failed:", e.message);
-      }
+      console.error("[FCM] Firebase init failed:", e.message);
       return;
     }
   }
@@ -48,8 +46,6 @@
       }
     })
     .catch(function (err) {
-      if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-        console.warn("[FCM] Token registration skipped:", err.message);
-      }
+      console.error("[FCM] Token registration failed:", err.message);
     });
 })();

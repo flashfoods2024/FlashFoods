@@ -5,6 +5,7 @@ import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { getWebhookSecretFromShop } from "../config/razorpay.js";
 import { emitPendingCount } from "../socket/index.js";
+import { dispatchNewOrderNotification } from "../utils/notification-dispatch.js";
 
 export const webhooksRouter = express.Router();
 
@@ -110,6 +111,7 @@ webhooksRouter.post(
 
         if (updated) {
           emitPendingCount(order.shop);
+          dispatchNewOrderNotification(updated);
         }
 
         // If it was not pending (already paid/handled), still record the event
