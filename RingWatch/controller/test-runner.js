@@ -12,8 +12,7 @@ import { NotificationMonitor } from '../monitor/notification-monitor.js';
 import { LogcatMonitor } from '../monitor/logcat-monitor.js';
 import { ChromeMonitor } from '../monitor/chrome-monitor.js';
 import { FirebaseMonitor } from '../monitor/firebase-monitor.js';
-import { generateHtmlReport } from '../reports/html-report.js';
-import { generateJsonReport } from '../reports/json-report.js';
+import { ReportManager } from '../reports/report-manager.js';
 
 /**
  * @typedef {object} TestRunResult
@@ -127,8 +126,8 @@ export class TestRunner {
         deviceStates: this._deviceStates,
         logs: this._logger.getBuffer(),
         summary,
-        reportPath,
-        jsonReportPath,
+        reportPath: reportPath || null,
+        jsonReportPath: jsonReportPath || null,
       };
     } catch (err) {
       this._logger.error(`Test run failed`, { error: err.message });
@@ -219,7 +218,7 @@ export class TestRunner {
   }
 
   /**
-   * Generate HTML and JSON reports.
+   * Generate all reports using the new ReportManager.
    */
   async _generateReports(data) {
     this._logger.info('Generating reports...');
@@ -237,15 +236,17 @@ export class TestRunner {
 
     const reportData = { ...data, summary };
 
-    // Generate HTML report
-    const reportPath = await generateHtmlReport(reportData, this._config);
+    const reportManager = new ReportManager(this._config);
+    const result = await reportManager.generateAllReports(reportData);
 
-    // Generate JSON report
-    const jsonReportPath = await generateJsonReport(reportData, this._config);
+    this._logger.info(`Reports generated in ${result.runDir}`);
 
-    this._logger.info(`Reports generated`, { html: reportPath, json: jsonReportPath });
-
-    return { reportPath, jsonReportPath, summary };
+    return {
+      reportPath: result.reportHtml,
+      jsonReportPath: result.reportJson,
+      summary,
+      runDir: result.runDir,
+    };
   }
 
   /**

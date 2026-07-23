@@ -1,0 +1,25 @@
+{
+  "startTime": 1784790840094,
+  "timeline": [
+    {
+      "id": "step_1_1784790844449",
+      "type": "error",
+      "action": "loginStudent",
+      "timestamp": 1784790844449,
+      "duration": 0,
+      "error": "Student login failed: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/login\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/login\", waiting until \"networkidle\"\u001b[22m\n",
+      "success": false
+    }
+  ],
+  "notifications": [],
+  "summary": {
+    "totalSteps": 1,
+    "passed": 0,
+    "failures": 1,
+    "notificationsDetected": 0,
+    "totalDuration": 4357,
+    "startTime": "2026-07-23T07:14:00.094Z",
+    "endTime": "2026-07-23T07:14:04.451Z",
+    "fatalError": null
+  }
+}

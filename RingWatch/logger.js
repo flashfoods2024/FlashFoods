@@ -4,7 +4,7 @@
  */
 
 import { appendFileSync, existsSync, mkdirSync, statSync, renameSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, resolve } from 'path';
 
 const LOG_LEVELS = {
   silent: 0,
@@ -132,6 +132,50 @@ export class Logger {
     if (LOG_LEVELS[level] !== undefined) {
       this._levelName = level;
       this._level = LOG_LEVELS[level];
+    }
+  }
+
+  /**
+   * Get current log level.
+   * @returns {string}
+   */
+  getLevelName() {
+    return this._levelName;
+  }
+
+  /**
+   * Configure per-subsystem log files.
+   * Each subsystem writes to a separate file in the given log directory.
+   * @param {string} logDir - Directory for subsystem log files
+   */
+  configureSubsystemLogs(logDir) {
+    this._subsystemLogDir = logDir;
+    if (!existsSync(logDir)) {
+      mkdirSync(logDir, { recursive: true });
+    }
+    this._subsystemStreams = {};
+  }
+
+  /**
+   * Log a message to a specific subsystem log file (in addition to the main log).
+   * @param {string} subsystem - One of: student, vendor, ringwatch, adb, firebase, notification, playwright, console
+   * @param {string} level - Log level
+   * @param {string} message
+   * @param {object} [meta]
+   */
+  subsystem(subsystem, level, message, meta) {
+    // Also log to the main logger
+    this._log(level, `[${subsystem}] ${message}`, meta);
+
+    // Write to subsystem-specific file
+    if (this._subsystemLogDir) {
+      try {
+        const filePath = resolve(this._subsystemLogDir, `${subsystem}.log`);
+        const ts = new Date().toISOString();
+        const metaStr = meta ? ` ${JSON.stringify(meta)}` : '';
+        const line = `[${ts}] [${level.toUpperCase()}] ${message}${metaStr}\n`;
+        appendFileSync(filePath, line, 'utf-8');
+      } catch { /* ignore subsystem log errors */ }
     }
   }
 }

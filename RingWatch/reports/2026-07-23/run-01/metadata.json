@@ -1,0 +1,27 @@
+{
+  "runId": "2026-07-23T07-14-04-499Z",
+  "startTime": "2026-07-23T07:14:00.094Z",
+  "endTime": "2026-07-23T07:14:04.451Z",
+  "durationMs": 4357,
+  "mode": "standard",
+  "passed": false,
+  "reliabilityScore": 0,
+  "config": {
+    "testingShop": "juice-corner",
+    "baseUrl": "http://localhost:3000",
+    "studentEmail": "student@college.test",
+    "vendorEmail": "vendor@college.com",
+    "headless": false
+  },
+  "environment": {
+    "nodeVersion": "v18.19.1",
+    "platform": "linux",
+    "arch": "x64"
+  },
+  "ringwatchVersion": "2.0.0",
+  "flashfoodsVersion": "1.0.1",
+  "git": {
+    "commit": "58dbab753b8183a9d100a38a1eec7832fc8bbcfd",
+    "branch": "main"
+  }
+}

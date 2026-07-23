@@ -62,7 +62,7 @@
               <td><%= order.vendorName %></td>
               <td><span class="tag tag--<%= order.status === "completed" ? "ok" : order.status === "cancelled" ? "danger" : order.status === "ready_for_pickup" ? "pending" : "muted" %>"><%= order.statusLabel %></span></td>
               <td><%= order.paymentStatus %></td>
-              ₹<%= Number(order.total || 0).toFixed(2) %>
+              <td>₹<%= Number(order.total || 0).toFixed(2) %></td>
               <td><%= new Date(order.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) %></td>
             </tr>
           <% }) %>

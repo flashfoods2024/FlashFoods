@@ -16,22 +16,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * Generate a complete HTML report.
  * @param {object} data - Report data
  * @param {object} [config]
+ * @param {string|null} [outputDir] - explicit output directory (overrides config)
  * @returns {Promise<string>} Path to generated HTML file
  */
-export async function generateHtmlReport(data, config) {
+export async function generateHtmlReport(data, config, outputDir) {
   const logger = getLogger();
   const cfg = config || getConfig();
-  const outputDir = cfg.reporting?.outputDir || resolve(__dirname, '..', 'reports');
+  const dir = outputDir || cfg.reporting?.outputDir || resolve(__dirname, '..', 'reports');
   const title = cfg.reporting?.reportTitle || 'FlashFoods RingWatch Report';
 
-  if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  const screenshotDir = resolve(outputDir, 'screenshots');
+  const screenshotDir = resolve(dir, 'screenshots');
   if (!existsSync(screenshotDir)) mkdirSync(screenshotDir, { recursive: true });
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `ringwatch-report-${timestamp}.html`;
-  const filePath = resolve(outputDir, filename);
+  const filePath = resolve(dir, 'report.html');
 
   const passed = data.summary?.failures === 0 && !data.summary?.fatalError;
   const overallStatus = passed ? 'PASS' : 'FAIL';

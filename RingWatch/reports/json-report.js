@@ -16,18 +16,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * Generate a JSON report file.
  * @param {object} data - Complete report data
  * @param {object} [config]
+ * @param {string|null} [outputDir] - explicit output directory (overrides config)
  * @returns {Promise<string>} Path to generated JSON file
  */
-export async function generateJsonReport(data, config) {
+export async function generateJsonReport(data, config, outputDir) {
   const logger = getLogger();
   const cfg = config || getConfig();
-  const outputDir = cfg.reporting?.outputDir || resolve(__dirname, '..', 'reports');
+  const dir = outputDir || cfg.reporting?.outputDir || resolve(__dirname, '..', 'reports');
 
-  if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `ringwatch-report-${timestamp}.json`;
-  const filePath = resolve(outputDir, filename);
+  const filePath = resolve(dir, 'report.json');
 
   const report = {
     meta: {

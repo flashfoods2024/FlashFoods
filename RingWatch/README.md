@@ -1,20 +1,25 @@
-# RingWatch v1
+# RingWatch v2
 
-**RingWatch** is a notification reliability testing framework for FlashFoods. It automatically verifies that Android push notifications are delivered reliably across different app states and generates detailed HTML reports — all without manual intervention.
+**RingWatch** is a notification reliability testing framework for FlashFoods.
+It automatically verifies that Android push notifications are delivered reliably
+across different app states and generates structured forensic reports.
 
 ## Architecture
 
 ```
 RingWatch/
 ├── controller/
-│   ├── test-runner.js       # Orchestrates the full test lifecycle
-│   ├── adb-controller.js    # ADB interface for Android device control
-│   └── schedule.js          # Scenario execution engine
+│   ├── test-runner.js        # Orchestrates the full test lifecycle
+│   ├── adb-controller.js     # ADB interface for Android device control
+│   ├── schedule.js           # Scenario execution engine
+│   └── overnight-mode.js     # Automated overnight testing loop
 │
 ├── playwright/
-│   ├── place-order.js       # Playwright-based order placement
-│   ├── login-student.js     # Student login automation
-│   └── login-vendor.js      # Vendor login automation
+│   ├── place-order.js        # Playwright-based order placement
+│   ├── login-student.js      # Student login automation
+│   ├── login-vendor.js       # Vendor login automation
+│   ├── vendor-workflow.js    # Vendor order lifecycle automation
+│   └── notification-validator.js  # Notification detection & validation
 │
 ├── monitor/
 │   ├── notification-monitor.js  # Android notification polling/detection
@@ -23,18 +28,65 @@ RingWatch/
 │   └── firebase-monitor.js      # Firebase Cloud Messaging tracking
 │
 ├── reports/
-│   ├── html-report.js       # Modern responsive HTML report generation
-│   ├── json-report.js       # Structured JSON report generation
-│   └── screenshots/         # Captured screenshots
+│   ├── report-manager.js     # Orchestrates all report generation
+│   ├── html-report.js        # HTML report generator (secondary)
+│   ├── json-report.js        # JSON report generator (legacy)
+│   │
+│   ├── latest/               # Copy of the most recent run (auto-updated)
+│   │   ├── EXECUTIVE_SUMMARY.md
+│   │   ├── HUMAN_REPORT.md
+│   │   ├── AI_REPORT.md
+│   │   ├── report.html
+│   │   ├── report.json
+│   │   ├── metadata.json
+│   │   ├── logs/
+│   │   ├── screenshots/
+│   │   ├── artifacts/
+│   │   └── timeline/
+│   │
+│   ├── YYYY-MM-DD/           # Date-stamped run folders
+│   │   ├── run-01/
+│   │   ├── run-02/
+│   │   └── ...
+│   │
+│   └── archive/              # Compressed historical runs
 │
 ├── config/
-│   └── ringwatch.config.js  # Central configuration with sensible defaults
+│   └── ringwatch.config.js   # Central configuration with sensible defaults
 │
-├── logger.js                # Centralised logger (coloured console + file)
-├── ringwatch.js             # CLI entry point
-├── package.json             # RingWatch npm package
-└── README.md                # This file
+├── logger.js                 # Centralised logger (coloured console + file)
+├── ringwatch.js              # CLI entry point
+├── package.json              # RingWatch npm package
+└── README.md                 # This file
 ```
+
+## Report Types
+
+Every RingWatch run generates the following reports in the run folder:
+
+| Report | Format | Purpose | Reading Time |
+|--------|--------|---------|-------------|
+| `EXECUTIVE_SUMMARY.md` | Markdown | One-page overview — result, score, key metrics | < 1 minute |
+| `HUMAN_REPORT.md` | Markdown | Plain-English explanation for tired humans | 3–5 minutes |
+| `AI_REPORT.md` | Markdown | Full forensic dump for AI assistants | Exhaustive |
+| `report.html` | HTML | Dark-themed visual dashboard (opens from disk) | Visual scan |
+| `report.json` | JSON | Structured data for CI pipelines | Programmatic |
+| `metadata.json` | JSON | Run metadata (env, git, config) | Programmatic |
+
+### Sub-directories
+
+- **logs/** — Per-subsystem log files: `student.log`, `vendor.log`, `ringwatch.log`, `adb.log`, `firebase.log`, `notification.log`, `playwright.log`, `console.log`
+- **screenshots/** — Numbered screenshots captured during the run
+- **artifacts/** — Raw debugging data (network captures, DOM snapshots, etc.)
+- **timeline/** — `timeline.md` (human-readable) + `timeline.json` (machine-readable)
+
+## Report Hierarchy
+
+Markdown reports are the **primary** source of truth. HTML is secondary.
+
+1. Start with **EXECUTIVE_SUMMARY.md** — did it pass? what's the score?
+2. Read **HUMAN_REPORT.md** — what happened and what should I do?
+3. Dig into **AI_REPORT.md** — full technical details and forensic data
 
 ## Quick Start
 
@@ -50,6 +102,9 @@ npm run ringwatch -- --config ./ringwatch.config.json
 
 # With custom scenario:
 npm run ringwatch -- --scenario ./scenario.json
+
+# Overnight mode (8 hours):
+npm run ringwatch --overnight
 
 # From the RingWatch directory:
 node ringwatch.js
@@ -69,11 +124,12 @@ RingWatch works out of the box with sensible defaults. Configure via `ringwatch.
 | `student` | `password` | `vendor@1` | Student password (seed data) |
 | `vendor` | `email` | `vendor@college.com` | Vendor credentials (seed data) |
 | `vendor` | `password` | `vendor@1` | Vendor password (seed data) |
-| `testingShop` | | `juice-corner` | **SAFETY**: The ONLY shop RingWatch may order from. All orders validated at runtime. |
-| `order` | `shopSlug` | `juice-corner` | Shop slug (always matches `testingShop`) |
+| `testingShop` | | `juice-corner` | **SAFETY**: The ONLY shop RingWatch may order from |
+| `order` | `shopSlug` | `juice-corner` | Shop slug |
 | `order` | `orderType` | `dinein` | Default order type |
 | `scenario` | `defaultWaitMs` | `300000` (5 min) | Default wait between steps |
-| `logging` | `level` | `info` | Log level (silent/error/warn/info/debug/trace) |
+| `logging` | `level` | `info` | Log level |
+| `reporting` | `outputDir` | `RingWatch/reports/` | Reports output directory |
 
 ## Scenario Format
 
@@ -120,19 +176,51 @@ Scenarios are arrays of step objects executed in order:
 }
 ```
 
-## Reports
+## Reading Reports
 
-RingWatch generates two report files in `reports/`:
+### Quick check (under 1 minute)
 
-- **HTML Report** — Modern, responsive, dark-themed dashboard with:
-  - Pass/Fail badge and reliability score
-  - Summary cards (steps, notifications, duration)
-  - Full timeline with per-step status
-  - Notification cards with latency indicators
-  - Device state snapshots
-  - Complete log output
+```bash
+# Open the executive summary
+cat RingWatch/reports/latest/EXECUTIVE_SUMMARY.md
 
-- **JSON Report** — Structured data for CI pipelines and programmatic analysis.
+# Or the timeline
+cat RingWatch/reports/latest/timeline/timeline.md
+```
+
+### Full human-readable report
+
+```bash
+cat RingWatch/reports/latest/HUMAN_REPORT.md
+```
+
+### AI forensic analysis
+
+```bash
+cat RingWatch/reports/latest/AI_REPORT.md
+```
+
+### HTML dashboard (opens in any browser)
+
+```bash
+# From the project root:
+open RingWatch/reports/latest/report.html
+
+# Or:
+xdg-open RingWatch/reports/latest/report.html
+```
+
+## Historical Runs
+
+Every run is automatically archived in a dated folder:
+
+```
+RingWatch/reports/2026-07-23/run-01/
+RingWatch/reports/2026-07-23/run-02/
+RingWatch/reports/2026-07-22/run-01/
+```
+
+The `latest/` folder always contains a copy of the most recent run for quick access.
 
 ## Requirements
 
@@ -143,7 +231,7 @@ RingWatch generates two report files in `reports/`:
 
 ## Development
 
-All modules use ES modules (`import`/`export`), async/await, and JSDoc annotations. Each module is designed to be extensible for RingWatch v2.
+All modules use ES modules (`import`/`export`), async/await, and JSDoc annotations.
 
 ```bash
 # Install RingWatch dependencies (from RingWatch/ directory)

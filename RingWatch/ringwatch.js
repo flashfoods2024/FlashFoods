@@ -22,6 +22,7 @@ import { TestRunner } from './controller/test-runner.js';
 import { OvernightMode } from './controller/overnight-mode.js';
 import { NotificationMonitor } from './monitor/notification-monitor.js';
 import { AdbController } from './controller/adb-controller.js';
+import { ReportManager } from './reports/report-manager.js';
 
 const SAFE_SHOP = 'juice-corner';
 const SAFE_VENDOR_EMAIL = 'vendor@college.com';
@@ -289,8 +290,7 @@ async function main() {
 
       notifMonitor.stop();
 
-      // Generate overnight-enhanced report
-      const runner = new TestRunner(config, logger);
+      // Generate overnight-enhanced report using ReportManager
       const reportData = {
         startTime: new Date(result.summary.startTime).getTime(),
         timeline: result.cycles.flatMap(c => c.timeline || []),
@@ -315,11 +315,10 @@ async function main() {
         reliabilityScore: result.summary.reliabilityScore,
       };
 
-      const { generateHtmlReport } = await import('./reports/html-report.js');
-      const { generateJsonReport } = await import('./reports/json-report.js');
-
-      const htmlPath = await generateHtmlReport(reportData, config);
-      const jsonPath = await generateJsonReport(reportData, config);
+      const reportManager = new ReportManager(config);
+      const reportResult = await reportManager.generateAllReports(reportData);
+      const htmlPath = reportResult.reportHtml;
+      const jsonPath = reportResult.reportJson;
 
       const status = result.summary.failures === 0 ? 'PASS' : 'FAIL';
       const scoreColor = result.summary.reliabilityScore >= 80 ? '\x1b[32m'

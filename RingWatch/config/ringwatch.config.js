@@ -87,6 +87,8 @@ const DEFAULTS = {
     reportTitle: 'FlashFoods RingWatch Report',
     includeScreenshots: true,
     maxScreenshots: 50,
+    archiveEnabled: true,
+    latestEnabled: true,
   },
 
   /** Logging configuration */
