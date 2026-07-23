@@ -1,0 +1,24 @@
+{
+  "name": "ringwatch",
+  "version": "1.0.0",
+  "description": "RingWatch — FlashFoods Notification Reliability Framework",
+  "private": true,
+  "type": "module",
+  "main": "ringwatch.js",
+  "scripts": {
+    "ringwatch": "node ringwatch.js",
+    "ringwatch:verbose": "node ringwatch.js --verbose",
+    "ringwatch:quiet": "node ringwatch.js --quiet",
+    "ringwatch:overnight": "node ringwatch.js --overnight",
+    "ringwatch:overnight:4h": "node ringwatch.js --overnight --duration 4h",
+    "ringwatch:overnight:10cycles": "node ringwatch.js --overnight --cycles 10",
+    "ringwatch:overnight:infinite": "node ringwatch.js --overnight --infinite",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest || echo 'No tests configured yet'"
+  },
+  "dependencies": {
+    "playwright": "^1.60.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

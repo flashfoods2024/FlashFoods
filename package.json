@@ -13,7 +13,8 @@
     "dev": "nodemon server.js",
     "seed": "node seed.js",
     "build:version": "node build-scripts/generate-version.js",
-    "build": "npm run build:version"
+    "build": "npm run build:version",
+    "ringwatch": "node RingWatch/ringwatch.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -1,0 +1,81 @@
+{
+  "meta": {
+    "title": "FlashFoods RingWatch Report",
+    "generatedAt": "2026-07-22T22:03:35.561Z",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "totalSteps": 2,
+    "passed": 1,
+    "failures": 1,
+    "notificationsDetected": 3,
+    "totalDuration": 4587,
+    "startTime": "2026-07-22T22:03:30.973Z",
+    "endTime": "2026-07-22T22:03:35.560Z",
+    "fatalError": null
+  },
+  "reliabilityScore": 0,
+  "passed": false,
+  "timeline": [
+    {
+      "id": "step_1_1784757811737",
+      "type": "action",
+      "action": "loginStudent",
+      "timestamp": 1784757811737,
+      "duration": 2340,
+      "success": true,
+      "error": null,
+      "data": {
+        "page": {
+          "_type": "Page",
+          "_guid": "page@e97cd6d0f6f3835e48fb3851e7d9e8bd"
+        },
+        "success": true,
+        "duration": 2340
+      }
+    },
+    {
+      "id": "step_2_1784757815250",
+      "type": "error",
+      "action": "order",
+      "timestamp": 1784757815250,
+      "duration": 0,
+      "success": false,
+      "error": "Order placement failed: No \"Add to Cart\" buttons found. The shop may be closed or sold out."
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif_1784757813863_0",
+      "title": "(no title)",
+      "body": "(no body)",
+      "packageName": "com.whatsapp",
+      "detectedAt": "2026-07-22T22:03:33.863Z",
+      "latencyMs": 0,
+      "source": "adb"
+    },
+    {
+      "id": "notif_1784757813863_1",
+      "title": "(no title)",
+      "body": "(no body)",
+      "packageName": "android",
+      "detectedAt": "2026-07-22T22:03:33.863Z",
+      "latencyMs": 0,
+      "source": "adb"
+    },
+    {
+      "id": "notif_1784757813863_2",
+      "title": "(no title)",
+      "body": "(no body)",
+      "packageName": "android",
+      "detectedAt": "2026-07-22T22:03:33.863Z",
+      "latencyMs": 0,
+      "source": "adb"
+    }
+  ],
+  "logcatEvents": [],
+  "chromeEvents": [],
+  "firebaseMessages": [],
+  "deviceStates": [],
+  "logs": []
+}
