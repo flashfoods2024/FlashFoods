@@ -14,7 +14,15 @@
     "seed": "node seed.js",
     "build:version": "node build-scripts/generate-version.js",
     "build": "npm run build:version",
-    "ringwatch": "node RingWatch/ringwatch.js"
+    "ringwatch": "node RingWatch/ringwatch.js",
+    "ringwatch:overnight": "node RingWatch/ringwatch.js --overnight",
+    "ringwatch:overnight:4h": "node RingWatch/ringwatch.js --overnight --duration 4h",
+    "ringwatch:overnight:8h": "node RingWatch/ringwatch.js --overnight --duration 8h",
+    "ringwatch:overnight:infinite": "node RingWatch/ringwatch.js --overnight --infinite",
+    "ringwatch:investigate": "node RingWatch/ringwatch.js --investigate",
+    "ringwatch:investigate:4h": "node RingWatch/ringwatch.js --investigate --duration 4h",
+    "ringwatch:investigate:8h": "node RingWatch/ringwatch.js --investigate --duration 8h",
+    "ringwatch:investigate:infinite": "node RingWatch/ringwatch.js --investigate --infinite"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -12,8 +12,7 @@ authRouter.get("/signup", (req, res) => {
 });
 
 authRouter.post("/signup", requireDb, async (req, res) => {
-  const { name, email, password, role } = req.body || {};
-  const safeRole = role === "vendor" ? "vendor" : "student";
+  const { name, email, password } = req.body || {};
 
   if (!name || !email || !password) {
     req.flash("error", "All fields are required.");
@@ -31,7 +30,7 @@ authRouter.post("/signup", requireDb, async (req, res) => {
     name: String(name).trim(),
     email: String(email).toLowerCase().trim(),
     passwordHash,
-    role: safeRole,
+    role: "student",
   });
 
   req.session.userId = String(user._id);
