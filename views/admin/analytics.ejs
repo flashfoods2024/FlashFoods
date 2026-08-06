@@ -9,112 +9,526 @@
   </div>
 </section>
 
-<section class="admin-metrics">
-  <article class="card admin-metric">
-    <p class="muted small">Total Revenue</p>
-    <h2 class="h2"><%= formatMoney(stats.totalRevenue) %></h2>
-  </article>
-  <article class="card admin-metric">
-    <p class="muted small">Orders Today</p>
-    <h2 class="h2"><%= stats.ordersToday %></h2>
-  </article>
-  <article class="card admin-metric">
-    <p class="muted small">Orders This Week</p>
-    <h2 class="h2"><%= stats.ordersThisWeek %></h2>
-  </article>
-  <article class="card admin-metric">
-    <p class="muted small">Orders This Month</p>
-    <h2 class="h2"><%= stats.ordersThisMonth %></h2>
-  </article>
-</section>
+<section class="analytics-filter-bar">
+  <div class="analytics-filter-group">
+    <label for="shopFilter" class="analytics-filter-label">Shop</label>
+    <select id="shopFilter" class="analytics-select">
+      <option value="">All Shops</option>
+      <% shops.forEach(function(s) { %>
+        <option value="<%= s._id %>"><%= s.name %></option>
+      <% }) %>
+    </select>
+  </div>
 
-<section class="admin-grid admin-grid--analytics">
-  <div class="card admin-panel">
-    <h2 class="h2">Most popular shop</h2>
-    <% if (mostPopularShop) { %>
-      <p class="muted"><strong><%= mostPopularShop.name || mostPopularShop.shopName || "Shop" %></strong></p>
-      <p><%= mostPopularShop.orders %> orders</p>
-      <p><%= formatMoney(mostPopularShop.revenue) %> revenue</p>
-    <% } else { %>
-      <p class="muted">No data yet.</p>
-    <% } %>
+  <div class="analytics-filter-group">
+    <label class="analytics-filter-label">Period</label>
+    <div class="analytics-date-btns">
+      <button class="analytics-date-btn" data-range="today">Today</button>
+      <button class="analytics-date-btn" data-range="week">This Week</button>
+      <button class="analytics-date-btn is-active" data-range="month">This Month</button>
+      <button class="analytics-date-btn" data-range="custom">Custom</button>
+    </div>
   </div>
-  <div class="card admin-panel">
-    <h2 class="h2">Most popular item</h2>
-    <% if (mostPopularItem) { %>
-      <p class="muted"><strong><%= mostPopularItem._id %></strong></p>
-      <p><%= mostPopularItem.quantity %> sold</p>
-      <p><%= formatMoney(mostPopularItem.revenue) %> revenue</p>
-    <% } else { %>
-      <p class="muted">No data yet.</p>
-    <% } %>
-  </div>
-  <div class="card admin-panel">
-    <h2 class="h2">Peak ordering hour</h2>
-    <p class="muted"><strong><%= peakHour %></strong></p>
+
+  <div class="analytics-custom-range" id="customRange" style="display:none">
+    <input type="date" id="startDate" class="analytics-input" />
+    <span class="analytics-range-sep">to</span>
+    <input type="date" id="endDate" class="analytics-input" />
+    <button class="btn btn--small" id="applyCustomRange">Apply</button>
   </div>
 </section>
 
-<div class="grid admin-grid--two">
-  <div class="card admin-panel">
-    <h2 class="h2">Top vendors</h2>
-    <% if (!topVendors.length) { %>
-      <p class="muted">No vendor data yet.</p>
-    <% } else { %>
-      <div style="overflow-x: auto;">
-        <table class="table admin-table">
+<div class="analytics-dashboard" id="analyticsDashboard">
+  <div class="analytics-loading" id="analyticsLoading">Loading analytics...</div>
+
+  <div id="analyticsContent">
+    <section class="analytics-kpi-grid" id="kpiRow1">
+      <article class="card analytics-kpi-card" data-kpi="totalOrders">
+        <p class="analytics-kpi-label">Total Orders</p>
+        <p class="analytics-kpi-value">--</p>
+        <p class="analytics-kpi-desc">All orders placed</p>
+      </article>
+      <article class="card analytics-kpi-card" data-kpi="successfulOrders">
+        <p class="analytics-kpi-label">Successful Orders</p>
+        <p class="analytics-kpi-value">--</p>
+        <p class="analytics-kpi-desc">Completed only</p>
+      </article>
+      <article class="card analytics-kpi-card" data-kpi="confirmedRevenue">
+        <p class="analytics-kpi-label">Confirmed Revenue</p>
+        <p class="analytics-kpi-value">--</p>
+        <p class="analytics-kpi-desc">From completed orders</p>
+      </article>
+      <article class="card analytics-kpi-card" data-kpi="successRate">
+        <p class="analytics-kpi-label">Order Success Rate</p>
+        <p class="analytics-kpi-value">--</p>
+        <p class="analytics-kpi-desc">Successful / Total</p>
+      </article>
+    </section>
+
+    <section class="analytics-kpi-grid" id="kpiRow2">
+      <article class="card analytics-kpi-card" data-kpi="pendingOrders">
+        <p class="analytics-kpi-label">Pending Orders</p>
+        <p class="analytics-kpi-value">--</p>
+        <p class="analytics-kpi-desc">Paid / Accepted / Ready</p>
+      </article>
+      <article class="card analytics-kpi-card" data-kpi="cancelledOrders">
+        <p class="analytics-kpi-label">Cancelled Orders</p>
+        <p class="analytics-kpi-value">--</p>
+        <p class="analytics-kpi-desc">All cancelled</p>
+      </article>
+      <article class="card analytics-kpi-card" data-kpi="averageOrderValue">
+        <p class="analytics-kpi-label">Avg Order Value</p>
+        <p class="analytics-kpi-value">--</p>
+        <p class="analytics-kpi-desc">Revenue / Successful</p>
+      </article>
+      <article class="card analytics-kpi-card" data-kpi="peakHour">
+        <p class="analytics-kpi-label">Peak Ordering Hour</p>
+        <p class="analytics-kpi-value">--</p>
+        <p class="analytics-kpi-desc">Busiest hour</p>
+      </article>
+    </section>
+
+    <section class="analytics-insight-grid" id="shopInsights"></section>
+
+    <section class="analytics-chart-grid" id="chartRow1">
+      <div class="card analytics-chart-card">
+        <h3 class="analytics-chart-title">Revenue Trend</h3>
+        <div class="analytics-chart-wrap">
+          <canvas id="revenueTrendChart"></canvas>
+        </div>
+      </div>
+      <div class="card analytics-chart-card">
+        <h3 class="analytics-chart-title">Orders Trend</h3>
+        <div class="analytics-chart-wrap">
+          <canvas id="ordersTrendChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="analytics-chart-grid" id="chartRow2">
+      <div class="card analytics-chart-card" id="revenueByShopCard">
+        <h3 class="analytics-chart-title">Revenue by Shop</h3>
+        <div class="analytics-chart-wrap">
+          <canvas id="revenueByShopChart"></canvas>
+        </div>
+      </div>
+      <div class="card analytics-chart-card">
+        <h3 class="analytics-chart-title">Order Status Distribution</h3>
+        <div class="analytics-chart-wrap">
+          <canvas id="statusDistributionChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="card admin-panel">
+      <div class="analytics-table-header">
+        <h2 class="h2">Shop Performance</h2>
+      </div>
+      <div class="analytics-table-wrap">
+        <table class="table analytics-table" id="shopPerformanceTable">
           <thead>
             <tr>
-              <th>Vendor</th>
               <th>Shop</th>
+              <th>Total Orders</th>
+              <th>Successful Orders</th>
+              <th>Confirmed Revenue</th>
+              <th>Success Rate</th>
+              <th>Avg Order Value</th>
+            </tr>
+          </thead>
+          <tbody id="shopPerformanceBody"></tbody>
+        </table>
+      </div>
+      <div class="analytics-empty" id="shopPerformanceEmpty">
+        <p class="muted">No data available for the selected filters.</p>
+      </div>
+    </section>
+
+    <section class="card admin-panel">
+      <div class="analytics-table-header">
+        <h2 class="h2">Most Popular Items</h2>
+      </div>
+      <div class="analytics-table-wrap">
+        <table class="table analytics-table" id="popularItemsTable">
+          <thead>
+            <tr>
+              <th>Item</th>
               <th>Orders</th>
               <th>Revenue</th>
             </tr>
           </thead>
-          <tbody>
-            <% topVendors.forEach((row) => { %>
-              <tr>
-                <td><%= row.vendorName || "Unassigned" %></td>
-                <td><%= row.shopName || "No shop" %></td>
-                <td><%= row.orders %></td>
-                <td><%= formatMoney(row.revenue) %></td>
-              </tr>
-            <% }) %>
-          </tbody>
+          <tbody id="popularItemsBody"></tbody>
         </table>
       </div>
-    <% } %>
-  </div>
-
-  <div class="card admin-panel">
-    <h2 class="h2">Top shops</h2>
-    <% if (!topShops.length) { %>
-      <p class="muted">No shop data yet.</p>
-    <% } else { %>
-      <div style="overflow-x: auto;">
-        <table class="table admin-table">
-          <thead>
-            <tr>
-              <th>Shop</th>
-              <th>Orders</th>
-              <th>Revenue</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% topShops.forEach((row) => { %>
-              <tr>
-                <td><%= row.shopName || "Deleted shop" %></td>
-                <td><%= row.orders %></td>
-                <td><%= formatMoney(row.revenue) %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
+      <div class="analytics-empty" id="popularItemsEmpty">
+        <p class="muted">No items data available.</p>
       </div>
-    <% } %>
+    </section>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+(function() {
+  var state = {
+    shop: '',
+    dateRange: 'month',
+    startDate: '',
+    endDate: '',
+    data: null,
+    charts: {}
+  };
+
+  var shopFilter = document.getElementById('shopFilter');
+  var dateBtns = document.querySelectorAll('.analytics-date-btn');
+  var customRange = document.getElementById('customRange');
+  var startDateInput = document.getElementById('startDate');
+  var endDateInput = document.getElementById('endDate');
+  var applyCustomBtn = document.getElementById('applyCustomRange');
+  var loadingEl = document.getElementById('analyticsLoading');
+  var contentEl = document.getElementById('analyticsContent');
+
+  function formatMoney(val) {
+    return '\u20B9' + Number(val).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  function fmt(val) {
+    if (typeof val === 'number') {
+      if (val >= 10000000) return (val / 10000000).toFixed(1) + 'Cr';
+      if (val >= 100000) return (val / 100000).toFixed(1) + 'L';
+      if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+      return val.toLocaleString('en-IN');
+    }
+    return val || '--';
+  }
+
+  function destroyChart(key) {
+    if (state.charts[key]) {
+      state.charts[key].destroy();
+      delete state.charts[key];
+    }
+  }
+
+  function destroyAllCharts() {
+    Object.keys(state.charts).forEach(destroyChart);
+  }
+
+  function renderKPI(kpi) {
+    var els = document.querySelectorAll('[data-kpi]');
+    els.forEach(function(el) {
+      var key = el.getAttribute('data-kpi');
+      var valEl = el.querySelector('.analytics-kpi-value');
+      var descEl = el.querySelector('.analytics-kpi-desc');
+      if (!valEl) return;
+
+      if (key === 'confirmedRevenue' || key === 'averageOrderValue') {
+        var v = kpi[key] || 0;
+        valEl.textContent = formatMoney(v);
+      } else if (key === 'successRate') {
+        valEl.textContent = (kpi[key] || 0) + '%';
+      } else if (key === 'peakHour') {
+        valEl.textContent = kpi[key] || 'N/A';
+      } else {
+        valEl.textContent = fmt(kpi[key] || 0);
+      }
+    });
+  }
+
+  function renderShopInsights(data, isAllShops) {
+    var container = document.getElementById('shopInsights');
+    if (!container) return;
+
+    if (isAllShops && data) {
+      var html = '';
+      if (data.mostPopularShop) {
+        html += '<article class="card analytics-insight-card">';
+        html += '<p class="analytics-insight-label">Most Popular Shop</p>';
+        html += '<p class="analytics-insight-value">' + (data.mostPopularShop.name || 'N/A') + '</p>';
+        html += '<p class="analytics-insight-detail">' + data.mostPopularShop.orders + ' orders &middot; ' + formatMoney(data.mostPopularShop.revenue) + ' revenue</p>';
+        html += '</article>';
+      }
+      if (data.mostPopularItemOverall) {
+        html += '<article class="card analytics-insight-card">';
+        html += '<p class="analytics-insight-label">Most Popular Item Overall</p>';
+        html += '<p class="analytics-insight-value">' + (data.mostPopularItemOverall.name || 'N/A') + '</p>';
+        html += '<p class="analytics-insight-detail">' + (data.mostPopularItemOverall.quantity || 0) + ' sold &middot; ' + formatMoney(data.mostPopularItemOverall.revenue) + ' revenue</p>';
+        html += '</article>';
+      }
+      if (data.topPerformingVendor) {
+        html += '<article class="card analytics-insight-card">';
+        html += '<p class="analytics-insight-label">Top Performing Vendor</p>';
+        html += '<p class="analytics-insight-value">' + (data.topPerformingVendor.name || 'N/A') + '</p>';
+        html += '<p class="analytics-insight-detail">' + (data.topPerformingVendor.shopName || '') + ' &middot; ' + (data.topPerformingVendor.orders || 0) + ' orders &middot; ' + formatMoney(data.topPerformingVendor.revenue) + ' revenue</p>';
+        html += '</article>';
+      }
+      container.innerHTML = html || '';
+      container.style.display = html ? 'grid' : 'none';
+    } else if (!isAllShops && data && data.popularItems && data.popularItems.length > 0) {
+      var item = data.popularItems[0];
+      container.innerHTML =
+        '<article class="card analytics-insight-card">' +
+        '<p class="analytics-insight-label">Most Popular Item</p>' +
+        '<p class="analytics-insight-value">' + item.name + '</p>' +
+        '<p class="analytics-insight-detail">' + item.orders + ' units sold &middot; ' + formatMoney(item.revenue) + ' revenue</p>' +
+        '</article>';
+      container.style.display = 'grid';
+    } else {
+      container.innerHTML = '';
+      container.style.display = 'none';
+    }
+  }
+
+  function renderShopTable(rows) {
+    var body = document.getElementById('shopPerformanceBody');
+    var empty = document.getElementById('shopPerformanceEmpty');
+    if (!rows || rows.length === 0) {
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    body.innerHTML = rows.map(function(r) {
+      return '<tr>' +
+        '<td><strong>' + r.shopName + '</strong></td>' +
+        '<td>' + fmt(r.totalOrders) + '</td>' +
+        '<td>' + fmt(r.successfulOrders) + '</td>' +
+        '<td>' + formatMoney(r.confirmedRevenue) + '</td>' +
+        '<td>' + r.successRate + '%</td>' +
+        '<td>' + formatMoney(r.averageOrderValue) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function renderItemsTable(items) {
+    var body = document.getElementById('popularItemsBody');
+    var empty = document.getElementById('popularItemsEmpty');
+    if (!items || items.length === 0) {
+      body.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    body.innerHTML = items.map(function(item) {
+      return '<tr>' +
+        '<td><strong>' + item.name + '</strong></td>' +
+        '<td>' + fmt(item.orders) + '</td>' +
+        '<td>' + formatMoney(item.revenue) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function renderRevenueTrend(chartData) {
+    destroyChart('revenueTrend');
+    var canvas = document.getElementById('revenueTrendChart');
+    if (!canvas || !chartData || !chartData.labels || chartData.labels.length === 0) {
+      return;
+    }
+    var ctx = canvas.getContext('2d');
+    state.charts.revenueTrend = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          label: 'Revenue',
+          data: chartData.values,
+          borderColor: '#ff7a00',
+          backgroundColor: 'rgba(255,122,0,0.08)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+          y: {
+            beginAtZero: true,
+            ticks: { callback: function(v) { return '\u20B9' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v); } }
+          }
+        }
+      }
+    });
+  }
+
+  function renderOrdersTrend(chartData) {
+    destroyChart('ordersTrend');
+    var canvas = document.getElementById('ordersTrendChart');
+    if (!canvas || !chartData || !chartData.labels || chartData.labels.length === 0) return;
+    var ctx = canvas.getContext('2d');
+    state.charts.ordersTrend = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          { label: 'Placed', data: chartData.placed, borderColor: '#6b7280', backgroundColor: 'rgba(107,114,128,0.08)', fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 },
+          { label: 'Completed', data: chartData.completed, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)', fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 },
+          { label: 'Cancelled', data: chartData.cancelled, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+          y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+      }
+    });
+  }
+
+  function renderRevenueByShop(chartData) {
+    destroyChart('revenueByShop');
+    var card = document.getElementById('revenueByShopCard');
+    var canvas = document.getElementById('revenueByShopChart');
+    if (!chartData || !chartData.labels || chartData.labels.length === 0) {
+      if (card) card.style.display = 'none';
+      return;
+    }
+    if (card) card.style.display = 'block';
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    state.charts.revenueByShop = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          label: 'Revenue',
+          data: chartData.values,
+          backgroundColor: 'rgba(255,122,0,0.7)',
+          borderColor: '#ff7a00',
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, ticks: { callback: function(v) { return '\u20B9' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v); } } }
+        }
+      }
+    });
+  }
+
+  function renderStatusDistribution(chartData) {
+    destroyChart('statusDistribution');
+    var canvas = document.getElementById('statusDistributionChart');
+    if (!canvas || !chartData || !chartData.labels || chartData.labels.length === 0) return;
+    var colors = ['#22c55e', '#ff7a00', '#ef4444', '#6b7280', '#f59e0b', '#8b5cf6'];
+    var ctx = canvas.getContext('2d');
+    state.charts.statusDistribution = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          data: chartData.values,
+          backgroundColor: colors.slice(0, chartData.labels.length),
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  function renderDashboard(data) {
+    if (!data) return;
+
+    var kpis = data.kpis || {};
+    renderKPI(kpis);
+
+    renderShopInsights(data.shopInsights, data.isAllShops);
+
+    renderShopTable(data.shopPerformance);
+    renderItemsTable(data.popularItems);
+
+    renderRevenueTrend(data.revenueTrend);
+    renderOrdersTrend(data.ordersTrend);
+    renderRevenueByShop(data.revenueByShop);
+    renderStatusDistribution(data.statusDistribution);
+  }
+
+  function fetchAndRender() {
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+
+    var params = new URLSearchParams();
+    params.set('shop', state.shop);
+    params.set('dateRange', state.dateRange);
+    if (state.startDate) params.set('startDate', state.startDate);
+    if (state.endDate) params.set('endDate', state.endDate);
+
+    fetch('/admin/analytics/data?' + params.toString())
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) throw new Error(data.error);
+        state.data = data;
+        destroyAllCharts();
+        renderDashboard(data);
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+      })
+      .catch(function(err) {
+        console.error('Analytics fetch error:', err);
+        loadingEl.textContent = 'Failed to load analytics data. Please try again.';
+      });
+  }
+
+  shopFilter.addEventListener('change', function() {
+    state.shop = this.value;
+    fetchAndRender();
+  });
+
+  dateBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      dateBtns.forEach(function(b) { b.classList.remove('is-active'); });
+      this.classList.add('is-active');
+      var range = this.getAttribute('data-range');
+      state.dateRange = range;
+      if (range === 'custom') {
+        customRange.style.display = 'flex';
+        if (state.startDate && state.endDate) {
+          fetchAndRender();
+        }
+      } else {
+        customRange.style.display = 'none';
+        state.startDate = '';
+        state.endDate = '';
+        fetchAndRender();
+      }
+    });
+  });
+
+  applyCustomBtn.addEventListener('click', function() {
+    var sd = startDateInput.value;
+    var ed = endDateInput.value;
+    if (!sd || !ed) return;
+    state.startDate = sd;
+    state.endDate = ed;
+    fetchAndRender();
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    fetchAndRender();
+  });
+})();
+</script>
+
 <%- include("./partials/layout-end") %>
 <%- include("../partials/footer") %>
-

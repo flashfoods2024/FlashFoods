@@ -1718,6 +1718,8 @@ adminRouter.post(
 );
 
 adminRouter.get("/analytics", async (req, res) => {
+  const shops = await Shop.find().sort({ name: 1 }).lean();
+
   const [
     totalRevenueAgg,
     ordersToday,
@@ -1890,6 +1892,7 @@ adminRouter.get("/analytics", async (req, res) => {
   return res.render("admin/analytics", {
     pageTitle: "Analytics",
     activeSection: "analytics",
+    shops,
     stats: {
       totalRevenue: totalRevenueAgg[0]?.total || 0,
       ordersToday,
@@ -1903,4 +1906,283 @@ adminRouter.get("/analytics", async (req, res) => {
     topVendors,
     formatMoney,
   });
+});
+
+adminRouter.get("/analytics/data", async (req, res) => {
+  try {
+    const shopId = normalizeQuery(req.query.shop) || null;
+    const dateRange = normalizeQuery(req.query.dateRange) || "month";
+    const startDate = normalizeQuery(req.query.startDate) || null;
+    const endDate = normalizeQuery(req.query.endDate) || null;
+
+    const shopMatch = {};
+    if (shopId && mongoose.isValidObjectId(shopId)) {
+      shopMatch.shop = new mongoose.Types.ObjectId(shopId);
+    }
+
+    let dateMatch = {};
+    if (dateRange === "today") {
+      dateMatch.createdAt = { $gte: startOfIstDay() };
+    } else if (dateRange === "week") {
+      dateMatch.createdAt = { $gte: startOfIstWeek() };
+    } else if (dateRange === "month") {
+      dateMatch.createdAt = { $gte: startOfIstMonth() };
+    } else if (dateRange === "custom" && startDate && endDate) {
+      dateMatch.createdAt = {
+        $gte: new Date(startDate + "T00:00:00.000+05:30"),
+        $lte: new Date(endDate + "T23:59:59.999+05:30"),
+      };
+    }
+
+    const baseMatch = { ...shopMatch, ...dateMatch };
+    const isAllShops = !shopId;
+
+    const [
+      kpiResult,
+      peakHourResult,
+      shopPerformance,
+      revenueTrendDaily,
+      ordersTrendRaw,
+      statusDist,
+      popularItems,
+    ] = await Promise.all([
+      Order.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            successfulOrders: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
+            confirmedRevenue: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$total", 0] } },
+            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["paid", "accepted", "ready_for_pickup"]] }, 1, 0] } },
+            cancelledOrders: { $sum: { $cond: [{ $eq: ["$status", "cancelled"] }, 1, 0] } },
+            paymentFailedOrders: { $sum: { $cond: [{ $eq: ["$status", "pending_payment"] }, 1, 0] } },
+          },
+        },
+      ]),
+      Order.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
+            orders: { $sum: 1 },
+          },
+        },
+        { $sort: { orders: -1, _id: 1 } },
+        { $limit: 1 },
+      ]),
+      Order.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: "$shop",
+            totalOrders: { $sum: 1 },
+            successfulOrders: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
+            confirmedRevenue: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$total", 0] } },
+          },
+        },
+        { $sort: { totalOrders: -1 } },
+        { $lookup: { from: "shops", localField: "_id", foreignField: "_id", as: "shop" } },
+        { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 0,
+            shopName: "$shop.name",
+            totalOrders: 1,
+            successfulOrders: 1,
+            confirmedRevenue: 1,
+          },
+        },
+      ]),
+      Order.aggregate([
+        { $match: { ...baseMatch, status: "completed" } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            revenue: { $sum: "$total" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.aggregate([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+              status: "$status",
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { "_id.date": 1 } },
+      ]),
+      Order.aggregate([
+        { $match: baseMatch },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+      Order.aggregate([
+        { $match: baseMatch },
+        { $unwind: "$items" },
+        { $match: { "items.status": { $ne: "removed" } } },
+        {
+          $group: {
+            _id: "$items.name",
+            orders: { $sum: "$items.quantity" },
+            revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+          },
+        },
+        { $sort: { orders: -1 } },
+        { $limit: 20 },
+      ]),
+    ]);
+
+    let popularShop = null;
+    let popularItemOverall = null;
+    let topVendor = null;
+    let revenueByShopData = [];
+
+    if (isAllShops) {
+      [popularShop, popularItemOverall, topVendor, revenueByShopData] = await Promise.all([
+        Order.aggregate([
+          { $match: baseMatch },
+          { $group: { _id: "$shop", orders: { $sum: 1 }, revenue: { $sum: "$total" } } },
+          { $sort: { orders: -1, revenue: -1 } },
+          { $limit: 1 },
+          { $lookup: { from: "shops", localField: "_id", foreignField: "_id", as: "shop" } },
+          { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+          { $project: { orders: 1, revenue: 1, name: "$shop.name", slug: "$shop.slug" } },
+        ]),
+        Order.aggregate([
+          { $match: baseMatch },
+          { $unwind: "$items" },
+          { $match: { "items.status": { $ne: "removed" } } },
+          {
+            $group: {
+              _id: "$items.name",
+              quantity: { $sum: "$items.quantity" },
+              revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+            },
+          },
+          { $sort: { quantity: -1, revenue: -1 } },
+          { $limit: 1 },
+        ]),
+        Order.aggregate([
+          { $match: { ...baseMatch, status: "completed" } },
+          { $lookup: { from: "shops", localField: "shop", foreignField: "_id", as: "shop" } },
+          { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+          { $lookup: { from: "users", localField: "shop.vendor", foreignField: "_id", as: "vendor" } },
+          { $unwind: { path: "$vendor", preserveNullAndEmptyArrays: true } },
+          {
+            $group: {
+              _id: "$shop.vendor",
+              vendorName: { $first: "$vendor.name" },
+              shopName: { $first: "$shop.name" },
+              orders: { $sum: 1 },
+              revenue: { $sum: "$total" },
+            },
+          },
+          { $sort: { orders: -1, revenue: -1 } },
+          { $limit: 1 },
+        ]),
+        Order.aggregate([
+          { $match: { ...baseMatch, status: "completed" } },
+          { $group: { _id: "$shop", revenue: { $sum: "$total" } } },
+          { $sort: { revenue: -1 } },
+          { $lookup: { from: "shops", localField: "_id", foreignField: "_id", as: "shop" } },
+          { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+          { $project: { shopName: "$shop.name", revenue: 1 } },
+        ]),
+      ]);
+    }
+
+    const kpi = kpiResult[0] || {};
+    const totalOrders = kpi.totalOrders || 0;
+    const successfulOrders = kpi.successfulOrders || 0;
+    const successRate = totalOrders > 0 ? Math.round((successfulOrders / totalOrders) * 100) : 0;
+    const confirmedRevenue = kpi.confirmedRevenue || 0;
+    const avgOrderValue = successfulOrders > 0 ? Math.round(confirmedRevenue / successfulOrders) : 0;
+
+    const trendMap = {};
+    ordersTrendRaw.forEach((row) => {
+      const date = row._id.date;
+      if (!trendMap[date]) trendMap[date] = { date, placed: 0, completed: 0, cancelled: 0 };
+      trendMap[date].placed += row.count;
+      if (row._id.status === "completed") trendMap[date].completed += row.count;
+      if (row._id.status === "cancelled") trendMap[date].cancelled += row.count;
+    });
+    const trendDates = Object.keys(trendMap).sort();
+    const ordersTrend = {
+      labels: trendDates,
+      placed: trendDates.map((d) => trendMap[d].placed),
+      completed: trendDates.map((d) => trendMap[d].completed),
+      cancelled: trendDates.map((d) => trendMap[d].cancelled),
+    };
+
+    const statusLabels = {
+      pending_payment: "Payment Failed",
+      paid: "Paid",
+      accepted: "Accepted",
+      ready_for_pickup: "Ready",
+      completed: "Completed",
+      cancelled: "Cancelled",
+    };
+    const statusDistribution = {
+      labels: statusDist.map((s) => statusLabels[s._id] || s._id),
+      values: statusDist.map((s) => s.count),
+    };
+
+    const revenueTrend = {
+      labels: revenueTrendDaily.map((r) => r._id),
+      values: revenueTrendDaily.map((r) => r.revenue),
+    };
+
+    const shopPerformanceData = shopPerformance.map((s) => ({
+      shopName: s.shopName || "Deleted Shop",
+      totalOrders: s.totalOrders,
+      successfulOrders: s.successfulOrders,
+      confirmedRevenue: s.confirmedRevenue,
+      successRate: s.totalOrders > 0 ? Math.round((s.successfulOrders / s.totalOrders) * 100) : 0,
+      averageOrderValue: s.successfulOrders > 0 ? Math.round(s.confirmedRevenue / s.successfulOrders) : 0,
+    }));
+
+    return res.json({
+      kpis: {
+        totalOrders,
+        successfulOrders,
+        confirmedRevenue,
+        successRate,
+        pendingOrders: kpi.pendingOrders || 0,
+        cancelledOrders: kpi.cancelledOrders || 0,
+        paymentFailedOrders: kpi.paymentFailedOrders || 0,
+        averageOrderValue: avgOrderValue,
+        peakHour: peakHourResult[0] ? humanizeTimeHour(peakHourResult[0]._id) : "N/A",
+      },
+      shopInsights: isAllShops
+        ? {
+            mostPopularShop: popularShop[0]
+              ? { name: popularShop[0].name, orders: popularShop[0].orders, revenue: popularShop[0].revenue }
+              : null,
+            mostPopularItemOverall: popularItemOverall[0]
+              ? { name: popularItemOverall[0]._id, quantity: popularItemOverall[0].quantity, revenue: popularItemOverall[0].revenue }
+              : null,
+            topPerformingVendor: topVendor[0]
+              ? { name: topVendor[0].vendorName, shopName: topVendor[0].shopName, orders: topVendor[0].orders, revenue: topVendor[0].revenue }
+              : null,
+          }
+        : null,
+      shopPerformance: shopPerformanceData,
+      revenueTrend,
+      ordersTrend,
+      revenueByShop: isAllShops
+        ? { labels: revenueByShopData.map((r) => r.shopName || "Deleted"), values: revenueByShopData.map((r) => r.revenue) }
+        : null,
+      statusDistribution,
+      popularItems: popularItems.map((item) => ({ name: item._id, orders: item.orders, revenue: item.revenue })),
+      isAllShops,
+    });
+  } catch (error) {
+    console.error("Analytics data error:", error);
+    return res.status(500).json({ error: "Failed to load analytics data" });
+  }
 });

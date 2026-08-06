@@ -67,6 +67,15 @@ authRouter.post("/login", requireDb, async (req, res) => {
     return res.redirect("/login");
   }
 
+  if (process.env.NODE_ENV !== "production") {
+    console.log("LOGIN DEBUG");
+    console.log("------------");
+    console.log("User ID:", user._id);
+    console.log("Email:", user.email);
+    console.log("Role:", user.role);
+    console.log("Database Name:", User.db.name);
+  }
+
   req.session.userId = String(user._id);
 
   req.flash("success", "Logged in.");
