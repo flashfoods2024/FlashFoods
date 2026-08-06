@@ -106,6 +106,11 @@ orderSchema.index({ shop: 1, pickupOtp: 1 });
 orderSchema.index({ shop: 1, status: 1 });
 orderSchema.index({ customer: 1, createdAt: -1 });
 
+// Analytics: status-first scan for completed-only aggregates over a date range.
+orderSchema.index({ status: 1, createdAt: 1 });
+// Analytics: per-shop aggregates over a date range.
+orderSchema.index({ shop: 1, createdAt: 1 });
+
 // New index for priority ordering
 orderSchema.index({ shop: 1, pickupTime: 1, createdAt: 1 });
 

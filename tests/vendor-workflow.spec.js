@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+const VENDOR_EMAIL = 'test.vendor@flashfoods.test';
+
 test.describe('Vendor Workflow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
-    await page.getByLabel('Email').fill('vendor@college.com');
-    await page.getByLabel('Password').fill('vendor@1');
+    await page.getByLabel('Email').fill(VENDOR_EMAIL);
+    await page.locator('input[name="password"]').fill('Test@123');
     await page.getByRole('button', { name: 'Log in' }).click();
+    await expect(page).toHaveURL('/vendor/orders/pending');
   });
 
   test('vendor can view pending orders', async ({ page }) => {
@@ -15,17 +18,23 @@ test.describe('Vendor Workflow', () => {
 
   test('vendor can toggle shop open/closed', async ({ page }) => {
     await page.goto('/vendor/menu');
-    await page.getByRole('button', { name: /open|close/i }).first().click();
-    await expect(page.locator('.flash-success')).toBeVisible();
+    await page.getByRole('button', { name: /open shop|close shop/i }).click();
+    await expect(page.locator('.flash--success')).toBeVisible();
+    await page.getByRole('button', { name: /open shop|close shop/i }).click();
+    await expect(page.locator('.flash--success')).toBeVisible();
   });
 
   test('vendor can create a menu item', async ({ page }) => {
     await page.goto('/vendor/menu');
     const itemName = `Test Item ${Date.now()}`;
-    await page.getByLabel('Name').fill(itemName);
-    await page.getByLabel('Price').fill('50');
-    await page.getByRole('button', { name: /add|create/i }).click();
-    await expect(page.locator(`text=${itemName}`)).toBeVisible();
+    await page.locator('form[action="/vendor/menu"] input[name="name"]').fill(itemName);
+    await page.locator('form[action="/vendor/menu"] input[name="price"]').fill('50');
+    await page.locator('form[action="/vendor/menu"] button[type="submit"]').click();
+    await expect(page.locator('.vendor-menu-item__name', { hasText: itemName })).toBeVisible();
+    page.once('dialog', (d) => d.accept());
+    const row = page.locator(`tr[data-item-row]:has(.vendor-menu-item__name:text-is("${itemName}"))`);
+    await row.locator('[data-delete-item]').click();
+    await expect(row).toHaveCount(0);
   });
 
   test('vendor can view completed orders', async ({ page }) => {

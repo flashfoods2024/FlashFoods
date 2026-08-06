@@ -22,7 +22,7 @@ test.describe('Permissions', () => {
     test.beforeEach(async ({ page }) => {
       await page.goto('/login');
       await page.getByLabel('Email').fill('student@college.test');
-      await page.getByLabel('Password').fill('vendor@1');
+      await page.locator('input[name="password"]').fill('vendor@1');
       await page.getByRole('button', { name: 'Log in' }).click();
     });
 
@@ -51,7 +51,7 @@ test.describe('Permissions', () => {
     test.beforeEach(async ({ page }) => {
       await page.goto('/login');
       await page.getByLabel('Email').fill('vendor@college.com');
-      await page.getByLabel('Password').fill('vendor@1');
+      await page.locator('input[name="password"]').fill('vendor@1');
       await page.getByRole('button', { name: 'Log in' }).click();
     });
 
@@ -75,7 +75,7 @@ test.describe('Permissions', () => {
     test.beforeEach(async ({ page }) => {
       await page.goto('/login');
       await page.getByLabel('Email').fill('admin@college.com');
-      await page.getByLabel('Password').fill('admin@1');
+      await page.locator('input[name="password"]').fill('admin@1');
       await page.getByRole('button', { name: 'Log in' }).click();
     });
 

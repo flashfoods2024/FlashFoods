@@ -45,10 +45,12 @@ test.describe('Mobile PWA — Installability', () => {
 
   test('service worker controls the page', async ({ page }) => {
     await page.goto('/');
-    await page.waitForTimeout(2000);
-
-    const controlled = await page.evaluate(() => !!navigator.serviceWorker.controller);
-    expect(controlled).toBe(true);
+    // SW only takes control from the second load; wait for activation first.
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload();
+    await expect
+      .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller))
+      .toBe(true);
   });
 
   test('manifest link exists in head', async ({ page }) => {

@@ -106,6 +106,11 @@ async function syncVendorShopLink({ vendorId = null, shopId = null }) {
 async function loadShopOrderCounts() {
   const rows = await Order.aggregate([
     {
+      $match: {
+        status: "completed",
+      },
+    },
+    {
       $group: {
         _id: "$shop",
         totalOrders: { $sum: 1 },
@@ -153,6 +158,11 @@ async function loadVendorCompletedCounts() {
 async function loadStudentOrderStats() {
   const rows = await Order.aggregate([
     {
+      $match: {
+        status: "completed",
+      },
+    },
+    {
       $group: {
         _id: "$customer",
         totalOrders: { $sum: 1 },
@@ -180,8 +190,8 @@ function humanizeTimeHour(hour) {
   return `${value} ${suffix}`;
 }
 
-async function loadAdminOrderList() {
-  return Order.find()
+async function loadAdminOrderList(orderMatch = {}) {
+  return Order.find(orderMatch)
     .sort({ createdAt: -1 })
     .populate({
       path: "customer",
@@ -198,56 +208,86 @@ async function loadAdminOrderList() {
     .lean();
 }
 
-function matchesOrderSearch(order, searchValue) {
-  if (!searchValue) return true;
-
-  const haystack = [
-    orderNumber(order),
-    toHexId(order._id),
-    order.customer?.name,
-    order.customer?.email,
-    order.shop?.name,
-    order.shop?.vendor?.name,
-    order.shop?.vendor?.email,
-    order.paymentNote,
-    order.transactionId,
-    order.adjustmentReason,
-    order.refundStatus,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return haystack.includes(searchValue);
-}
-
-function matchesOrderFilter(order, filterValue) {
-  if (!filterValue) return true;
-
-  const createdAt = new Date(order.createdAt);
+function buildOrderFilterQuery(filterValue) {
   if (filterValue === "today") {
-    return createdAt >= startOfIstDay();
+    return { createdAt: { $gte: startOfIstDay() } };
   }
   if (filterValue === "week") {
-    return createdAt >= startOfIstWeek();
+    return { createdAt: { $gte: startOfIstWeek() } };
   }
   if (filterValue === "paid") {
-    return order.status === "paid";
+    return { status: "paid" };
   }
   if (filterValue === "preparing") {
-    return ["paid", "accepted"].includes(order.status);
+    return { status: { $in: ["paid", "accepted"] } };
   }
   if (filterValue === "ready") {
-    return order.status === "ready_for_pickup";
+    return { status: "ready_for_pickup" };
   }
   if (filterValue === "completed") {
-    return order.status === "completed";
+    return { status: "completed" };
   }
   if (filterValue === "cancelled") {
-    return order.status === "cancelled";
+    return { status: "cancelled" };
   }
+  return {};
+}
 
-  return true;
+// Resolve the search term to matching order _ids. Search spans order fields
+// plus populated customer/shop/vendor fields, so the joins run in Mongo
+// instead of loading every order and filtering in JS.
+async function findOrdersBySearch(searchValue) {
+  const regex = new RegExp(escapeRegExp(searchValue), "i");
+  const rows = await Order.aggregate([
+    {
+      $match: {
+        $or: [
+          { _id: { $regex: regex } },
+          { paymentNote: { $regex: regex } },
+          { transactionId: { $regex: regex } },
+          { adjustmentReason: { $regex: regex } },
+          { refundStatus: { $regex: regex } },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "customer",
+        foreignField: "_id",
+        as: "customer",
+      },
+    },
+    {
+      $lookup: {
+        from: "shops",
+        localField: "shop",
+        foreignField: "_id",
+        as: "shop",
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "shop.vendor",
+        foreignField: "_id",
+        as: "vendor",
+      },
+    },
+    {
+      $match: {
+        $or: [
+          { "customer.name": { $regex: regex } },
+          { "customer.email": { $regex: regex } },
+          { "shop.name": { $regex: regex } },
+          { "vendor.name": { $regex: regex } },
+          { "vendor.email": { $regex: regex } },
+        ],
+      },
+    },
+    { $project: { _id: 1 } },
+  ]);
+  return rows.map((row) => row._id);
 }
 
 function paymentStatusLabel(order) {
@@ -273,8 +313,8 @@ adminRouter.get("/", async (req, res) => {
     Shop.countDocuments(),
     User.countDocuments({ role: "vendor" }),
     User.countDocuments({ role: "student" }),
-    Order.countDocuments(),
-    Order.countDocuments({ createdAt: { $gte: startOfIstDay() } }),
+    Order.countDocuments({ status: "completed" }),
+    Order.countDocuments({ status: "completed", createdAt: { $gte: startOfIstDay() } }),
     Order.countDocuments({ status: "completed" }),
     Order.countDocuments({ status: { $in: ["paid", "accepted"] } }),
     Order.find()
@@ -423,7 +463,7 @@ adminRouter.get("/shops/:id", async (req, res) => {
     Shop.findById(id).populate("vendor", "name email role isActive").lean(),
     MenuItem.find({ shop: id }).sort({ name: 1 }).lean(),
     Order.aggregate([
-      { $match: { shop: new mongoose.Types.ObjectId(id) } },
+      { $match: { shop: new mongoose.Types.ObjectId(id), status: "completed" } },
       {
         $group: {
           _id: "$shop",
@@ -1053,7 +1093,7 @@ adminRouter.get("/students/:id", async (req, res) => {
     .lean();
 
   const [stats] = await Order.aggregate([
-    { $match: { customer: student._id } },
+    { $match: { customer: student._id, status: "completed" } },
     {
       $group: {
         _id: "$customer",
@@ -1105,12 +1145,15 @@ adminRouter.post("/students/:id/toggle", async (req, res) => {
 adminRouter.get("/orders", async (req, res) => {
   const filter = normalizeQuery(req.query.filter).toLowerCase();
   const search = normalizeQuery(req.query.q).toLowerCase();
-  const orders = await loadAdminOrderList();
 
-  const rows = orders
-    .filter((order) => matchesOrderFilter(order, filter))
-    .filter((order) => matchesOrderSearch(order, search))
-    .map((order) => ({
+  const orderMatch = buildOrderFilterQuery(filter);
+  if (search) {
+    orderMatch._id = { $in: await findOrdersBySearch(search) };
+  }
+
+  const orders = await loadAdminOrderList(orderMatch);
+
+  const rows = orders.map((order) => ({
       ...order,
       orderNumber: orderNumber(order),
       paymentStatus: paymentStatusLabel(order),
@@ -1726,12 +1769,46 @@ adminRouter.get("/analytics", async (req, res) => {
   });
 });
 
+// ponytail: in-memory TTL cache, fine for a single instance; swap for redis
+// only when this app ever runs multiple instances behind a load balancer.
+const analyticsCache = new Map();
+const ANALYTICS_CACHE_TTL_MS = 60_000;
+
+function analyticsCacheGet(key) {
+  const entry = analyticsCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    analyticsCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function analyticsCacheSet(key, value) {
+  if (analyticsCache.size > 100) {
+    const now = Date.now();
+    for (const [k, entry] of analyticsCache) {
+      if (now > entry.expiresAt) analyticsCache.delete(k);
+    }
+  }
+  analyticsCache.set(key, {
+    value,
+    expiresAt: Date.now() + ANALYTICS_CACHE_TTL_MS,
+  });
+}
+
 adminRouter.get("/analytics/data", async (req, res) => {
   try {
     const shopId = normalizeQuery(req.query.shop) || null;
     const dateRange = normalizeQuery(req.query.dateRange) || "month";
     const startDate = normalizeQuery(req.query.startDate) || null;
     const endDate = normalizeQuery(req.query.endDate) || null;
+
+    const cacheKey = [shopId, dateRange, startDate, endDate].join("|");
+    const cached = analyticsCacheGet(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
     const shopMatch = {};
     if (shopId && mongoose.isValidObjectId(shopId)) {
@@ -1765,7 +1842,7 @@ adminRouter.get("/analytics/data", async (req, res) => {
       popularItems,
     ] = await Promise.all([
       Order.aggregate([
-        { $match: baseMatch },
+        { $match: { ...baseMatch, status: "completed" } },
         {
           $group: {
             _id: null,
@@ -1779,7 +1856,7 @@ adminRouter.get("/analytics/data", async (req, res) => {
         },
       ]),
       Order.aggregate([
-        { $match: baseMatch },
+        { $match: { ...baseMatch, status: "completed" } },
         {
           $group: {
             _id: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
@@ -1790,7 +1867,7 @@ adminRouter.get("/analytics/data", async (req, res) => {
         { $limit: 1 },
       ]),
       Order.aggregate([
-        { $match: baseMatch },
+        { $match: { ...baseMatch, status: "completed" } },
         {
           $group: {
             _id: "$shop",
@@ -1823,7 +1900,7 @@ adminRouter.get("/analytics/data", async (req, res) => {
         { $sort: { _id: 1 } },
       ]),
       Order.aggregate([
-        { $match: baseMatch },
+        { $match: { ...baseMatch, status: "completed" } },
         {
           $group: {
             _id: {
@@ -1836,11 +1913,11 @@ adminRouter.get("/analytics/data", async (req, res) => {
         { $sort: { "_id.date": 1 } },
       ]),
       Order.aggregate([
-        { $match: baseMatch },
+        { $match: { ...baseMatch, status: "completed" } },
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
       Order.aggregate([
-        { $match: baseMatch },
+        { $match: { ...baseMatch, status: "completed" } },
         { $unwind: "$items" },
         { $match: { "items.status": { $ne: "removed" } } },
         {
@@ -1863,7 +1940,7 @@ adminRouter.get("/analytics/data", async (req, res) => {
     if (isAllShops) {
       [popularShop, popularItemOverall, topVendor, revenueByShopData] = await Promise.all([
         Order.aggregate([
-          { $match: baseMatch },
+          { $match: { ...baseMatch, status: "completed" } },
           { $group: { _id: "$shop", orders: { $sum: 1 }, revenue: { $sum: "$total" } } },
           { $sort: { orders: -1, revenue: -1 } },
           { $limit: 1 },
@@ -1872,7 +1949,7 @@ adminRouter.get("/analytics/data", async (req, res) => {
           { $project: { orders: 1, revenue: 1, name: "$shop.name", slug: "$shop.slug" } },
         ]),
         Order.aggregate([
-          { $match: baseMatch },
+          { $match: { ...baseMatch, status: "completed" } },
           { $unwind: "$items" },
           { $match: { "items.status": { $ne: "removed" } } },
           {
@@ -1999,6 +2076,9 @@ adminRouter.get("/analytics/data", async (req, res) => {
       popularItems: popularItems.map((item) => ({ name: item._id, orders: item.orders, revenue: item.revenue })),
       isAllShops,
     });
+
+    analyticsCacheSet(cacheKey, payload);
+    return res.json(payload);
   } catch (error) {
     console.error("Analytics data error:", error);
     return res.status(500).json({ error: "Failed to load analytics data" });
