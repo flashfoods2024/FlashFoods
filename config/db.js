@@ -27,13 +27,12 @@ const connectDb = async () => {
       family: 4,
     });
 
-    console.log("====================================");
-    console.log("MongoDB Connected");
-    console.log("Host:", mongoose.connection.host);
-    console.log("Database:", mongoose.connection.name);
-    console.log("Ready State:", mongoose.connection.readyState);
-    console.log("Node Environment:", process.env.NODE_ENV || "development");
-    console.log("====================================");
+    console.log(
+      "MongoDB connected:",
+      mongoose.connection.host,
+      "-",
+      mongoose.connection.name,
+    );
     return true;
   } catch (error) {
     console.error("DB connection error:", error?.message || error);
