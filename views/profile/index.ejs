@@ -1,0 +1,128 @@
+<%- include("../partials/header", { pageTitle }) %>
+
+<section class="hero hero--compact">
+  <h1>Your Profile</h1>
+</section>
+
+<section class="card profile-head">
+  <div class="profile-avatar"><%= firstName.charAt(0).toUpperCase() %></div>
+  <div>
+    <h2 class="profile-head__greeting"><%= greeting %>, <%= firstName %> &#128075;</h2>
+    <p class="muted">Ready for your next meal?</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2 class="card__title">Account Information</h2>
+
+  <div class="profile-row">
+    <span class="profile-row__label">Phone Number</span>
+    <span class="profile-row__value" id="phone-display"><%= currentUser.phone || "Not added" %></span>
+    <button type="button" class="btn btn--ghost btn--small" id="phone-edit-btn">Edit</button>
+  </div>
+  <div class="profile-row" id="phone-edit-row" hidden>
+    <input class="input" id="phone-input" type="tel" inputmode="numeric" maxlength="10"
+      placeholder="10-digit mobile number" value="<%= currentUser.phone %>" />
+    <button type="button" class="btn btn--small" id="phone-save-btn">Save</button>
+    <button type="button" class="btn btn--ghost btn--small" id="phone-cancel-btn">Cancel</button>
+  </div>
+  <p class="muted small" id="phone-msg" hidden></p>
+
+  <div class="profile-row">
+    <span class="profile-row__label">Email</span>
+    <span class="profile-row__value"><%= currentUser.email %></span>
+  </div>
+
+  <div class="profile-row">
+    <span class="profile-row__label">Member Since</span>
+    <span class="profile-row__value"><%= new Date(currentUser.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) %></span>
+  </div>
+</section>
+
+<section class="profile-section">
+  <h2 class="profile-section__title">Your FlashFoods Activity</h2>
+  <div class="profile-stats">
+    <div class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Completed Orders</p>
+      <p class="analytics-kpi-value"><%= stats.completedCount %></p>
+    </div>
+    <div class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Favourite Shop</p>
+      <p class="analytics-kpi-value analytics-kpi-value--sm"><%= stats.favShop || "No favourite shop yet" %></p>
+    </div>
+    <div class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Favourite Item</p>
+      <p class="analytics-kpi-value analytics-kpi-value--sm"><%= stats.favItem || "No favourite item yet" %></p>
+    </div>
+    <div class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Total Money Spent</p>
+      <p class="analytics-kpi-value"><%= "₹" + Math.round(stats.totalSpent).toLocaleString("en-IN") %></p>
+    </div>
+  </div>
+</section>
+
+<section class="card profile-actions">
+  <a class="btn" href="/forgot-password">Change Password</a>
+  <form method="post" action="/logout" class="inline">
+    <button class="btn btn--ghost" type="submit">Logout</button>
+  </form>
+</section>
+
+<script>
+  (function () {
+    var display = document.getElementById("phone-display");
+    var row = document.getElementById("phone-edit-row");
+    var input = document.getElementById("phone-input");
+    var msg = document.getElementById("phone-msg");
+    var editBtn = document.getElementById("phone-edit-btn");
+    var saveBtn = document.getElementById("phone-save-btn");
+    var cancelBtn = document.getElementById("phone-cancel-btn");
+
+    function setMsg(text, isError) {
+      if (!text) { msg.hidden = true; return; }
+      msg.textContent = text;
+      msg.style.color = isError ? "var(--danger)" : "var(--green)";
+      msg.hidden = false;
+    }
+
+    editBtn.addEventListener("click", function () {
+      row.hidden = false;
+      editBtn.hidden = true;
+      setMsg("");
+      input.focus();
+    });
+
+    cancelBtn.addEventListener("click", function () {
+      row.hidden = true;
+      editBtn.hidden = false;
+      input.value = display.textContent === "Not added" ? "" : display.textContent;
+    });
+
+    saveBtn.addEventListener("click", async function () {
+      saveBtn.disabled = true;
+      setMsg("");
+      try {
+        var r = await fetch("/profile/phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: input.value.trim() }),
+        });
+        var data = await r.json();
+        if (!r.ok || !data.success) {
+          setMsg(data.error || "Could not save phone number.", true);
+          saveBtn.disabled = false;
+          return;
+        }
+        display.textContent = data.phone;
+        row.hidden = true;
+        editBtn.hidden = false;
+        setMsg("Phone number saved.");
+      } catch (err) {
+        setMsg("Could not save phone number. Try again.", true);
+      }
+      saveBtn.disabled = false;
+    });
+  })();
+</script>
+
+<%- include("../partials/footer") %>

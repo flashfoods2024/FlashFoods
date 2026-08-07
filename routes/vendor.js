@@ -396,6 +396,9 @@ async function getPendingOrders(shopId) {
             null,
           ],
         },
+        customerPhone: {
+          $ifNull: [{ $arrayElemAt: ["$_customer.phone", 0] }, ""],
+        },
       },
     },
     {
@@ -445,6 +448,7 @@ vendorRouter.get(
         id: String(order._id),
         shortId: String(order._id).slice(-6).toUpperCase(),
         customerName: order.customerName || null,
+        customerPhone: order.customerPhone || null,
         orderType: order.orderType || "dinein",
         status: order.status,
         total: Number(order.total),

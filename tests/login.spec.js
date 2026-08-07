@@ -22,6 +22,7 @@ test.describe('Authentication', () => {
     await page.goto('/signup');
     await page.getByLabel('Name').fill('Test User');
     await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Phone Number').fill('9001234567');
     await page.locator('input[name="password"]').fill('test123456');
     await page.getByRole('button', { name: 'Sign Up' }).click();
     await expect(page).toHaveURL('/');

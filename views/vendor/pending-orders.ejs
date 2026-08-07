@@ -50,6 +50,24 @@
   color: #111827;
   margin: 2px 0 0 0;
 }
+.vendor-order-card__phone {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  margin: 2px 0 0 0;
+  position: relative;
+  z-index: 2;
+}
+.vendor-order-card__phone:hover {
+  color: var(--orange);
+  text-decoration: underline;
+}
+.vendor-order-card__phone--none {
+  font-style: italic;
+  color: #9ca3af;
+}
 .parcel-badge {
   display: inline-block;
   font-size: 11px;
@@ -243,7 +261,14 @@
           <div>
             <p class="eyebrow">Order</p>
             <h2>#<%= String(order._id).slice(-6).toUpperCase() %></h2>
-            <% if (order.customerName) { %><p class="vendor-order-card__customer"><%= order.customerName %></p><% } %>
+            <% if (order.customerName) { %>
+              <p class="vendor-order-card__customer"><%= order.customerName %></p>
+              <% if (order.customerPhone) { %>
+                <a class="vendor-order-card__phone" href="tel:+91<%= order.customerPhone %>">&#128222; +91 <%= order.customerPhone.slice(0, 5) %> <%= order.customerPhone.slice(5) %></a>
+              <% } else { %>
+                <span class="vendor-order-card__phone vendor-order-card__phone--none">No phone number</span>
+              <% } %>
+            <% } %>
           </div>
           <div class="vendor-order-card__status">
             <span class="tag tag--<%= order.status === 'ready_for_pickup' ? 'ready' : 'pending' %>"><%= order.status === 'ready_for_pickup' ? 'Ready' : 'Preparing' %></span>
@@ -368,6 +393,7 @@
       var id = esc(order.id);
       var shortId = esc(order.shortId);
       var customerName = order.customerName ? esc(order.customerName) : null;
+      var customerPhone = order.customerPhone ? esc(order.customerPhone) : null;
       var orderType = order.orderType || "dinein";
       var st = order.status;
       var statusLabel = st === "ready_for_pickup" ? "Ready" : "Preparing";
@@ -428,6 +454,11 @@
         shortId +
         "</h2>" +
         (customerName ? '<p class="vendor-order-card__customer">' + customerName + "</p>" : "") +
+        (customerName
+          ? (customerPhone
+              ? '<a class="vendor-order-card__phone" href="tel:+91' + customerPhone + '">\uD83D\uDCDE +91 ' + customerPhone.slice(0, 5) + ' ' + customerPhone.slice(5) + '</a>'
+              : '<span class="vendor-order-card__phone vendor-order-card__phone--none">No phone number</span>')
+          : "") +
         "</div>" +
         '<div class="vendor-order-card__status">' +
         '<span class="tag tag--' + statusClass + '">' + statusLabel + '</span>' +

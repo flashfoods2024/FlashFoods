@@ -18,6 +18,7 @@ import { webhooksRouter } from "./routes/webhooks.js";
 import { vendorRouter } from "./routes/vendor.js";
 import { menuRouter } from "./routes/menu.js";
 import { adminRouter } from "./routes/admin.js";
+import { profileRouter } from "./routes/profile.js";
 import {
   formatLocalDateTime,
   formatPickupTime,
@@ -162,11 +163,14 @@ app.use(flash());
 app.use(attachUser);
 
 app.use(async (req, res, next) => {
+  res.locals.currentPath = req.path;
+
   res.locals.currentUser = req.user
     ? {
         id: req.user._id,
         role: req.user.role,
         name: req.user.name,
+        phone: req.user.phone || "",
       }
     : null;
 
@@ -230,6 +234,7 @@ app.use(menuRouter);
 app.use(vendorRouter);
 app.use("/api/fcm", fcmRouter);
 app.use("/admin", adminRouter);
+app.use(profileRouter);
 
 // ---------------------------------------------------------------------------
 // Global Express error handler (must be last app.use)

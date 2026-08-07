@@ -151,7 +151,8 @@ input[type="file"] {
   text-decoration: none;
 }
 
-.nav__link:hover {
+.nav__link:hover,
+.nav__link.is-active {
   background: var(--orange-soft);
   color: var(--text);
 }
@@ -2033,4 +2034,101 @@ fieldset.fieldset legend {
   .analytics-chart-wrap {
     height: 200px;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Profile
+ * ------------------------------------------------------------------------- */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 950;
+  color: var(--orange);
+  background: var(--orange-soft);
+  border: 2px solid var(--orange);
+}
+
+.profile-head__greeting {
+  margin: 0 0 2px;
+  font-size: clamp(22px, 3vw, 30px);
+  line-height: 1.15;
+}
+
+.profile-head p {
+  margin: 0;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-row:last-of-type {
+  border-bottom: none;
+}
+
+.profile-row__label {
+  min-width: 130px;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.profile-row__value {
+  flex: 1;
+  word-break: break-word;
+}
+
+#phone-edit-row .input {
+  flex: 1;
+  max-width: 260px;
+}
+
+#phone-msg {
+  margin: 8px 0 0;
+  font-weight: 700;
+}
+
+.profile-section {
+  margin-top: 26px;
+}
+
+.profile-section__title {
+  margin: 0 0 12px;
+  font-size: clamp(20px, 3vw, 26px);
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.analytics-kpi-value--sm {
+  font-size: clamp(16px, 2vw, 22px);
+  line-height: 1.2;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
 }

@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ["student", "vendor", "admin"], default: "student" },
     shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop", default: null },
+    phone: { type: String, trim: true, default: "" },
     isActive: { type: Boolean, default: true },
     disabledAt: { type: Date, default: null },
     resetPasswordToken: { type: String },

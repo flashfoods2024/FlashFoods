@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { sendPasswordResetEmail } from "../utils/email.js";
+import { validateIndianPhone } from "../utils/phone.js";
 
 export const authRouter = express.Router();
 
@@ -19,6 +20,12 @@ authRouter.post("/signup", requireDb, async (req, res) => {
     return res.redirect("/signup");
   }
 
+  const phone = validateIndianPhone(req.body?.phone);
+  if (!phone) {
+    req.flash("error", "Enter a valid 10-digit Indian mobile number.");
+    return res.redirect("/signup");
+  }
+
   const existing = await User.findOne({ email: String(email).toLowerCase().trim() });
   if (existing) {
     req.flash("error", "Email already registered.");
@@ -31,6 +38,7 @@ authRouter.post("/signup", requireDb, async (req, res) => {
     email: String(email).toLowerCase().trim(),
     passwordHash,
     role: "student",
+    phone,
   });
 
   req.session.userId = String(user._id);

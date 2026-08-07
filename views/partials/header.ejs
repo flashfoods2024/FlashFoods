@@ -72,9 +72,15 @@
             <% } %>
 
             <% if (currentUser) { %>
-              <span class="nav__text nav-main__greet">
-                Hi, <%= currentUser.name %>
-              </span>
+              <% if (currentUser.role === "student") { %>
+                <a class="nav__link nav-main__greet<%= currentPath === "/profile" ? " is-active" : "" %>" href="/profile">
+                  Hi, <%= currentUser.name %>
+                </a>
+              <% } else { %>
+                <span class="nav__text nav-main__greet">
+                  Hi, <%= currentUser.name %>
+                </span>
+              <% } %>
 
               <form method="post" action="/logout" class="inline nav-main__logout">
                 <button
