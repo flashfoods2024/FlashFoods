@@ -11,6 +11,7 @@ import connectDb from "./config/db.js";
 import { Shop } from "./models/Shop.js";
 import { attachUser } from "./middleware/auth.js";
 import { authRouter } from "./routes/auth.js";
+import { authMeRouter } from "./routes/api/authMe.js";
 import { shopsRouter } from "./routes/shops.js";
 import { cartRouter } from "./routes/cart.js";
 import { ordersRouter } from "./routes/orders.js";
@@ -60,6 +61,10 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 const app = express();
+// Trust the first proxy hop (Render in production; Cloudflare sits further upstream)
+// so req.secure/protocol reflect the X-Forwarded-Proto: https header. Required for
+// express-session to issue the Secure cookie behind Render's TLS-terminating proxy.
+app.set("trust proxy", 1);
 //RATE LIMITING: 300 requests per 15 minutes per IP
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -145,6 +150,13 @@ app.use(webhooksRouter);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+  console.error(
+    "FATAL: SESSION_SECRET must be set when NODE_ENV=production.",
+  );
+  process.exit(1);
+}
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev-secret",
@@ -153,7 +165,8 @@ app.use(
 
     cookie: {
       httpOnly: true,
-      // sameSite: "lax",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
     },
   }),
 );
@@ -227,6 +240,7 @@ app.get("/", (req, res) => {
 });
 
 app.use(authRouter);
+app.use("/api/auth", authMeRouter);
 app.use(shopsRouter);
 app.use(cartRouter);
 app.use(ordersRouter);
