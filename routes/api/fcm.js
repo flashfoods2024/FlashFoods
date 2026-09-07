@@ -14,11 +14,21 @@ fcmRouter.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Token is required." });
     }
 
+    const ownedByOther = await FcmToken.exists({
+      token,
+      vendorId: { $ne: req.user._id },
+    });
+    if (ownedByOther) {
+      return res
+        .status(409)
+        .json({ error: "Token is already registered to another account." });
+    }
+
     await FcmToken.findOneAndUpdate(
-      { token },
+      { token, vendorId: req.user._id },
       {
-        vendorId: req.user._id,
-        deviceInfo: typeof deviceInfo === "string" ? deviceInfo : "",
+        $set: { deviceInfo: typeof deviceInfo === "string" ? deviceInfo : "" },
+        $setOnInsert: { token, vendorId: req.user._id },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
