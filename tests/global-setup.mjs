@@ -5,7 +5,7 @@ import { MongoClient } from 'mongodb';
 import 'dotenv/config';
 
 const VENDOR_EMAIL = 'test.vendor@flashfoods.test';
-const SHOP_SLUG = 'juice-corner';
+const SHOP_SLUG = 'testing';
 const STATE_FILE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
@@ -35,7 +35,7 @@ export default async function globalSetup() {
       .collection('shops')
       .updateOne({ _id: shop._id }, { $set: { vendor: vendor._id, isActive: true, isOpen: true } });
     await db.collection('users').updateOne({ _id: vendor._id }, { $set: { shop: shop._id } });
-    console.log('[global-setup] juice-corner enabled for', VENDOR_EMAIL);
+    console.log('[global-setup] testing shop enabled for', VENDOR_EMAIL);
   } finally {
     await mongo.close();
   }

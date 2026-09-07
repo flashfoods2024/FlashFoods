@@ -692,6 +692,13 @@ ordersRouter.post(
       req.flash("error", "That canteen no longer exists.");
       return res.redirect("/shops");
     }
+    // ponytail: mock checkout is a QA-only shortcut — hard block for any
+    // real vendor so a misconfigured test can never mint a fake paid order.
+    if (shop.slug !== "testing") {
+      return res
+        .status(403)
+        .send("Mock checkout only allowed for testing shop");
+    }
     if (shop.isActive === false || shop.isOpen === false) {
       req.flash("error", "This shop is currently closed.");
       return res.redirect("/cart");

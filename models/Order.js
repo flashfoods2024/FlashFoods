@@ -63,7 +63,7 @@ const orderSchema = new mongoose.Schema(
 
     pickupOtp: { type: String, required: true },
 
-    paymentNote: { type: String, default: "mock" },
+    paymentNote: { type: String, default: "pending" },
     transactionId: { type: String, default: "" },
 
     // Razorpay identifiers persisted at order-creation time so webhooks

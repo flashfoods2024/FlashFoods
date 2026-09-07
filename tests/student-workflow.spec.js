@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const ACTIVE_SHOP = 'hummusery';
+const ACTIVE_SHOP =
+  process.env.TEST_SHOP_SLUG || 'testing';
 
 test.describe('Student Workflow', () => {
   test.beforeEach(async ({ page }) => {

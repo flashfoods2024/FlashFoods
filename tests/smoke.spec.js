@@ -22,8 +22,9 @@ test.describe('Smoke Tests', () => {
   });
 
   test('shop detail page loads', async ({ page }) => {
-    await page.goto('/shops/hummusery');
-    await expect(page.locator('h1')).toContainText(/hummusery/i);
+    const slug = process.env.TEST_SHOP_SLUG || 'testing';
+    await page.goto(`/shops/${slug}`);
+    await expect(page.locator('h1')).toContainText(new RegExp(slug, 'i'));
   });
 
   test('forgot password page loads', async ({ page }) => {

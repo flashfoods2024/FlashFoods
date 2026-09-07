@@ -10,7 +10,7 @@ dotenv.config();
 const VENDOR_EMAIL = "vendor@college.com";
 const STUDENT_EMAIL = "student@college.test";
 const ADMIN_EMAIL = "admin@college.com";
-const SHOP_SLUG = "main-canteen";
+const SHOP_SLUG = "testing";
 const VENDOR_STUDENT_PASSWORD = "vendor@1";
 const ADMIN_PASSWORD = "admin@1";
 
@@ -37,7 +37,7 @@ async function seed() {
   });
 
   const shop = await Shop.create({
-    name: "Main Canteen",
+    name: "Testing",
     slug: SHOP_SLUG,
     description: "North Indian, snacks, and beverages.",
     vendor: vendor._id,
