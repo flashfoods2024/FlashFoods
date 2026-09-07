@@ -41,6 +41,16 @@ authRouter.post("/signup", requireDb, async (req, res) => {
     phone,
   });
 
+  // Anti-fixation: mint a fresh session ID before authenticating, so any
+  // pre-planted session cookie becomes useless.
+  const regenError = await new Promise((resolve) =>
+    req.session.regenerate((err) => resolve(err)),
+  );
+  if (regenError) {
+    req.flash("error", "Could not start a secure session. Please try again.");
+    return res.redirect("/signup");
+  }
+
   req.session.userId = String(user._id);
 
   req.flash("success", "Account created.");
@@ -72,6 +82,16 @@ authRouter.post("/login", requireDb, async (req, res) => {
   const ok = await bcrypt.compare(String(password), user.passwordHash);
   if (!ok) {
     req.flash("error", "Invalid credentials.");
+    return res.redirect("/login");
+  }
+
+  // Anti-fixation: mint a fresh session ID before authenticating, so any
+  // pre-planted session cookie becomes useless.
+  const regenError = await new Promise((resolve) =>
+    req.session.regenerate((err) => resolve(err)),
+  );
+  if (regenError) {
+    req.flash("error", "Could not start a secure session. Please try again.");
     return res.redirect("/login");
   }
 
