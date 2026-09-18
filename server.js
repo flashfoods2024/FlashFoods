@@ -10,6 +10,7 @@ import dotenv from "dotenv";
 import connectDb from "./config/db.js";
 import { Shop } from "./models/Shop.js";
 import { attachUser } from "./middleware/auth.js";
+import { csrfOriginProtection } from "./middleware/csrfOriginProtection.js";
 import { authRouter } from "./routes/auth.js";
 import { authMeRouter } from "./routes/api/authMe.js";
 import { shopsRouter } from "./routes/shops.js";
@@ -149,6 +150,10 @@ app.use(webhooksRouter);
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// CSRF: require same-origin Origin/Referer on all non-GET requests
+// (payment-gateway postbacks are exempted in middleware/csrfConfig.js).
+app.use(csrfOriginProtection);
 
 if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
   console.error(

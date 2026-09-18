@@ -6,17 +6,9 @@ import { requireDb } from "../middleware/requireDb.js";
 import { getWebhookSecretFromShop } from "../config/razorpay.js";
 import { emitPendingCount } from "../socket/index.js";
 import { dispatchNewOrderNotification } from "../utils/notification-dispatch.js";
+import { signaturesMatch } from "../utils/signature.js";
 
 export const webhooksRouter = express.Router();
-
-// Constant-time signature comparison to avoid timing attacks.
-function signaturesMatch(expectedHex, actualHex) {
-  if (!expectedHex || !actualHex) return false;
-  const a = Buffer.from(expectedHex, "utf8");
-  const b = Buffer.from(actualHex, "utf8");
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
 
 // Razorpay webhook receiver.
 //
