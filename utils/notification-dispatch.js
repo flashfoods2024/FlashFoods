@@ -48,9 +48,44 @@ export async function dispatchNewOrderNotification(order) {
   }
 }
 
-async function sendWithRetry(registrationTokens, notification, data, attempt = 0) {
-  const messaging = getMessaging();
+// FCM error codes that mean the token can never succeed again (as opposed to a
+// transient/network failure). These tokens are pruned from the database.
+const PERMANENT_FCM_ERROR_CODES = new Set([
+  "messaging/invalid-registration-token",
+  "messaging/registration-token-not-registered",
+  "messaging/mismatched-credential",
+  "messaging/invalid-argument",
+]);
+
+// Classify a multicast response into tokens that are permanently invalid.
+// Pure + exported so it can be unit-tested without a live FCM connection.
+export function extractInvalidTokens(response, registrationTokens) {
+  const invalidTokens = [];
+  const responses = response?.responses || [];
+  responses.forEach((resp, idx) => {
+    if (!resp || resp.success) return;
+    if (PERMANENT_FCM_ERROR_CODES.has(resp.error?.code)) {
+      invalidTokens.push(registrationTokens[idx]);
+    }
+  });
+  return invalidTokens;
+}
+
+export async function sendWithRetry(
+  registrationTokens,
+  notification,
+  data,
+  attempt = 0,
+  messagingOverride = null,
+) {
+  const messaging = messagingOverride || getMessaging();
   if (!messaging) return;
+
+  // Declared for the whole function: the success path (failureCount === 0)
+  // never enters the branch below but still logs this value. Declaring it
+  // inside that branch caused a ReferenceError on every successful send, which
+  // was swallowed by the catch and triggered pointless retries.
+  let invalidTokens = [];
 
   try {
     const response = await messaging.sendEachForMulticast({
@@ -78,20 +113,7 @@ async function sendWithRetry(registrationTokens, notification, data, attempt = 0
     });
 
     if (response.failureCount > 0) {
-      const invalidTokens = [];
-      response.responses.forEach((resp, idx) => {
-        if (!resp.success) {
-          const errorCode = resp.error?.code;
-          if (
-            errorCode === "messaging/invalid-registration-token" ||
-            errorCode === "messaging/registration-token-not-registered" ||
-            errorCode === "messaging/mismatched-credential" ||
-            errorCode === "messaging/invalid-argument"
-          ) {
-            invalidTokens.push(registrationTokens[idx]);
-          }
-        }
-      });
+      invalidTokens = extractInvalidTokens(response, registrationTokens);
 
       if (invalidTokens.length > 0) {
         await FcmToken.deleteMany({ token: { $in: invalidTokens } });
@@ -117,7 +139,13 @@ async function sendWithRetry(registrationTokens, notification, data, attempt = 0
             ")",
           );
           await sleep(RETRY_DELAY_MS);
-          return sendWithRetry(remainingTokens, notification, data, attempt + 1);
+          return sendWithRetry(
+            remainingTokens,
+            notification,
+            data,
+            attempt + 1,
+            messagingOverride,
+          );
         }
       }
     }
@@ -128,7 +156,7 @@ async function sendWithRetry(registrationTokens, notification, data, attempt = 0
       "success,",
       response.failureCount,
       "failure(s),",
-      invalidTokens ? invalidTokens.length : 0,
+      invalidTokens.length,
       "invalid token(s) removed",
     );
   } catch (err) {
@@ -141,7 +169,13 @@ async function sendWithRetry(registrationTokens, notification, data, attempt = 0
         "— retrying",
       );
       await sleep(RETRY_DELAY_MS);
-      return sendWithRetry(registrationTokens, notification, data, attempt + 1);
+      return sendWithRetry(
+        registrationTokens,
+        notification,
+        data,
+        attempt + 1,
+        messagingOverride,
+      );
     }
     console.error("[FCM] send failed after", MAX_RETRIES + 1, "attempts:", err.message);
   }

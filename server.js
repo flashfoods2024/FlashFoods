@@ -74,7 +74,16 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-const disableRateLimit = process.env.DISABLE_RATE_LIMIT === "true";
+// Never let the rate limiter be switched off in production — it is the app's
+// only brute-force defense. The flag is honoured in development/test only.
+const isProduction = process.env.NODE_ENV === "production";
+if (process.env.DISABLE_RATE_LIMIT === "true" && isProduction) {
+  console.error(
+    "SECURITY: DISABLE_RATE_LIMIT=true is ignored because NODE_ENV=production.",
+  );
+}
+const disableRateLimit =
+  process.env.DISABLE_RATE_LIMIT === "true" && !isProduction;
 
 app.use(
   helmet({

@@ -19,8 +19,25 @@ import {
 import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
 import { emitPendingCount } from "../socket/index.js";
 import { computeParcelCharge } from "../utils/pricing.js";
+import { otpExpiryFrom, isOtpExpired } from "../utils/otp.js";
+import { toPaise, fromPaise } from "../utils/money.js";
+import { computeParcelTotals } from "../utils/order-math.js";
+import { cancelOrderPaid } from "../utils/order-cancel.js";
+import { adjustOrderPaid } from "../utils/order-adjust.js";
+import rateLimit from "express-rate-limit";
 
 export const vendorRouter = express.Router();
+
+// OTP brute-force guard. The pickup code is 6 digits, so without a throttle a
+// vendor session (or a stolen one) could enumerate codes quickly. Scoped to the
+// verification endpoint only so normal vendor traffic is unaffected.
+const otpVerifyLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many pickup code attempts. Please wait and try again." },
+});
 
 // Whether the shop's currently selected gateway has the credentials it needs.
 export function isGatewayConfigured(shop) {
@@ -47,6 +64,17 @@ export function isGatewayConfigured(shop) {
 // Gateway refund helpers (called by the cancel & adjust routes below)
 // ---------------------------------------------------------------------------
 
+// The amount actually captured for an order, in integer paise. Prefers the
+// authoritative `amountChargedPaise` recorded at payment time and only falls
+// back to the rupee `total` for legacy orders that predate the field.
+function resolveChargedPaise(order) {
+  const stored = Number(order.amountChargedPaise);
+  if (Number.isFinite(stored)) return Math.round(stored);
+  const paise = toPaise(order.total);
+  if (paise === null) throw new Error("Order has no chargeable amount.");
+  return paise;
+}
+
 async function refundViaRazorpay(order, shop) {
   const { instance } = createRazorpayFromShop(shop);
   const paymentId = order.razorpayPaymentId;
@@ -57,7 +85,7 @@ async function refundViaRazorpay(order, shop) {
   }
 
   return instance.payments.refund(paymentId, {
-    amount: Math.round(order.total * 100),
+    amount: resolveChargedPaise(order),
     speed: "normal",
     notes: { reason: "Vendor cancelled order" },
   });
@@ -82,7 +110,7 @@ async function refundViaPhonePe(order, shop) {
     accessToken: auth.access_token,
     merchantOrderId: order.gatewayTxnId,
     transactionId: order.transactionId,
-    amount: order.total,
+    amountPaise: resolveChargedPaise(order),
     merchantRefundId,
     env: phonepe.env,
   });
@@ -90,7 +118,7 @@ async function refundViaPhonePe(order, shop) {
 
 // Partial refund helpers — used by the adjust route to refund only the
 // removed items (refundAmount), not the entire order.
-async function partialRefundViaRazorpay(order, shop, refundAmount) {
+async function partialRefundViaRazorpay(order, shop, refundPaise) {
   const { instance } = createRazorpayFromShop(shop);
   const paymentId = order.razorpayPaymentId;
 
@@ -100,13 +128,13 @@ async function partialRefundViaRazorpay(order, shop, refundAmount) {
   }
 
   return instance.payments.refund(paymentId, {
-    amount: Math.round(refundAmount * 100),
+    amount: Math.round(refundPaise),
     speed: "normal",
     notes: { reason: `Adjustment refund: ${order.adjustmentReason || "Items removed"}` },
   });
 }
 
-async function partialRefundViaPhonePe(order, shop, refundAmount) {
+async function partialRefundViaPhonePe(order, shop, refundPaise) {
   const phonepe = getPhonepeFromShop(shop);
   const auth = await getAuthToken({
     clientId: phonepe.clientId,
@@ -125,7 +153,7 @@ async function partialRefundViaPhonePe(order, shop, refundAmount) {
     accessToken: auth.access_token,
     merchantOrderId: order.gatewayTxnId,
     transactionId: order.transactionId,
-    amount: refundAmount,
+    amountPaise: Math.round(refundPaise),
     merchantRefundId,
     env: phonepe.env,
   });
@@ -516,22 +544,37 @@ vendorRouter.post(
       return res.redirect("/vendor/orders/pending");
     }
 
-    const order = await Order.findById(id);
-    if (!order || String(order.shop) !== req.vendorShopIdStr) {
-      req.flash("error", "Order not found.");
+    // Atomic transition: only an `accepted` order can become ready, so a
+    // double-click can neither mark it ready twice nor refresh the TTL twice.
+    const updated = await Order.findOneAndUpdate(
+      { _id: id, shop: req.vendorShopId, status: "accepted" },
+      {
+        $set: {
+          status: "ready_for_pickup",
+          readyAt: new Date(),
+          // Start the pickup-code TTL from the moment the code becomes usable,
+          // so a long prep time never eats into the customer's pickup window.
+          pickupOtpExpiresAt: otpExpiryFrom(),
+        },
+      },
+      { new: true },
+    );
+
+    if (!updated) {
+      const existing = await Order.findOne({
+        _id: id,
+        shop: req.vendorShopId,
+      })
+        .select("status")
+        .lean();
+      req.flash(
+        "error",
+        existing ? "That order is not awaiting confirmation." : "Order not found.",
+      );
       return res.redirect("/vendor/orders/pending");
     }
 
-    if (order.status !== "accepted") {
-      req.flash("error", "That order is not awaiting confirmation.");
-      return res.redirect("/vendor/orders/pending");
-    }
-
-    order.status = "ready_for_pickup";
-    order.readyAt = order.readyAt || new Date();
-    await order.save();
-
-    emitPendingCount(order.shop);
+    emitPendingCount(updated.shop);
 
     req.flash(
       "success",
@@ -554,21 +597,29 @@ vendorRouter.post(
       return res.redirect("/vendor/orders/pending");
     }
 
-    const order = await Order.findById(id);
-    if (!order || String(order.shop) !== req.vendorShopIdStr) {
-      req.flash("error", "Order not found.");
+    // Atomic transition: only a `paid` order can be accepted, so concurrent
+    // accepts fire the pending-count side effect exactly once.
+    const updated = await Order.findOneAndUpdate(
+      { _id: id, shop: req.vendorShopId, status: "paid" },
+      { $set: { status: "accepted" } },
+      { new: true },
+    );
+
+    if (!updated) {
+      const existing = await Order.findOne({
+        _id: id,
+        shop: req.vendorShopId,
+      })
+        .select("status")
+        .lean();
+      req.flash(
+        "error",
+        existing ? "Only paid orders can be accepted." : "Order not found.",
+      );
       return res.redirect("/vendor/orders/pending");
     }
 
-    if (order.status !== "paid") {
-      req.flash("error", "Only paid orders can be accepted.");
-      return res.redirect("/vendor/orders/pending");
-    }
-
-    order.status = "accepted";
-    await order.save();
-
-    emitPendingCount(order.shop);
+    emitPendingCount(updated.shop);
 
     req.flash("success", "Order accepted. Mark it ready when prepared.");
     return res.redirect("/vendor/orders/pending");
@@ -582,26 +633,9 @@ vendorRouter.post(
   requireVendor,
   requireVendorShop,
   async (req, res) => {
-    let order = null;
-
     try {
       if (!mongoose.isValidObjectId(req.params.id)) {
         req.flash("error", "Order not found.");
-        return res.redirect("/vendor/orders/pending");
-      }
-
-      order = await Order.findOne({
-        _id: req.params.id,
-        shop: req.vendorShopId,
-      });
-
-      if (!order) {
-        req.flash("error", "Order not found.");
-        return res.redirect("/vendor/orders/pending");
-      }
-
-      if (order.status !== "paid") {
-        req.flash("error", "Only paid orders can be cancelled.");
         return res.redirect("/vendor/orders/pending");
       }
 
@@ -611,72 +645,73 @@ vendorRouter.post(
 
       const gateway = shop?.paymentGateway || "razorpay";
 
-      // Mock/offline orders — no real payment to refund, just cancel.
-      if (order.paymentNote === "mock") {
-        order.status = "cancelled";
-        order.refundStatus = "completed";
-        await order.save();
-        emitPendingCount(order.shop);
-        req.flash("success", "Order cancelled.");
+      // Only the winning claim calls the gateway. No automatic retry on
+      // failure — refundStatus:"failed" is reconciled manually.
+      const refundFn = async (order) => {
+        if (gateway === "razorpay") {
+          if (!order.razorpayPaymentId) {
+            throw new Error("Invalid payment ID.");
+          }
+          const refund = await refundViaRazorpay(order, shop);
+          console.log("Razorpay refund successful:", refund.id);
+          return refund;
+        }
+        if (gateway === "phonepe") {
+          if (!order.transactionId || !order.gatewayTxnId) {
+            throw new Error("Invalid payment ID.");
+          }
+          const result = await refundViaPhonePe(order, shop);
+          console.log("PhonePe refund response:", result?.code || result);
+          return result;
+        }
+        throw new Error("Refunds not supported for this payment method.");
+      };
+
+      const result = await cancelOrderPaid({
+        orderId: req.params.id,
+        shopId: req.vendorShopId,
+        refundFn,
+      });
+
+      if (!result.ok) {
+        if (result.reason === "not_found") {
+          req.flash("error", "Order not found.");
+        } else if (result.reason === "invalid_status") {
+          req.flash("error", "Only paid orders can be cancelled.");
+        } else if (result.reason === "conflict") {
+          req.flash("error", "This order is already being processed.");
+        } else if (result.reason === "refund_failed") {
+          console.error("REFUND ERROR:", result.error?.message || result.error);
+          req.flash(
+            "error",
+            "Refund failed. Please process manually from the payment dashboard.",
+          );
+        } else if (result.reason === "state_changed_after_refund") {
+          console.error(
+            "[cancel] order state changed after refund; manual reconciliation required",
+            { orderId: String(req.params.id), refundId: result.refundId },
+          );
+          req.flash(
+            "error",
+            "Refund issued but the order state changed. Please reconcile manually.",
+          );
+        } else {
+          req.flash("error", "Could not cancel this order.");
+        }
         return res.redirect("/vendor/orders/pending");
       }
 
-      order.refundStatus = "pending";
-      await order.save();
-
-      if (gateway === "razorpay") {
-        if (!order.razorpayPaymentId) {
-          order.refundStatus = "failed";
-          await order.save();
-          req.flash("error", "Invalid payment ID.");
-          return res.redirect("/vendor/orders/pending");
-        }
-        const refund = await refundViaRazorpay(order, shop);
-        console.log("Razorpay refund successful:", refund.id);
-      } else if (gateway === "phonepe") {
-        if (!order.transactionId || !order.gatewayTxnId) {
-          order.refundStatus = "failed";
-          await order.save();
-          req.flash("error", "Invalid payment ID.");
-          return res.redirect("/vendor/orders/pending");
-        }
-        const result = await refundViaPhonePe(order, shop);
-        console.log("PhonePe refund response:", result?.code || result);
-      } else {
-        order.refundStatus = "failed";
-        await order.save();
-        req.flash("error", "Refunds not supported for this payment method.");
-        return res.redirect("/vendor/orders/pending");
-      }
-
-      order.status = "cancelled";
-      order.refundStatus = "completed";
-
-      await order.save();
-
-      emitPendingCount(order.shop);
-
-      req.flash("success", "Order cancelled and refund initiated.");
-
+      emitPendingCount(result.order.shop);
+      req.flash(
+        "success",
+        result.refunded
+          ? "Order cancelled and refund initiated."
+          : "Order cancelled.",
+      );
       return res.redirect("/vendor/orders/pending");
     } catch (error) {
-      console.error("REFUND ERROR:", error);
-
-      if (error?.error) {
-        console.error(error.error);
-      }
-
-      if (order) {
-        order.refundStatus = "failed";
-
-        await order.save();
-      }
-
-      req.flash(
-        "error",
-        "Refund failed. Please process manually from the payment dashboard.",
-      );
-
+      console.error("CANCEL ERROR:", error);
+      req.flash("error", "Could not cancel this order. Please try again.");
       return res.redirect("/vendor/orders/pending");
     }
   },
@@ -711,6 +746,7 @@ vendorRouter.post(
   requireAuth,
   requireVendor,
   requireVendorShop,
+  otpVerifyLimiter,
   async (req, res) => {
     const raw = String((req.body && req.body.otp) || "").replace(/\D/g, "");
     const otp = raw.slice(0, 6);
@@ -723,13 +759,14 @@ vendorRouter.post(
       return res.redirect("/vendor/verify");
     }
 
-    const order = await Order.findOne({
+    const now = new Date();
+    const candidate = await Order.findOne({
       shop: req.vendorShopId,
       pickupOtp: otp,
       status: "ready_for_pickup",
     }).populate("customer", "name email");
 
-    if (!order) {
+    if (!candidate) {
       if (req.accepts("json")) {
         return res.status(404).json({ error: "No order waiting for pickup matches that code." });
       }
@@ -737,26 +774,62 @@ vendorRouter.post(
       return res.redirect("/vendor/verify");
     }
 
+    // Expiry check runs before completion. A missing timestamp on a legacy
+    // order means "no expiry recorded" and is allowed (backward compatible);
+    // every order created after this change carries one.
+    if (isOtpExpired(candidate.pickupOtpExpiresAt, now)) {
+      console.warn("[OTP] rejected expired pickup code:", {
+        orderId: String(candidate._id),
+        shop: req.vendorShopIdStr,
+        expiredAt: candidate.pickupOtpExpiresAt || null,
+      });
+      if (req.accepts("json")) {
+        return res.status(410).json({
+          error: "This pickup code has expired. Ask the canteen to re-issue it.",
+        });
+      }
+      req.flash(
+        "error",
+        "This pickup code has expired. Ask the canteen to re-issue it.",
+      );
+      return res.redirect("/vendor/verify");
+    }
+
     console.log("Completing order via OTP:", {
-      orderId: String(order._id),
-      statusBefore: order.status,
-      collectedAtBefore: order.collectedAt || null,
+      orderId: String(candidate._id),
+      statusBefore: candidate.status,
+      collectedAtBefore: candidate.collectedAt || null,
     });
 
-    order.status = "completed";
-    if (!order.collectedAt) {
-      order.collectedAt = new Date();
-    }
-    await order.save();
+    // Atomic completion: only one concurrent request can move the order out of
+    // ready_for_pickup, so the code can never complete an order twice.
+    const order = await Order.findOneAndUpdate(
+      { _id: candidate._id, shop: req.vendorShopId, status: "ready_for_pickup" },
+      {
+        $set: {
+          status: "completed",
+          collectedAt: candidate.collectedAt || now,
+        },
+      },
+      { new: true },
+    ).populate("customer", "name email");
 
-    const persistedCollection = await Order.findById(order._id)
-      .select("status collectedAt")
-      .lean();
+    if (!order) {
+      console.warn(
+        "[OTP] order already completed by a concurrent request:",
+        String(candidate._id),
+      );
+      if (req.accepts("json")) {
+        return res.status(409).json({ error: "This order was already marked collected." });
+      }
+      req.flash("error", "This order was already marked collected.");
+      return res.redirect("/vendor/verify");
+    }
 
     console.log("Order completed via OTP:", {
       orderId: String(order._id),
-      statusAfter: persistedCollection?.status || order.status,
-      collectedAtAfter: persistedCollection?.collectedAt || null,
+      statusAfter: order.status,
+      collectedAtAfter: order.collectedAt || null,
     });
 
     if (req.accepts("json")) {
@@ -783,32 +856,63 @@ vendorRouter.post(
       return res.status(400).json({ error: "Invalid order." });
     }
 
-    const order = await Order.findById(id);
-    if (!order || String(order.shop) !== req.vendorShopIdStr) {
+    const order = await Order.findOne({ _id: id, shop: req.vendorShopId }).lean();
+    if (!order) {
       return res.status(404).json({ error: "Order not found." });
     }
 
-    if (!["paid", "accepted", "ready_for_pickup"].includes(order.status)) {
-      return res.status(400).json({ error: "Cannot change order type at this stage." });
+    // Parcel type only affects the amount before payment. Once money is
+    // captured the stored total must never diverge from what was charged.
+    if (order.status !== "pending_payment") {
+      return res
+        .status(400)
+        .json({ error: "Order type can only be changed before payment." });
     }
 
-    const wasParcel = order.orderType === "parcel";
+    const shop = await Shop.findById(order.shop)
+      .select("parcelChargeEnabled parcelCharge")
+      .lean();
+    const targetType = order.orderType === "parcel" ? "dinein" : "parcel";
+    const chargePaise = toPaise(computeParcelCharge(shop, targetType)) || 0;
 
-    if (wasParcel) {
-      order.total -= order.parcelCharge;
-      order.parcelCharge = 0;
-      order.orderType = "dinein";
-    } else {
-      const shop = await Shop.findById(order.shop).select("parcelChargeEnabled parcelCharge").lean();
-      const charge = computeParcelCharge(shop, "parcel");
-      order.parcelCharge = charge;
-      order.total += charge;
-      order.orderType = "parcel";
+    const totals = computeParcelTotals({
+      items: order.items,
+      orderType: targetType,
+      parcelChargePaise: chargePaise,
+    });
+    if (!totals.ok) {
+      return res.status(400).json({ error: "Order contains an invalid item." });
     }
 
-    await order.save();
+    // Atomic toggle: the current orderType is part of the precondition, so
+    // concurrent toggles cannot both apply.
+    const updated = await Order.findOneAndUpdate(
+      {
+        _id: id,
+        shop: req.vendorShopId,
+        status: "pending_payment",
+        orderType: order.orderType,
+      },
+      {
+        $set: {
+          orderType: targetType,
+          parcelCharge: fromPaise(totals.parcelChargePaise),
+          total: fromPaise(totals.totalPaise),
+        },
+      },
+      { new: true },
+    ).lean();
 
-    return res.json({ success: true, orderType: order.orderType, parcelCharge: order.parcelCharge, total: order.total });
+    if (!updated) {
+      return res.status(409).json({ error: "Order changed. Please retry." });
+    }
+
+    return res.json({
+      success: true,
+      orderType: updated.orderType,
+      parcelCharge: updated.parcelCharge,
+      total: updated.total,
+    });
   },
 );
 
@@ -862,115 +966,103 @@ vendorRouter.post(
       return res.redirect("/vendor/orders/pending");
     }
 
-    const order = await Order.findById(id);
-    if (!order || String(order.shop) !== req.vendorShopIdStr) {
-      req.flash("error", "Order not found.");
-      return res.redirect("/vendor/orders/pending");
-    }
-
-    if (!["paid", "accepted"].includes(order.status)) {
-      req.flash("error", "Only paid or accepted orders can be adjusted.");
-      return res.redirect("/vendor/orders/pending");
-    }
-
-    const rawKeep = req.body.keep_items;
-    const keepArr = Array.isArray(rawKeep) ? rawKeep : [rawKeep].filter(Boolean);
-    const keepIndices = keepArr
-      .map((v) => parseInt(v, 10))
-      .filter((n) => !isNaN(n) && n >= 0);
-
     const adjustmentReason = String(req.body.adjustmentReason || "").trim();
     if (!adjustmentReason) {
       req.flash("error", "Please select a reason for the adjustment.");
       return res.redirect(`/vendor/orders/${id}/adjust`);
     }
 
-    if (keepIndices.length === 0) {
-      req.flash("error", "All items would be removed. Use Cancel Order instead.");
-      return res.redirect(`/vendor/orders/${id}/adjust`);
-    }
-
-    if (keepIndices.length === order.items.length) {
-      req.flash("error", "No items were removed. No adjustment needed.");
-      return res.redirect(`/vendor/orders/${id}/adjust`);
-    }
-
-    let originalTotal = Number(order.total);
-    let updatedTotal = 0;
-
-    for (let i = 0; i < order.items.length; i++) {
-      const item = order.items[i];
-      if (keepIndices.includes(i)) {
-        item.status = "active";
-        updatedTotal += Number(item.price) * Number(item.quantity);
-      } else {
-        item.status = "removed";
-      }
-    }
-
-    if (order.orderType === "parcel") {
-      updatedTotal += Number(order.parcelCharge);
-    }
-
-    const refundAmount = originalTotal - updatedTotal;
-
-    order.originalTotal = originalTotal;
-    order.updatedTotal = updatedTotal;
-    order.refundAmount = refundAmount;
-    order.total = updatedTotal;
-    order.adjustedAt = new Date();
-    order.adjustedBy = req.user._id;
-    order.adjustmentReason = adjustmentReason;
-    order.refundStatus = "none";
-
-    // --- Payment refund --------------------------------------------------
-    if (refundAmount > 0) {
+    try {
       const shop = await Shop.findById(req.vendorShopId)
         .select("paymentGateway paymentConfigured paymentSettings")
         .lean();
 
       const gateway = shop?.paymentGateway || "razorpay";
 
-      if (order.paymentNote === "mock") {
-        // Mock/offline orders — no real payment to refund.
-        order.refundStatus = "completed";
-      } else {
-        try {
-          if (gateway === "razorpay") {
-            if (!order.razorpayPaymentId) {
-              throw new Error("Invalid payment ID for partial refund.");
-            }
-            const refund = await partialRefundViaRazorpay(order, shop, refundAmount);
-            console.log("Razorpay partial refund successful:", refund.id);
-            order.refundStatus = "completed";
-          } else if (gateway === "phonepe") {
-            if (!order.transactionId || !order.gatewayTxnId) {
-              throw new Error("Invalid payment ID for partial refund.");
-            }
-            const result = await partialRefundViaPhonePe(order, shop, refundAmount);
-            console.log("PhonePe partial refund response:", result?.code || result);
-            order.refundStatus = "completed";
-          } else {
-            // Unsupported gateway — mark pending so vendor processes manually.
-            order.refundStatus = "pending";
+      const refundFn = async (order, refundPaise) => {
+        if (gateway === "razorpay") {
+          if (!order.razorpayPaymentId) {
+            throw new Error("Invalid payment ID for partial refund.");
           }
-        } catch (err) {
-          console.error("Partial refund error:", err);
-          order.refundStatus = "pending";
+          const refund = await partialRefundViaRazorpay(order, shop, refundPaise);
+          console.log("Razorpay partial refund successful:", refund.id);
+          return refund;
         }
+        if (gateway === "phonepe") {
+          if (!order.transactionId || !order.gatewayTxnId) {
+            throw new Error("Invalid payment ID for partial refund.");
+          }
+          const result = await partialRefundViaPhonePe(order, shop, refundPaise);
+          console.log("PhonePe partial refund response:", result?.code || result);
+          return result;
+        }
+        throw new Error("Refunds not supported for this payment method.");
+      };
+
+      const result = await adjustOrderPaid({
+        orderId: id,
+        shopId: req.vendorShopId,
+        keepRaw: req.body.keep_items,
+        adjustmentReason,
+        adjustedBy: req.user._id,
+        refundFn,
+      });
+
+      if (!result.ok) {
+        const backToForm = [
+          "all_removed",
+          "none_removed",
+          "invalid_index",
+          "out_of_range",
+          "invalid_item",
+          "would_exceed_charged",
+          "invalid_charged_amount",
+        ].includes(result.reason);
+
+        if (result.reason === "refund_failed") {
+          console.error(
+            "Partial refund error:",
+            result.error?.message || result.error,
+          );
+        }
+
+        const messages = {
+          not_found: "Order not found.",
+          invalid_status: "Only paid or accepted orders can be adjusted.",
+          all_removed: "All items would be removed. Use Cancel Order instead.",
+          none_removed: "No items were removed. No adjustment needed.",
+          invalid_index: "The adjustment selection was invalid.",
+          out_of_range: "The adjustment selection was invalid.",
+          invalid_item: "The order contains an invalid item.",
+          would_exceed_charged:
+            "This adjustment would increase the amount owed. Please contact support.",
+          conflict: "This order was already adjusted.",
+          invalid_charged_amount:
+            "Order has no chargeable amount. Please reconcile manually.",
+          refund_failed:
+            "Order adjusted but refund could not be processed automatically. Please process manually from the payment dashboard.",
+        };
+
+        req.flash(
+          "error",
+          messages[result.reason] || "Could not adjust this order.",
+        );
+        return res.redirect(
+          backToForm ? `/vendor/orders/${id}/adjust` : "/vendor/orders/pending",
+        );
       }
-    } else {
-      order.refundStatus = "completed";
-    }
 
-    await order.save();
-
-    if (order.refundStatus === "pending") {
-      req.flash("error", "Order adjusted but refund could not be processed automatically. Please process manually from the payment dashboard.");
-    } else {
-      req.flash("success", `Order adjusted. Refund of ₹${refundAmount.toFixed(2)} processed.`);
+      const refundRupees = (result.refundPaise / 100).toFixed(2);
+      req.flash(
+        "success",
+        `Order adjusted. Refund of ₹${refundRupees} processed.`,
+      );
+      return res.redirect("/vendor/orders/pending");
+    } catch (err) {
+      console.error("ADJUST ERROR:", err);
+      req.flash("error", "Could not adjust this order. Please try again.");
+      return res.redirect(`/vendor/orders/${id}/adjust`);
     }
-    return res.redirect("/vendor/orders/pending");
   },
 );
 
@@ -1083,6 +1175,7 @@ vendorRouter.post(
         paymentGateway,
         razorpayKeyId,
         razorpayKeySecret,
+        razorpayWebhookSecret,
         easebuzzMerchantKey,
         easebuzzSalt,
         easebuzzEnv,
@@ -1118,6 +1211,14 @@ vendorRouter.post(
       if (razorpayKeySecret !== undefined && String(razorpayKeySecret).trim()) {
         shop.paymentSettings.razorpay.keySecret =
           String(razorpayKeySecret).trim();
+      }
+
+      if (
+        razorpayWebhookSecret !== undefined &&
+        String(razorpayWebhookSecret).trim()
+      ) {
+        shop.paymentSettings.razorpay.webhookSecret =
+          String(razorpayWebhookSecret).trim();
       }
 
       const merchantKey = String(easebuzzMerchantKey || "").trim();

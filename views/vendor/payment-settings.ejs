@@ -50,6 +50,21 @@
           <p class="muted small">Leave blank to keep the existing secret.</p>
         <% } %>
       </label>
+
+      <label>
+        <span>Webhook Secret</span>
+        <div class="pw-field">
+          <input name="razorpayWebhookSecret" type="password" id="pw-razorpay-webhook-secret" maxlength="200"
+            placeholder="<% if (shop.paymentSettings?.razorpay?.webhookSecret) { %>Leave blank to keep current secret<% } else { %>Razorpay dashboard webhook signing secret<% } %>" />
+          <button type="button" class="pw-toggle" aria-label="Show password" onclick="togglePasswordVisibility('pw-razorpay-webhook-secret', this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <p class="muted small">
+          Required for live payments: webhooks are rejected until this is set.
+          <% if (shop.paymentSettings?.razorpay?.webhookSecret) { %>Tracked from your Razorpay dashboard.<% } %>
+        </p>
+      </label>
     </fieldset>
 
     <fieldset class="fieldset" data-gateway="easebuzz">

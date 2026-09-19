@@ -25,6 +25,12 @@ import {
 import { emitPendingCount } from "../socket/index.js";
 import { dispatchNewOrderNotification } from "../utils/notification-dispatch.js";
 import { computeParcelCharge } from "../utils/pricing.js";
+import { signaturesMatch } from "../utils/signature.js";
+import { toPaise, fromPaise } from "../utils/money.js";
+import {
+  verifyRazorpayCapturedPayment,
+  verifyPhonePeCompletedPayment,
+} from "../utils/payment-verification.js";
 export const ordersRouter = express.Router();
 
 // Build a single order item from a cart line, looking up current MenuItem data.
@@ -67,7 +73,7 @@ async function buildOrderItemsFromCart(cart, shop, orderType) {
   const byId = new Map(menuItems.map((m) => [String(m._id), m]));
 
   const orderItems = [];
-  let foodTotal = 0;
+  let foodTotalPaise = 0;
   for (const line of cart.items) {
     const m = byId.get(String(line.menuItemId));
     if (!m) continue;
@@ -82,6 +88,8 @@ async function buildOrderItemsFromCart(cart, shop, orderType) {
       variantPrice = variants[variantId].price;
       price = variantPrice;
     }
+    const unitPaise = toPaise(price);
+    if (unitPaise === null) continue;
     orderItems.push({
       menuItem: m._id,
       name: m.name,
@@ -91,11 +99,22 @@ async function buildOrderItemsFromCart(cart, shop, orderType) {
       variantName: variantName,
       variantPrice: variantPrice,
     });
-    foodTotal += price * q;
+    foodTotalPaise += unitPaise * q;
   }
   if (!orderItems.length) return null;
-  const charge = computeParcelCharge(shop, orderType);
-  return { orderItems, foodTotal, total: foodTotal + charge, parcelCharge: charge };
+  const chargePaise = toPaise(computeParcelCharge(shop, orderType)) || 0;
+  const totalPaise = foodTotalPaise + chargePaise;
+  // Authoritative totals are computed in integer paise and only converted to
+  // rupees for storage/display. This is the single source of order amounts.
+  return {
+    orderItems,
+    foodTotal: fromPaise(foodTotalPaise),
+    foodTotalPaise,
+    total: fromPaise(totalPaise),
+    totalPaise,
+    parcelCharge: fromPaise(chargePaise),
+    parcelChargePaise: chargePaise,
+  };
 }
 
 // Validate that every cart item requiring variant selection has one.
@@ -170,7 +189,7 @@ ordersRouter.post(
           .status(400)
           .json({ error: "Nothing in your cart is available to order." });
       }
-      const { orderItems, total, parcelCharge } = built;
+      const { orderItems, total, parcelCharge, totalPaise } = built;
 
       const pickupValidation = validatePickupTime(pickupTime);
       if (!pickupValidation.valid) {
@@ -180,7 +199,7 @@ ordersRouter.post(
       const { keyId, instance } = createRazorpayFromShop(shop);
 
       const rzpOrder = await instance.orders.create({
-        amount: Math.round(total * 100),
+        amount: totalPaise,
         currency: "INR",
         receipt: `receipt_${Date.now()}`,
       });
@@ -243,14 +262,16 @@ ordersRouter.post(
         });
       }
 
-      const { keySecret } = createRazorpayFromShop(paymentShop);
+      const { keySecret, instance } = createRazorpayFromShop(paymentShop);
 
       const expectedSign = crypto
         .createHmac("sha256", keySecret)
         .update(sign.toString())
         .digest("hex");
 
-      const isAuthentic = expectedSign === razorpay_signature;
+      // Constant-time comparison — a plain `===` leaks the HMAC byte-by-byte
+      // to a timing attacker who can drive this endpoint.
+      const isAuthentic = signaturesMatch(expectedSign, razorpay_signature);
 
       if (!isAuthentic) {
         return res.status(400).json({
@@ -267,28 +288,85 @@ ordersRouter.post(
         });
       }
 
+      // Idempotent replay: an order already advanced by a previous submit or
+      // by the webhook is acknowledged without re-hitting the gateway.
       if (order.status !== "pending_payment") {
         req.session.cart = { shopId: null, items: [] };
         return res.json({ success: true, orderId: order._id });
       }
 
-      order.status = "paid";
-      order.paymentNote = razorpay_payment_id;
-      order.transactionId = razorpay_payment_id;
-      order.razorpayPaymentId = razorpay_payment_id;
-      await order.save();
+      // Authoritative amount check: the signature only proves Razorpay issued a
+      // payment for this order id. Fetch the payment and require it to be
+      // captured for exactly the persisted order total (integer paise).
+      let payment;
+      try {
+        payment = await instance.payments.fetch(razorpay_payment_id);
+      } catch (err) {
+        console.error(
+          "[verify-payment] Razorpay payment fetch failed:",
+          err?.message || err,
+        );
+        return res.status(502).json({
+          success: false,
+          code: "GATEWAY_UNAVAILABLE",
+          message: "Could not verify the payment with the gateway. Please retry.",
+        });
+      }
 
-      emitPendingCount(order.shop);
-      dispatchNewOrderNotification(order);
+      const amountVerdict = verifyRazorpayCapturedPayment({
+        payment,
+        expectedPaise: toPaise(order.total),
+        razorpayOrderId: razorpay_order_id,
+      });
+
+      if (!amountVerdict.ok) {
+        console.error("[verify-payment] rejected payment:", {
+          orderId: String(order._id),
+          reason: amountVerdict.reason,
+          actualPaise: amountVerdict.actualPaise,
+          expectedPaise: amountVerdict.expectedPaise,
+        });
+        return res.status(400).json({
+          success: false,
+          code: "AMOUNT_MISMATCH",
+          message: "Payment amount could not be verified.",
+        });
+      }
+
+      // Atomic, idempotent confirmation: the status precondition guarantees a
+      // double-submit (or a webhook racing this call) can only mark the order
+      // paid once, so side effects never fire twice.
+      const updated = await Order.findOneAndUpdate(
+        { _id: order._id, status: "pending_payment" },
+        {
+          $set: {
+            status: "paid",
+            paymentNote: razorpay_payment_id,
+            transactionId: razorpay_payment_id,
+            razorpayPaymentId: razorpay_payment_id,
+            amountChargedPaise: amountVerdict.actualPaise,
+          },
+        },
+        { new: true },
+      );
 
       req.session.cart = {
         shopId: null,
         items: [],
       };
 
+      if (!updated) {
+        // Already advanced by a concurrent request or the webhook — ack
+        // idempotently without re-firing notifications.
+        return res.json({ success: true, orderId: order._id });
+      }
+
+      emitPendingCount(updated.shop);
+      dispatchNewOrderNotification(updated);
+
       return res.json({
         success: true,
-        orderId: order._id,
+        orderId: updated._id,
       });
     } catch (err) {
       console.error(err);
@@ -454,6 +532,11 @@ ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
       order.status = success ? "paid" : "cancelled";
       order.paymentNote = payload.easepayid || payload.status || "easebuzz";
       order.transactionId = payload.easepayid || "";
+      if (success) {
+        // Record the authoritative charged amount in paise for future refunds.
+        // NOTE: Easebuzz amount verification is still outstanding (Stage 0).
+        order.amountChargedPaise = toPaise(order.total);
+      }
       await order.save();
 
       if (success) {
@@ -511,7 +594,7 @@ ordersRouter.post(
           .status(400)
           .json({ error: "Nothing in your cart is available to order." });
       }
-      const { orderItems, total, parcelCharge } = built;
+      const { orderItems, total, parcelCharge, totalPaise } = built;
 
       const phonepe = getPhonepeFromShop(shop);
       if (!phonepe.clientId || !phonepe.clientSecret) {
@@ -561,7 +644,7 @@ ordersRouter.post(
       const result = await createPayment({
         accessToken: auth.access_token,
         merchantTransactionId: txnid,
-        amount: total,
+        amountPaise: totalPaise,
         redirectUrl: `${origin}/phonepe/callback?merchantOrderId=${txnid}`,
         env: phonepe.env,
       });
@@ -630,16 +713,48 @@ ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
     const state = statusResult?.state || "";
 
     if (state === "COMPLETED") {
+      // Fail closed: COMPLETED is not enough — the captured amount must exist
+      // and equal the order total (integer paise).
+      const amountVerdict = verifyPhonePeCompletedPayment({
+        statusResult,
+        expectedPaise: toPaise(order.total),
+        merchantOrderId,
+      });
+
+      if (!amountVerdict.ok) {
+        console.error("[phonepe] rejected COMPLETED payment:", {
+          orderId: String(order._id),
+          reason: amountVerdict.reason,
+          actualPaise: amountVerdict.actualPaise,
+          expectedPaise: amountVerdict.expectedPaise,
+        });
+        req.flash(
+          "error",
+          "We could not verify the payment amount. Please contact support.",
+        );
+        return res.redirect(`/orders/${order._id}`);
+      }
+
       const transactionId =
         statusResult?.paymentDetails?.[0]?.transactionId || "";
 
-      order.status = "paid";
-      order.paymentNote = "paid";
-      order.transactionId = transactionId;
-      await order.save();
+      const updated = await Order.findOneAndUpdate(
+        { _id: order._id, status: "pending_payment" },
+        {
+          $set: {
+            status: "paid",
+            paymentNote: "paid",
+            transactionId,
+            amountChargedPaise: amountVerdict.actualPaise,
+          },
+        },
+        { new: true },
+      );
 
-      emitPendingCount(order.shop);
-      dispatchNewOrderNotification(order);
+      if (updated) {
+        emitPendingCount(updated.shop);
+        dispatchNewOrderNotification(updated);
+      }
 
       if (req.session) {
         req.session.cart = { shopId: null, items: [] };
@@ -650,9 +765,15 @@ ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
     }
 
     if (["FAILED", "EXPIRED", "CANCELLED", "REVERSED"].includes(state)) {
-      order.status = "cancelled";
-      order.paymentNote = `phonepe_${state.toLowerCase()}`;
-      await order.save();
+      await Order.findOneAndUpdate(
+        { _id: order._id, status: "pending_payment" },
+        {
+          $set: {
+            status: "cancelled",
+            paymentNote: `phonepe_${state.toLowerCase()}`,
+          },
+        },
+      );
 
       req.flash(
         "error",
@@ -720,7 +841,7 @@ ordersRouter.post(
       req.flash("error", "Nothing in your cart is available to order.");
       return res.redirect("/cart");
     }
-    const { orderItems, total, parcelCharge } = built;
+    const { orderItems, total, parcelCharge, totalPaise } = built;
 
     const pickupValidation = validatePickupTime(req.body.pickupTime);
     if (!pickupValidation.valid) {
@@ -742,6 +863,7 @@ ordersRouter.post(
       pickupOtp,
       paymentNote: "mock",
       transactionId: "mock",
+      amountChargedPaise: totalPaise,
     });
 
     emitPendingCount(cart.shopId);

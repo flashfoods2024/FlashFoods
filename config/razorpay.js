@@ -42,15 +42,54 @@ export function createRazorpayFromShop(shop) {
   };
 }
 
-// Resolve the webhook signing secret for a shop. Prefers a vendor-specific
-// secret (paymentSettings.razorpay.webhookSecret) and falls back to the
-// platform-wide RAZORPAY_WEBHOOK_SECRET env var.
-export function getWebhookSecretFromShop(shop) {
-  const vendorSecret = shop?.paymentSettings?.razorpay?.webhookSecret;
-  if (shop?.paymentConfigured && vendorSecret) {
-    return vendorSecret;
+// Resolve the webhook signing secret for a shop.
+//
+// Fail-closed rules:
+//  * A shop that has its own Razorpay credentials MUST have its own webhook
+//    secret. We never fall back to the platform secret here, because the
+//    vendor's account signs with a secret we do not hold and silently trusting
+//    the platform secret would let anyone who knows it forge that shop's events.
+//  * A shop on the platform Razorpay account uses RAZORPAY_WEBHOOK_SECRET.
+//  * If the applicable secret is missing/blank we return `secret: null` and the
+//    caller must reject the request rather than verify against an empty key.
+export function resolveWebhookSecret(shop) {
+  const vendorSecret = String(
+    shop?.paymentSettings?.razorpay?.webhookSecret || "",
+  ).trim();
+  const useCustom = Boolean(
+    shop?.paymentConfigured &&
+      shop?.paymentSettings?.razorpay?.keyId &&
+      shop?.paymentSettings?.razorpay?.keySecret,
+  );
+
+  if (useCustom) {
+    if (!vendorSecret) {
+      return {
+        secret: null,
+        source: "vendor",
+        reason: "vendor_webhook_secret_missing",
+        shopId: shop?._id ? String(shop._id) : null,
+      };
+    }
+    return { secret: vendorSecret, source: "vendor" };
   }
-  return process.env.RAZORPAY_WEBHOOK_SECRET || "";
+
+  const platformSecret = String(process.env.RAZORPAY_WEBHOOK_SECRET || "").trim();
+  if (!platformSecret) {
+    return {
+      secret: null,
+      source: "platform",
+      reason: "platform_webhook_secret_missing",
+      shopId: shop?._id ? String(shop._id) : null,
+    };
+  }
+  return { secret: platformSecret, source: "platform" };
+}
+
+// Backward-compatible helper: returns the applicable secret or "". Prefer
+// resolveWebhookSecret() when you need to distinguish "missing" from "configured".
+export function getWebhookSecretFromShop(shop) {
+  return resolveWebhookSecret(shop).secret || "";
 }
 
 export default getDefaultRazorpay;

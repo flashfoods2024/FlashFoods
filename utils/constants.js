@@ -7,6 +7,10 @@ export const PASSWORD_MIN_LENGTH = 6;
 export const PASSWORD_RESET_EXPIRY_MS = 15 * 60 * 1000;
 
 export const OTP_LENGTH = 6;
+// Pickup codes are single-use and short-lived. The TTL is applied when an
+// order is created and refreshed when the vendor marks it ready for pickup,
+// so the customer always has a full window from the moment the code is shown.
+export const OTP_TTL_MS = 30 * 60 * 1000;
 export const MAX_QUANTITY = 99;
 export const MIN_QUANTITY = 1;
 

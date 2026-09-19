@@ -15,6 +15,8 @@ import { updateSession, getSession } from "../menu-import/store.js";
 import { extractMenu } from "../menu-import/vision.js";
 import { isGatewayConfigured } from "./vendor.js";
 import { computeParcelCharge } from "../utils/pricing.js";
+import { toPaise, fromPaise } from "../utils/money.js";
+import { computeParcelTotals } from "../utils/order-math.js";
 import {
   formatOrderStatus,
   normalizeQuery,
@@ -1214,29 +1216,56 @@ adminRouter.post("/orders/:id/toggle-parcel", async (req, res) => {
     return res.redirect("/admin/orders");
   }
 
-  const order = await Order.findById(id);
+  const order = await Order.findById(id).lean();
   if (!order) {
     req.flash("error", "Order not found.");
     return res.redirect("/admin/orders");
   }
 
-  const wasParcel = order.orderType === "parcel";
-
-  if (wasParcel) {
-    order.total -= order.parcelCharge;
-    order.parcelCharge = 0;
-    order.orderType = "dinein";
-  } else {
-    const shop = await Shop.findById(order.shop).select("parcelChargeEnabled parcelCharge").lean();
-    const charge = computeParcelCharge(shop, "parcel");
-    order.parcelCharge = charge;
-    order.total += charge;
-    order.orderType = "parcel";
+  // Parcel type only affects the amount before payment. Once money is captured
+  // the stored total must never diverge from what was charged.
+  if (order.status !== "pending_payment") {
+    req.flash("error", "Order type can only be changed before payment.");
+    return res.redirect(`/admin/orders/${id}`);
   }
 
-  await order.save();
+  const shop = await Shop.findById(order.shop)
+    .select("parcelChargeEnabled parcelCharge")
+    .lean();
+  const targetType = order.orderType === "parcel" ? "dinein" : "parcel";
+  const chargePaise = toPaise(computeParcelCharge(shop, targetType)) || 0;
 
-  req.flash("success", `Order type changed to ${order.orderType === "parcel" ? "Parcel" : "Dine In"}.`);
+  const totals = computeParcelTotals({
+    items: order.items,
+    orderType: targetType,
+    parcelChargePaise: chargePaise,
+  });
+  if (!totals.ok) {
+    req.flash("error", "Order contains an invalid item.");
+    return res.redirect(`/admin/orders/${id}`);
+  }
+
+  const updated = await Order.findOneAndUpdate(
+    { _id: id, status: "pending_payment", orderType: order.orderType },
+    {
+      $set: {
+        orderType: targetType,
+        parcelCharge: fromPaise(totals.parcelChargePaise),
+        total: fromPaise(totals.totalPaise),
+      },
+    },
+    { new: true },
+  );
+
+  if (!updated) {
+    req.flash("error", "Order changed. Please retry.");
+    return res.redirect(`/admin/orders/${id}`);
+  }
+
+  req.flash(
+    "success",
+    `Order type changed to ${updated.orderType === "parcel" ? "Parcel" : "Dine In"}.`,
+  );
   return res.redirect(`/admin/orders/${id}`);
 });
 

@@ -78,15 +78,20 @@ export async function getAuthToken({
 export async function createPayment({
   accessToken,
   merchantTransactionId,
-  amount,
+  amountPaise,
   redirectUrl,
   env,
 }) {
   const url = PAY_URLS[env] || PAY_URLS.UAT;
 
+  const paise = Math.round(Number(amountPaise));
+  if (!Number.isFinite(paise) || paise <= 0) {
+    throw new Error("PhonePe pay failed: amountPaise must be a positive integer");
+  }
+
   const payload = {
     merchantOrderId: merchantTransactionId,
-    amount: Math.round(amount * 100),
+    amount: paise,
     paymentFlow: {
       type: "PG_CHECKOUT",
       merchantUrls: {
@@ -114,7 +119,9 @@ export async function createPayment({
 
 export async function getOrderStatus({ merchantOrderId, accessToken, env }) {
   const baseUrl = ORDER_STATUS_URLS[env] || ORDER_STATUS_URLS.UAT;
-  const url = `${baseUrl}/${encodeURIComponent(merchantOrderId)}/status?details=false`;
+  // details=true so the response carries paymentDetails amounts used by the
+  // fail-closed amount verification in the callback.
+  const url = `${baseUrl}/${encodeURIComponent(merchantOrderId)}/status?details=true`;
 
   const response = await fetch(url, {
     method: "GET",
@@ -136,11 +143,16 @@ export async function refundPayment({
   accessToken,
   merchantOrderId,
   transactionId,
-  amount,
+  amountPaise,
   merchantRefundId,
   env,
 }) {
   const url = REFUND_URLS[env] || REFUND_URLS.UAT;
+
+  const paise = Math.round(Number(amountPaise));
+  if (!Number.isFinite(paise) || paise <= 0) {
+    throw new Error("PhonePe refund failed: amountPaise must be a positive integer");
+  }
 
   // The Standard Checkout refund API expects:
   //   merchantRefundId, originalMerchantOrderId, amount
@@ -153,7 +165,7 @@ export async function refundPayment({
   const payload = {
     merchantRefundId,
     originalMerchantOrderId: merchantOrderId,
-    amount: Math.round(amount * 100),
+    amount: paise,
     transactionId,
   };
 
