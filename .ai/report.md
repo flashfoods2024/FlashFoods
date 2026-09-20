@@ -151,38 +151,65 @@ passed. Concurrency at the unit level (slot overbooking) was tested directly.
 
 | Commit | Content |
 |--------|---------|
+| `4652b44` | feat(F01,F02): vendor self-profile + business analytics (committed 2026-09-20 — F01/F02 source was previously only in the working tree) |
 | `1c8caef` | feat(F03): shop operating hours + hours-aware availability |
 | `8337a1d` | feat(F04): pickup slots + server-side capacity enforcement |
 | `4c6fbac` | feat(F05): server-authoritative vendor percentage discounts |
 | `5bfe509` | feat(F06): FCM migration (per-vendor tokens, refresh, foreground) |
 | `87baaec` | feat(F07): signed QR pickup alongside OTP |
+| `6f5b729` | chore(stage1): add comprehensive quality-gate suite + final report |
 
-(F01/F02 source changes were present in the working tree before this run and were
-not re-committed; only F03–F07 changes — plus the Stage 1 quality-gate suite and
-documentation — are in the commits above.)
+At the start of this run the F01/F02 vendor-profile + vendor-analytics source and
+tests were present in the working tree but uncommitted; they have since been
+committed as `4652b44` so all Stage 1 feature work is committed.
 
 ---
 
 ## 9. Remaining Issues / Notes
 
-1. **Playwright e2e was not run.** `tests/global-setup.mjs` connects to the
-   configured database and mutates a real shop; with the current `.env` pointing
-   at production (live keys, no environment split), running it is unsafe. This is
-   an environment-isolation issue called out in the incident report — it must be
-   fixed before e2e can be trusted.
+1. **Playwright e2e was not run against the shared suite.** `tests/global-setup.mjs`
+   connects to the configured database and mutates a real shop; with the current
+   `.env` pointing at production (live keys, no environment split), running it is
+   unsafe. The vendor-profile V2 browser flow is covered instead by an isolated
+   harness (`tests/e2e/vendor-profile.spec.js`) that boots an in-memory MongoDB
+   and touches no shared data. This environment-isolation issue must be fixed
+   before the shared e2e suite can be trusted.
 2. **Abandoned `pending_payment` orders** hold a slot reservation indefinitely;
    there is no expiry sweep. Slots still free on explicit cancellation/failed
    payment. A sweeper is a reasonable follow-up.
-3. **Pre-existing F01/F02 working-tree changes** remain uncommitted at the start
-   of this run; only F03+ were committed to preserve commit isolation.
+3. **F01/F02 source was committed this run** as `4652b44`; the full Stage 1
+   feature set F01–F07 is now committed (previously F01/F02 only existed as
+   working-tree changes).
 4. **`.env` holds production credentials and `DISABLE_RATE_LIMIT=true`** — a
    latent operational risk that predates this work.
+5. **Test-harness concurrency flake.** `npm test` (`node --test tests/unit/**/*.test.js`)
+   runs up to 9 test files concurrently, each booting its own `MongoMemoryServer`
+   and (in 7 files) binding an HTTP server on an ephemeral port. The F01/F02 run
+   observed one transient failure (a test failing once, then passing 222/222 on
+   four subsequent runs) consistent with memory-server startup / ephemeral-port
+   contention across concurrently-booted harnesses. No application candidate was
+   implicated and it was not feature-specific. Recorded as a test-infrastructure
+   flake, not a product defect; a follow-up could serialize memory-server boots
+   or add a startup retry. No speculative refactor was made to the passing suite.
+6. **Git case-collision: `.ai/status.md` vs tracked `.ai/STATUS.md`.**
+   `core.ignorecase=true` in this repo makes Git treat the two files as the same
+   path. `.ai/status.md` (the V2 autonomous execution status referenced by the
+   operating system) therefore cannot be tracked or committed and never shows in
+   `git status`; the older `.ai/STATUS.md` (project status v1.0.1) is the tracked
+   one. Both files exist on disk and remain readable, so the autonomous
+   workflow can still read `status.md`, but it is not under version control.
+   Resolution (e.g., renaming one file, or removing `core.ignorecase`) is left to
+   the operator; no file was deleted to work around it.
 
 ---
 
 ## 10. Verdict
 
-🟢 **Stage 1 feature build complete** — F01–F07 all pass their feature tests, and
+🟢 **Stage 1 feature build COMPLETE** — F01–F07 all pass their feature tests, and
 the comprehensive, regression, risk-based and global gates pass (222/222) under
-an isolated in-memory database. Stress/load and browser e2e are explicitly
-**not verified** in this environment for the safety reasons above.
+an isolated in-memory database. All Stage 1 feature work is now committed
+(F01/F02 finalized as `4652b44` in a follow-up run; F03–F07 and the quality-gate
+suite were already committed). Stress/load and shared-suite browser e2e are
+explicitly **not verified** in this environment for the safety reasons above;
+the vendor-profile flow is covered by an isolated in-memory Playwright harness
+instead.
