@@ -5,6 +5,7 @@ import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { computeParcelCharge } from "../utils/pricing.js";
+import { isShopAvailable } from "../utils/shop-hours.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 
 export const cartRouter = express.Router();
@@ -130,7 +131,7 @@ cartRouter.post(
 
     const shopIdStr = String(item.shop);
     const shop = await Shop.findById(item.shop).lean();
-    if (!shop || shop.isActive === false || shop.isOpen === false) {
+    if (!isShopAvailable(shop)) {
       req.flash("error", "This shop is currently closed.");
       return res.redirect(safeRedirect(redirect, "/shops"));
     }

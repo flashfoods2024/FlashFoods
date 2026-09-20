@@ -27,6 +27,7 @@ import { dispatchNewOrderNotification } from "../utils/notification-dispatch.js"
 import { computeParcelCharge } from "../utils/pricing.js";
 import { signaturesMatch } from "../utils/signature.js";
 import { toPaise, fromPaise } from "../utils/money.js";
+import { isShopAvailable } from "../utils/shop-hours.js";
 import {
   verifyRazorpayCapturedPayment,
   verifyPhonePeCompletedPayment,
@@ -161,7 +162,7 @@ ordersRouter.post(
       }
 
       const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isActive === false || shop.isOpen === false) {
+      if (!isShopAvailable(shop)) {
         return res
           .status(400)
           .json({ error: "This shop is currently closed." });
@@ -395,7 +396,7 @@ ordersRouter.post(
       }
 
       const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isActive === false || shop.isOpen === false) {
+      if (!isShopAvailable(shop)) {
         return res
           .status(400)
           .json({ error: "This shop is currently closed." });
@@ -568,7 +569,7 @@ ordersRouter.post(
       }
 
       const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isActive === false || shop.isOpen === false) {
+      if (!isShopAvailable(shop)) {
         return res
           .status(400)
           .json({ error: "This shop is currently closed." });
@@ -820,7 +821,7 @@ ordersRouter.post(
         .status(403)
         .send("Mock checkout only allowed for testing shop");
     }
-    if (shop.isActive === false || shop.isOpen === false) {
+    if (!isShopAvailable(shop)) {
       req.flash("error", "This shop is currently closed.");
       return res.redirect("/cart");
     }

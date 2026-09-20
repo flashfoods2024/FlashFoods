@@ -54,6 +54,18 @@ const shopSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Operating hours as 24-hour "HH:MM" strings in IST. Empty string means
+    // "no hours configured" and availability falls back to the isOpen flag.
+    openingTime: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    closingTime: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     isActive: {
       type: Boolean,
       default: true,

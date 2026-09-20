@@ -38,6 +38,15 @@
       </select>
     </label>
     <label>
+      <span>Opening time (IST)</span>
+      <input name="openingTime" type="time" value="<%= shop?.openingTime || "" %>" />
+    </label>
+    <label>
+      <span>Closing time (IST)</span>
+      <input name="closingTime" type="time" value="<%= shop?.closingTime || "" %>" />
+      <p class="muted small" style="margin-top:4px;">Leave both blank to disable scheduled hours. The open/closed toggle above then applies.</p>
+    </label>
+    <label>
       <span>Assigned vendor</span>
       <select name="vendor">
         <option value="">No vendor assigned</option>

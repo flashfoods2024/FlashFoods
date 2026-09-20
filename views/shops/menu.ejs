@@ -8,10 +8,14 @@
 
 <section class="hero hero--compact">
   <h1><%= shop.name %></h1>
+  <% var availability = locals.availability || { available: shop.isOpen && shop.isActive !== false, label: shop.isOpen && shop.isActive !== false ? "Open" : "Closed", configured: false, hoursLabel: "Hours not set" }; %>
   <p>
-    <span class="tag <%= shop.isOpen ? "tag--ok" : "tag--warn" %>">
-      <%= shop.isOpen ? "Open" : "Closed" %>
+    <span class="tag <%= availability.available ? "tag--ok" : "tag--warn" %>">
+      <%= availability.label %>
     </span>
+    <% if (availability.configured) { %>
+      <span class="muted small"> &middot; <%= availability.hoursLabel %></span>
+    <% } %>
   </p>
   <% if (shop.description) { %>
     <p class="muted"><%= shop.description %></p>
@@ -25,7 +29,8 @@
     <p class="muted">This canteen hasn't added any menu items yet. Check back later!</p>
   </div>
 <% } else { %>
-  <%- include("../partials/menu-table", { mode: "student", items: menuItems, shop: shop }) %>
+  <% shop.orderingOpen = availability.available; %>
+<%- include("../partials/menu-table", { mode: "student", items: menuItems, shop: shop }) %>
 <% } %>
 
 <%- include("../partials/footer") %>

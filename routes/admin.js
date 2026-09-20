@@ -17,6 +17,7 @@ import { isGatewayConfigured } from "./vendor.js";
 import { computeParcelCharge } from "../utils/pricing.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 import { computeParcelTotals } from "../utils/order-math.js";
+import { validateOperatingHours } from "../utils/shop-hours.js";
 import {
   formatOrderStatus,
   normalizeQuery,
@@ -411,6 +412,10 @@ adminRouter.post(
       const description = normalizeQuery(req.body?.description);
       const isOpen = String(req.body?.isOpen || "open") !== "closed";
       const assignedVendorId = normalizeQuery(req.body?.vendor);
+      const hours = validateOperatingHours(
+        req.body?.openingTime,
+        req.body?.closingTime,
+      );
 
       if (!name) {
         req.flash("error", "Shop name is required.");
@@ -419,6 +424,11 @@ adminRouter.post(
 
       if (!slug) {
         req.flash("error", "Shop slug is required.");
+        return res.redirect("/admin/shops/new");
+      }
+
+      if (!hours.ok) {
+        req.flash("error", hours.error);
         return res.redirect("/admin/shops/new");
       }
 
@@ -434,6 +444,8 @@ adminRouter.post(
         description,
         image: req.file?.path || "",
         isOpen,
+        openingTime: hours.openingTime,
+        closingTime: hours.closingTime,
         isActive: true,
       });
 
@@ -556,6 +568,10 @@ adminRouter.post(
       const description = normalizeQuery(req.body?.description);
       const isOpen = String(req.body?.isOpen || "open") !== "closed";
       const assignedVendorId = normalizeQuery(req.body?.vendor);
+      const hours = validateOperatingHours(
+        req.body?.openingTime,
+        req.body?.closingTime,
+      );
 
       if (!name) {
         req.flash("error", "Shop name is required.");
@@ -563,6 +579,10 @@ adminRouter.post(
       }
       if (!slug) {
         req.flash("error", "Shop slug is required.");
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
+      if (!hours.ok) {
+        req.flash("error", hours.error);
         return res.redirect(`/admin/shops/${id}/edit`);
       }
 
@@ -576,6 +596,8 @@ adminRouter.post(
       shop.slug = slug;
       shop.description = description;
       shop.isOpen = isOpen;
+      shop.openingTime = hours.openingTime;
+      shop.closingTime = hours.closingTime;
       if (req.file?.path) {
         shop.image = req.file.path;
       }

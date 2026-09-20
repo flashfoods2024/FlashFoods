@@ -11,20 +11,51 @@
     shopToggleAction – POST URL for the shop toggle form (required when showShopToggle is true)
     parcelChargeAction – POST URL for the parcel settings form (optional). When provided, renders the Parcel Packaging card between Shop Status and Add New Item.
 %>
+<% var shopAvailability = locals.availability || { available: !!shop.isOpen && shop.isActive !== false, configured: false, withinHours: true, openingTime: shop.openingTime || "", closingTime: shop.closingTime || "", hoursLabel: "Hours not set", label: shop.isOpen ? "Shop Open" : "Shop Closed" }; %>
 <div class="card">
   <div class="row row--split">
-    <span class="tag <%= shop.isOpen ? "tag--ok" : "tag--warn" %>">
-      <%= shop.isOpen ? "Shop Open" : "Shop Closed" %>
+    <span class="tag <%= shopAvailability.available ? "tag--ok" : "tag--warn" %>">
+      <%= shopAvailability.available ? "Shop Open" : "Shop Closed" %>
     </span>
     <% if (locals.showShopToggle) { %>
       <form method="post" action="<%= shopToggleAction %>">
         <button class="btn" type="submit">
-          <%= shop.isOpen ? "Close Shop" : "Open Shop" %>
+          <%= shop.isOpen ? "Close Shop" : "Open Shop" %><%# note: manual master switch %>
         </button>
       </form>
     <% } %>
   </div>
+  <p class="muted small" style="margin:10px 0 0;">
+    <% if (shopAvailability.configured) { %>
+      Operating hours: <strong><%= shopAvailability.hoursLabel %></strong> (IST).
+      <% if (!shopAvailability.withinHours) { %>
+        Students currently see the shop as <strong>closed</strong> because it is outside these hours.
+      <% } %>
+    <% } else { %>
+      No operating hours set — students see the manual open/close state above.
+    <% } %>
+  </p>
 </div>
+
+<% if (locals.operatingHoursAction) { %>
+<div class="card">
+  <h2 class="h2" style="margin-top:0;">Operating Hours</h2>
+  <p class="muted small" style="margin-top:0;">Set the daily opening and closing time (IST). Leave both blank to disable scheduled hours and rely on the manual open/close toggle.</p>
+  <form method="post" action="<%= operatingHoursAction %>" class="form">
+    <label>
+      <span>Opening time</span>
+      <input name="openingTime" type="time" value="<%= shopAvailability.openingTime || "" %>" style="max-width:220px;width:100%;" />
+    </label>
+    <label>
+      <span>Closing time</span>
+      <input name="closingTime" type="time" value="<%= shopAvailability.closingTime || "" %>" style="max-width:220px;width:100%;" />
+    </label>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn" type="submit">Save Hours</button>
+    </div>
+  </form>
+</div>
+<% } %>
 
 <% if (locals.parcelChargeAction) { %>
 <div class="card" style="border-left:4px solid var(--orange,#ff7a00);">

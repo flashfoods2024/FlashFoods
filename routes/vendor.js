@@ -22,6 +22,10 @@ import { computeParcelCharge } from "../utils/pricing.js";
 import { otpExpiryFrom, isOtpExpired } from "../utils/otp.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 import { computeParcelTotals } from "../utils/order-math.js";
+import {
+  getShopAvailability,
+  validateOperatingHours,
+} from "../utils/shop-hours.js";
 import { cancelOrderPaid } from "../utils/order-cancel.js";
 import { adjustOrderPaid } from "../utils/order-adjust.js";
 import rateLimit from "express-rate-limit";
@@ -178,6 +182,7 @@ vendorRouter.get(
     return res.render("vendor/menu", {
       pageTitle: "Vendor Dashboard",
       shop,
+      availability: getShopAvailability(shop),
       menuItems,
     });
   },
@@ -218,6 +223,52 @@ vendorRouter.post(
 
       req.flash("error", "Failed to update shop status.");
 
+      return res.redirect("/vendor/menu");
+    }
+  },
+);
+
+// Save the shop's daily operating hours. Times are interpreted in IST and only
+// constrain student-facing availability; the manual open/close toggle remains
+// the master switch. Both fields blank clears the hours (no time constraint).
+vendorRouter.post(
+  "/vendor/shop/hours",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/menu");
+      }
+
+      const result = validateOperatingHours(
+        req.body?.openingTime,
+        req.body?.closingTime,
+      );
+
+      if (!result.ok) {
+        req.flash("error", result.error);
+        return res.redirect("/vendor/menu");
+      }
+
+      shop.openingTime = result.openingTime;
+      shop.closingTime = result.closingTime;
+      await shop.save();
+
+      req.flash(
+        "success",
+        result.openingTime
+          ? "Operating hours saved."
+          : "Operating hours cleared. The manual open/close toggle now applies.",
+      );
+      return res.redirect("/vendor/menu");
+    } catch (error) {
+      console.error(error);
+      req.flash("error", "Failed to save operating hours.");
       return res.redirect("/vendor/menu");
     }
   },
