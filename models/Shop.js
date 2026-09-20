@@ -77,6 +77,12 @@ const shopSchema = new mongoose.Schema(
       capacity: { type: Number, default: 10, min: 1, max: 500 },
       daysAhead: { type: Number, default: 1, min: 0, max: 7 },
     },
+    // Percentage discount applied to the food subtotal (never the parcel
+    // charge). The authoritative calculation lives in utils/discount.js.
+    discount: {
+      enabled: { type: Boolean, default: false },
+      percent: { type: Number, default: 0, min: 0, max: 100 },
+    },
     isActive: {
       type: Boolean,
       default: true,

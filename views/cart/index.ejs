@@ -121,6 +121,11 @@
     <p class="cart-total">
       <strong>Cart Subtotal:</strong> ₹<span id="cart-subtotal"><%= subtotal.toFixed(2) %></span>
     </p>
+    <% if (typeof discountPercent !== 'undefined' && discountPercent > 0) { %>
+    <p class="cart-total" id="discount-row" style="color:#0a7d33;">
+      <strong>Discount (<%= discountPercent %>%):</strong> −₹<span id="discount-amount"><%= Number(discountAmount || 0).toFixed(2) %></span>
+    </p>
+    <% } %>
     <p class="cart-total" id="parcel-charge-row" style="display:none;">
       <strong>Parcel Charge:</strong> ₹<span id="parcel-charge-amount"><%= Number(parcelCharge).toFixed(2) %></span>
     </p>
@@ -222,6 +227,7 @@
   var parcelChargeEnabled = <%= shop?.parcelChargeEnabled ? 'true' : 'false' %>;
   var parcelChargeParcel = <%= Number(parcelCharge) %>;
   var cartSubtotal = <%= subtotal %>;
+  var cartDiscount = <%= Number(typeof discountAmount !== 'undefined' ? discountAmount : 0) %>;
   var parcelRow = document.getElementById("parcel-charge-row");
   var parcelAmountEl = document.getElementById("parcel-charge-amount");
   var subtotalEl = document.getElementById("cart-subtotal");
@@ -233,7 +239,7 @@
       parcelRow.style.display = isParcel ? "" : "none";
     }
     if (totalEl) {
-      var total = cartSubtotal + (isParcel ? parcelChargeParcel : 0);
+      var total = cartSubtotal - cartDiscount + (isParcel ? parcelChargeParcel : 0);
       totalEl.textContent = total.toFixed(2);
     }
   }
@@ -319,6 +325,11 @@
         }
         if (parcelAmountEl) {
           parcelAmountEl.textContent = parcelChargeParcel.toFixed(2);
+        }
+        if (data.discountAmount != null) {
+          cartDiscount = Number(data.discountAmount);
+          var discEl = document.getElementById("discount-amount");
+          if (discEl) discEl.textContent = cartDiscount.toFixed(2);
         }
 
         // Re-evaluate all-variants state

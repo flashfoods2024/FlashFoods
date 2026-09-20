@@ -28,6 +28,7 @@ import { computeParcelCharge } from "../utils/pricing.js";
 import { signaturesMatch } from "../utils/signature.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 import { isShopAvailable } from "../utils/shop-hours.js";
+import { getShopDiscount, computeDiscountPaise } from "../utils/discount.js";
 import {
   verifyRazorpayCapturedPayment,
   verifyPhonePeCompletedPayment,
@@ -104,7 +105,11 @@ async function buildOrderItemsFromCart(cart, shop, orderType) {
   }
   if (!orderItems.length) return null;
   const chargePaise = toPaise(computeParcelCharge(shop, orderType)) || 0;
-  const totalPaise = foodTotalPaise + chargePaise;
+  // The vendor discount applies to the food subtotal only, never the parcel
+  // charge. Server-authoritative: the client amount is ignored entirely.
+  const discount = getShopDiscount(shop);
+  const discountPaise = computeDiscountPaise(foodTotalPaise, discount.percent);
+  const totalPaise = foodTotalPaise - discountPaise + chargePaise;
   // Authoritative totals are computed in integer paise and only converted to
   // rupees for storage/display. This is the single source of order amounts.
   return {
@@ -115,6 +120,8 @@ async function buildOrderItemsFromCart(cart, shop, orderType) {
     totalPaise,
     parcelCharge: fromPaise(chargePaise),
     parcelChargePaise: chargePaise,
+    discountPercent: discount.enabled ? discount.percent : 0,
+    discountPaise,
   };
 }
 
@@ -213,6 +220,8 @@ ordersRouter.post(
           total,
           orderType: orderType || "dinein",
           parcelCharge,
+          discountPercent: built.discountPercent || 0,
+          discountAmountPaise: built.discountPaise || 0,
           pickupTime: pickupReservation.date || null,
           status: "pending_payment",
           pickupOtp: generateOtp(),
@@ -459,6 +468,8 @@ ordersRouter.post(
           total,
           orderType: orderType || "dinein",
           parcelCharge,
+          discountPercent: built.discountPercent || 0,
+          discountAmountPaise: built.discountPaise || 0,
           pickupTime: pickupReservation.date || null,
           status: "pending_payment",
           pickupOtp: generateOtp(),
@@ -654,6 +665,8 @@ ordersRouter.post(
           total,
           orderType: orderType || "dinein",
           parcelCharge,
+          discountPercent: built.discountPercent || 0,
+          discountAmountPaise: built.discountPaise || 0,
           pickupTime: pickupReservation.date || null,
           status: "pending_payment",
           pickupOtp: generateOtp(),
@@ -888,6 +901,8 @@ ordersRouter.post(
       total,
       orderType,
       parcelCharge,
+      discountPercent: built.discountPercent || 0,
+      discountAmountPaise: built.discountPaise || 0,
       pickupTime: pickupReservation.date || null,
       status: "paid",
       pickupOtp,

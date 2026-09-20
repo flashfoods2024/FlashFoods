@@ -75,6 +75,17 @@
         </label>
       </div>
     </fieldset>
+    <fieldset style="border:1px solid #ddd;border-radius:8px;padding:12px;">
+      <legend><strong>Discount</strong></legend>
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" name="discountEnabled" value="true" <%= shop?.discount?.enabled ? "checked" : "" %> />
+        Enable discount
+      </label>
+      <label>
+        <span>Discount (%)</span>
+        <input name="discountPercent" type="number" min="0" max="100" step="0.01" value="<%= shop?.discount?.percent || 0 %>" />
+      </label>
+    </fieldset>
     <label>
       <span>Assigned vendor</span>
       <select name="vendor">

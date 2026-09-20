@@ -27,6 +27,7 @@ import {
   validateOperatingHours,
 } from "../utils/shop-hours.js";
 import { validatePickupSlotSettings } from "../utils/pickup-slots.js";
+import { validateDiscountSettings } from "../utils/discount.js";
 import { cancelOrderPaid } from "../utils/order-cancel.js";
 import { adjustOrderPaid } from "../utils/order-adjust.js";
 import rateLimit from "express-rate-limit";
@@ -185,6 +186,7 @@ vendorRouter.get(
       shop,
       availability: getShopAvailability(shop),
       slotSettings: shop.pickupSlots,
+      discountSettings: shop.discount,
       menuItems,
     });
   },
@@ -310,6 +312,45 @@ vendorRouter.post(
     } catch (error) {
       console.error(error);
       req.flash("error", "Failed to save pickup slots.");
+      return res.redirect("/vendor/menu");
+    }
+  },
+);
+
+// Save the shop's percentage discount (applies to the food subtotal only).
+vendorRouter.post(
+  "/vendor/shop/discount",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/menu");
+      }
+
+      const result = validateDiscountSettings(req.body || {});
+      if (!result.ok) {
+        req.flash("error", result.error);
+        return res.redirect("/vendor/menu");
+      }
+
+      shop.discount = result.settings;
+      await shop.save();
+
+      req.flash(
+        "success",
+        result.settings.enabled
+          ? `Discount of ${result.settings.percent}% saved.`
+          : "Discount disabled.",
+      );
+      return res.redirect("/vendor/menu");
+    } catch (error) {
+      console.error(error);
+      req.flash("error", "Failed to save discount.");
       return res.redirect("/vendor/menu");
     }
   },
@@ -971,6 +1012,7 @@ vendorRouter.post(
       items: order.items,
       orderType: targetType,
       parcelChargePaise: chargePaise,
+      discountPercent: Number(order.discountPercent) || 0,
     });
     if (!totals.ok) {
       return res.status(400).json({ error: "Order contains an invalid item." });

@@ -19,6 +19,7 @@ import { toPaise, fromPaise } from "../utils/money.js";
 import { computeParcelTotals } from "../utils/order-math.js";
 import { validateOperatingHours } from "../utils/shop-hours.js";
 import { validatePickupSlotSettings } from "../utils/pickup-slots.js";
+import { validateDiscountSettings } from "../utils/discount.js";
 import {
   formatOrderStatus,
   normalizeQuery,
@@ -425,6 +426,10 @@ adminRouter.post(
         capacity: req.body?.slotCapacity,
         daysAhead: req.body?.slotDaysAhead,
       });
+      const discount = validateDiscountSettings({
+        enabled: req.body?.discountEnabled,
+        percent: req.body?.discountPercent,
+      });
 
       if (!name) {
         req.flash("error", "Shop name is required.");
@@ -444,6 +449,10 @@ adminRouter.post(
         req.flash("error", slots.error);
         return res.redirect("/admin/shops/new");
       }
+      if (!discount.ok) {
+        req.flash("error", discount.error);
+        return res.redirect("/admin/shops/new");
+      }
 
       const existing = await Shop.findOne({ slug });
       if (existing) {
@@ -460,6 +469,7 @@ adminRouter.post(
         openingTime: hours.openingTime,
         closingTime: hours.closingTime,
         pickupSlots: slots.settings,
+        discount: discount.settings,
         isActive: true,
       });
 
@@ -594,6 +604,10 @@ adminRouter.post(
         capacity: req.body?.slotCapacity,
         daysAhead: req.body?.slotDaysAhead,
       });
+      const discount = validateDiscountSettings({
+        enabled: req.body?.discountEnabled,
+        percent: req.body?.discountPercent,
+      });
 
       if (!name) {
         req.flash("error", "Shop name is required.");
@@ -611,6 +625,10 @@ adminRouter.post(
         req.flash("error", slots.error);
         return res.redirect(`/admin/shops/${id}/edit`);
       }
+      if (!discount.ok) {
+        req.flash("error", discount.error);
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
 
       const slugConflict = await Shop.findOne({ slug, _id: { $ne: shop._id } });
       if (slugConflict) {
@@ -625,6 +643,7 @@ adminRouter.post(
       shop.openingTime = hours.openingTime;
       shop.closingTime = hours.closingTime;
       shop.pickupSlots = slots.settings;
+      shop.discount = discount.settings;
       if (req.file?.path) {
         shop.image = req.file.path;
       }
@@ -1288,6 +1307,7 @@ adminRouter.post("/orders/:id/toggle-parcel", async (req, res) => {
     items: order.items,
     orderType: targetType,
     parcelChargePaise: chargePaise,
+    discountPercent: Number(order.discountPercent) || 0,
   });
   if (!totals.ok) {
     req.flash("error", "Order contains an invalid item.");

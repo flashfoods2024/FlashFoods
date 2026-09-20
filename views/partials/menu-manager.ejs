@@ -37,6 +37,27 @@
   </p>
 </div>
 
+<% var discountCfg = locals.discountSettings || (shop && shop.discount) || {}; %>
+<% if (locals.discountAction) { %>
+<div class="card">
+  <h2 class="h2" style="margin-top:0;">Discount</h2>
+  <p class="muted small" style="margin-top:0;">Apply a percentage discount to the food subtotal. Packaging (parcel) charges are never discounted, and all totals are calculated on the server.</p>
+  <form method="post" action="<%= discountAction %>" class="form">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+      <input name="enabled" type="checkbox" value="true" <%= discountCfg.enabled ? "checked" : "" %> />
+      Enable discount
+    </label>
+    <label>
+      <span>Discount (%)</span>
+      <input name="percent" type="number" min="0" max="100" step="0.01" value="<%= discountCfg.percent || 0 %>" style="max-width:220px;width:100%;" />
+    </label>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn" type="submit">Save Discount</button>
+    </div>
+  </form>
+</div>
+<% } %>
+
 <% var slotCfg = locals.slotSettings || (shop && shop.pickupSlots) || {}; %>
 <% if (locals.pickupSlotsAction) { %>
 <div class="card">

@@ -1,4 +1,5 @@
 import { toPaise } from "./money.js";
+import { computeDiscountPaise } from "./discount.js";
 
 /**
  * Normalize a `keep_items` payload into a sorted, de-duplicated list of item
@@ -50,6 +51,7 @@ export function computeAdjustedTotals({
   keepIndices,
   orderType,
   parcelChargePaise = 0,
+  discountPercent = 0,
 }) {
   const list = Array.isArray(items) ? items : [];
   const keepSet = new Set(keepIndices || []);
@@ -69,14 +71,20 @@ export function computeAdjustedTotals({
   }
 
   const parcel = orderType === "parcel" ? Math.max(0, Number(parcelChargePaise) || 0) : 0;
-  return { ok: true, updatedPaise: foodPaise + parcel };
+  const discountPaise = computeDiscountPaise(foodPaise, discountPercent);
+  return { ok: true, updatedPaise: foodPaise - discountPaise + parcel, discountPaise };
 }
 
 /**
  * Recompute an order's total (integer paise) from its items plus the parcel
  * charge for the target order type. Replaces the old float `+= / -=` deltas.
  */
-export function computeParcelTotals({ items, orderType, parcelChargePaise = 0 }) {
+export function computeParcelTotals({
+  items,
+  orderType,
+  parcelChargePaise = 0,
+  discountPercent = 0,
+}) {
   const list = Array.isArray(items) ? items : [];
   let foodPaise = 0;
   for (const item of list) {
@@ -89,5 +97,11 @@ export function computeParcelTotals({ items, orderType, parcelChargePaise = 0 })
   }
   const parcel =
     orderType === "parcel" ? Math.max(0, Number(parcelChargePaise) || 0) : 0;
-  return { ok: true, totalPaise: foodPaise + parcel, parcelChargePaise: parcel };
+  const discountPaise = computeDiscountPaise(foodPaise, discountPercent);
+  return {
+    ok: true,
+    totalPaise: foodPaise - discountPaise + parcel,
+    parcelChargePaise: parcel,
+    discountPaise,
+  };
 }
