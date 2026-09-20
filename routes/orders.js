@@ -29,6 +29,8 @@ import { signaturesMatch } from "../utils/signature.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 import { isShopAvailable } from "../utils/shop-hours.js";
 import { getShopDiscount, computeDiscountPaise } from "../utils/discount.js";
+import { createPickupQr } from "../utils/qr-pickup.js";
+import QRCode from "qrcode";
 import {
   verifyRazorpayCapturedPayment,
   verifyPhonePeCompletedPayment,
@@ -978,9 +980,26 @@ ordersRouter.get(
       req.flash("error", "Order not found.");
       return res.redirect("/orders");
     }
+
+    // QR pickup is offered while the order awaits collection. The token is
+    // signed and shop-bound server-side; the QR only carries it to the vendor.
+    let pickupQr = null;
+    if (order.status === "ready_for_pickup") {
+      const token = createPickupQr(order);
+      if (token) {
+        try {
+          const dataUrl = await QRCode.toDataURL(token, { width: 240, margin: 1 });
+          pickupQr = { token, dataUrl };
+        } catch (err) {
+          console.error("[QR] generation failed:", err.message);
+        }
+      }
+    }
+
     return res.render("orders/show", {
       pageTitle: `Order ${String(order._id).slice(-6)}`,
       order,
+      pickupQr,
     });
   },
 );

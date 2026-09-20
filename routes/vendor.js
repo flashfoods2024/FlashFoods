@@ -28,6 +28,7 @@ import {
 } from "../utils/shop-hours.js";
 import { validatePickupSlotSettings } from "../utils/pickup-slots.js";
 import { validateDiscountSettings } from "../utils/discount.js";
+import { verifyPickupQr } from "../utils/qr-pickup.js";
 import { cancelOrderPaid } from "../utils/order-cancel.js";
 import { adjustOrderPaid } from "../utils/order-adjust.js";
 import rateLimit from "express-rate-limit";
@@ -967,6 +968,103 @@ vendorRouter.post(
 
     if (req.accepts("json")) {
       return res.json({ success: true, message: `Pickup verified for ${order.customer?.name || "customer"}.` });
+    }
+
+    req.flash(
+      "success",
+      `Pickup verified for ${order.customer?.name || "customer"}.`,
+    );
+    return res.redirect("/vendor/verify");
+  },
+);
+
+// QR pickup verification. The QR payload is a signed token bound to a single
+// order + shop + expiry; replay is blocked by the atomic `ready_for_pickup`
+// precondition (the same guarantee the OTP flow uses). OTP remains available.
+vendorRouter.post(
+  "/vendor/verify-qr",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  otpVerifyLimiter,
+  async (req, res) => {
+    const raw = String((req.body && req.body.qr) || "").trim();
+
+    const wantsJson = req.accepts("json");
+
+    if (!raw) {
+      if (wantsJson) return res.status(400).json({ error: "Scan or enter a pickup QR code." });
+      req.flash("error", "Scan or enter a pickup QR code.");
+      return res.redirect("/vendor/verify");
+    }
+
+    // Server-authoritative validation: signature, shop binding and expiry.
+    const verdict = verifyPickupQr(raw, { shopId: req.vendorShopIdStr });
+    if (!verdict.ok) {
+      if (verdict.reason === "expired") {
+        if (wantsJson) {
+          return res
+            .status(410)
+            .json({ error: "This pickup QR code has expired. Ask the canteen to re-issue it." });
+        }
+        req.flash("error", "This pickup QR code has expired. Ask the canteen to re-issue it.");
+        return res.redirect("/vendor/verify");
+      }
+      if (verdict.reason === "wrong_shop") {
+        if (wantsJson) {
+          return res.status(404).json({ error: "This pickup QR code is not for this canteen." });
+        }
+        req.flash("error", "This pickup QR code is not for this canteen.");
+        return res.redirect("/vendor/verify");
+      }
+      // malformed / forged
+      console.warn("[QR] rejected pickup QR:", {
+        reason: verdict.reason,
+        shop: req.vendorShopIdStr,
+      });
+      if (wantsJson) return res.status(400).json({ error: "Invalid pickup QR code." });
+      req.flash("error", "Invalid pickup QR code.");
+      return res.redirect("/vendor/verify");
+    }
+
+    // Atomic completion scoped to this vendor's shop. A replayed or already
+    // completed QR loses the claim and can never complete an order twice.
+    const order = await Order.findOneAndUpdate(
+      { _id: verdict.orderId, shop: req.vendorShopId, status: "ready_for_pickup" },
+      { $set: { status: "completed", collectedAt: new Date() } },
+      { new: true },
+    ).populate("customer", "name");
+
+    if (!order) {
+      const existing = await Order.findOne({
+        _id: verdict.orderId,
+        shop: req.vendorShopId,
+      })
+        .select("status")
+        .lean();
+
+      if (wantsJson) {
+        return res.status(409).json({
+          error: existing
+            ? "This order was already collected or is not ready for pickup."
+            : "Order not found.",
+        });
+      }
+      req.flash(
+        "error",
+        existing
+          ? "This order was already collected or is not ready for pickup."
+          : "Order not found.",
+      );
+      return res.redirect("/vendor/verify");
+    }
+
+    if (wantsJson) {
+      return res.json({
+        success: true,
+        message: `Pickup verified for ${order.customer?.name || "customer"}.`,
+      });
     }
 
     req.flash(
