@@ -18,6 +18,7 @@ import { computeParcelCharge } from "../utils/pricing.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 import { computeParcelTotals } from "../utils/order-math.js";
 import { validateOperatingHours } from "../utils/shop-hours.js";
+import { validatePickupSlotSettings } from "../utils/pickup-slots.js";
 import {
   formatOrderStatus,
   normalizeQuery,
@@ -416,6 +417,14 @@ adminRouter.post(
         req.body?.openingTime,
         req.body?.closingTime,
       );
+      const slots = validatePickupSlotSettings({
+        enabled: req.body?.slotsEnabled,
+        startTime: req.body?.slotStartTime,
+        endTime: req.body?.slotEndTime,
+        durationMinutes: req.body?.slotDuration,
+        capacity: req.body?.slotCapacity,
+        daysAhead: req.body?.slotDaysAhead,
+      });
 
       if (!name) {
         req.flash("error", "Shop name is required.");
@@ -429,6 +438,10 @@ adminRouter.post(
 
       if (!hours.ok) {
         req.flash("error", hours.error);
+        return res.redirect("/admin/shops/new");
+      }
+      if (!slots.ok) {
+        req.flash("error", slots.error);
         return res.redirect("/admin/shops/new");
       }
 
@@ -446,6 +459,7 @@ adminRouter.post(
         isOpen,
         openingTime: hours.openingTime,
         closingTime: hours.closingTime,
+        pickupSlots: slots.settings,
         isActive: true,
       });
 
@@ -572,6 +586,14 @@ adminRouter.post(
         req.body?.openingTime,
         req.body?.closingTime,
       );
+      const slots = validatePickupSlotSettings({
+        enabled: req.body?.slotsEnabled,
+        startTime: req.body?.slotStartTime,
+        endTime: req.body?.slotEndTime,
+        durationMinutes: req.body?.slotDuration,
+        capacity: req.body?.slotCapacity,
+        daysAhead: req.body?.slotDaysAhead,
+      });
 
       if (!name) {
         req.flash("error", "Shop name is required.");
@@ -583,6 +605,10 @@ adminRouter.post(
       }
       if (!hours.ok) {
         req.flash("error", hours.error);
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
+      if (!slots.ok) {
+        req.flash("error", slots.error);
         return res.redirect(`/admin/shops/${id}/edit`);
       }
 
@@ -598,6 +624,7 @@ adminRouter.post(
       shop.isOpen = isOpen;
       shop.openingTime = hours.openingTime;
       shop.closingTime = hours.closingTime;
+      shop.pickupSlots = slots.settings;
       if (req.file?.path) {
         shop.image = req.file.path;
       }

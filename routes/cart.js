@@ -6,6 +6,7 @@ import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { computeParcelCharge } from "../utils/pricing.js";
 import { isShopAvailable } from "../utils/shop-hours.js";
+import { getSlotAvailability } from "../utils/pickup-slots.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 
 export const cartRouter = express.Router();
@@ -95,6 +96,7 @@ cartRouter.get(
 
     const parcelCharge = computeParcelCharge(shop, "parcel");
     const parcelChargePaise = toPaise(parcelCharge) || 0;
+    const slotAvailability = shop ? await getSlotAvailability(shop) : { enabled: false, slots: [] };
 
     return res.render("cart/index", {
       pageTitle: "Cart",
@@ -105,6 +107,7 @@ cartRouter.get(
       totalParcel: fromPaise(subtotalPaise + parcelChargePaise),
       allVariantsSelected,
       razorpayKeyId,
+      slotAvailability,
     });
   },
 );

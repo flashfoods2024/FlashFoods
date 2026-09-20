@@ -26,6 +26,7 @@ import {
   getShopAvailability,
   validateOperatingHours,
 } from "../utils/shop-hours.js";
+import { validatePickupSlotSettings } from "../utils/pickup-slots.js";
 import { cancelOrderPaid } from "../utils/order-cancel.js";
 import { adjustOrderPaid } from "../utils/order-adjust.js";
 import rateLimit from "express-rate-limit";
@@ -183,6 +184,7 @@ vendorRouter.get(
       pageTitle: "Vendor Dashboard",
       shop,
       availability: getShopAvailability(shop),
+      slotSettings: shop.pickupSlots,
       menuItems,
     });
   },
@@ -269,6 +271,45 @@ vendorRouter.post(
     } catch (error) {
       console.error(error);
       req.flash("error", "Failed to save operating hours.");
+      return res.redirect("/vendor/menu");
+    }
+  },
+);
+
+// Save the shop's pickup-slot configuration (window, duration, capacity).
+vendorRouter.post(
+  "/vendor/shop/pickup-slots",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/menu");
+      }
+
+      const result = validatePickupSlotSettings(req.body || {});
+      if (!result.ok) {
+        req.flash("error", result.error);
+        return res.redirect("/vendor/menu");
+      }
+
+      shop.pickupSlots = result.settings;
+      await shop.save();
+
+      req.flash(
+        "success",
+        result.settings.enabled
+          ? "Pickup slots saved."
+          : "Pickup slots disabled. Students pick any available time.",
+      );
+      return res.redirect("/vendor/menu");
+    } catch (error) {
+      console.error(error);
+      req.flash("error", "Failed to save pickup slots.");
       return res.redirect("/vendor/menu");
     }
   },

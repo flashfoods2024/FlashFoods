@@ -66,6 +66,17 @@ const shopSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    // Pickup-slot configuration. When `enabled`, students must choose one of
+    // the generated slots (see utils/pickup-slots.js) and capacity is enforced
+    // server-side via the PickupSlotBooking ledger.
+    pickupSlots: {
+      enabled: { type: Boolean, default: false },
+      startTime: { type: String, default: "", trim: true },
+      endTime: { type: String, default: "", trim: true },
+      durationMinutes: { type: Number, default: 15, min: 5, max: 240 },
+      capacity: { type: Number, default: 10, min: 1, max: 500 },
+      daysAhead: { type: Number, default: 1, min: 0, max: 7 },
+    },
     isActive: {
       type: Boolean,
       default: true,

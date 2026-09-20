@@ -156,14 +156,26 @@
     </div>
 
     <div class="pickup-time-section">
+      <% var slotsEnabled = !!(slotAvailability && slotAvailability.enabled); %>
       <label for="pickupTime">
-        <strong>Pickup Time</strong>
+        <strong><%= slotsEnabled ? "Pickup Slot" : "Pickup Time" %></strong>
       </label>
       <select id="pickupTime" class="input">
-        <option value="">Select pickup time</option>
+        <option value=""><%= slotsEnabled ? "Select pickup slot" : "Select pickup time" %></option>
+        <% if (slotsEnabled) { %>
+          <% slotAvailability.slots.forEach(function (slot) { %>
+            <option value="<%= slot.startIso %>" <%= slot.available ? "" : "disabled" %>>
+              <%= slot.label %><%= slot.available ? "" : " (full)" %>
+            </option>
+          <% }); %>
+        <% } %>
       </select>
       <p class="muted small">
-        Choose when you plan to collect your order.
+        <% if (slotsEnabled) { %>
+          Choose a pickup slot. Slots marked full are no longer bookable.
+        <% } else { %>
+          Choose when you plan to collect your order.
+        <% } %>
       </p>
     </div>
 
@@ -247,7 +259,8 @@
 
   // ── PICKUP TIME OPTIONS ──
   var pickupSelect = document.getElementById("pickupTime");
-  if (pickupSelect) {
+  var slotsFromServer = <%= (typeof slotAvailability !== 'undefined' && slotAvailability && slotAvailability.enabled) ? 'true' : 'false' %>;
+  if (pickupSelect && !slotsFromServer) {
     (function generatePickupTimes() {
       var now = new Date();
       for (var i = 5; i <= 120; i += 5) {

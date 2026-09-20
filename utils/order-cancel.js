@@ -1,4 +1,5 @@
 import { Order } from "../models/Order.js";
+import { releaseSlot } from "./pickup-slots.js";
 
 // Statuses from which a paid order can still be cancelled.
 const CANCELLABLE = { status: "paid", refundStatus: { $in: ["none", null] } };
@@ -36,6 +37,8 @@ export async function cancelOrderPaid({ orderId, shopId, refundFn }) {
       { new: true },
     );
     if (!cancelled) return { ok: false, reason: "conflict" };
+    // Free the pickup-slot place the order held (no-op without slot booking).
+    await releaseSlot(cancelled.shop, cancelled.pickupTime);
     return { ok: true, order: cancelled, refunded: false, mock: true };
   }
 
@@ -80,5 +83,7 @@ export async function cancelOrderPaid({ orderId, shopId, refundFn }) {
     return { ok: false, reason: "state_changed_after_refund", refundId };
   }
 
+  // Free the pickup-slot place the order held (no-op without slot booking).
+  await releaseSlot(finalized.shop, finalized.pickupTime);
   return { ok: true, order: finalized, refunded: true };
 }

@@ -37,6 +37,45 @@
   </p>
 </div>
 
+<% var slotCfg = locals.slotSettings || (shop && shop.pickupSlots) || {}; %>
+<% if (locals.pickupSlotsAction) { %>
+<div class="card">
+  <h2 class="h2" style="margin-top:0;">Pickup Slots</h2>
+  <p class="muted small" style="margin-top:0;">Let students book a fixed pickup slot with limited capacity. When disabled, students choose any available time.</p>
+  <form method="post" action="<%= pickupSlotsAction %>" class="form">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+      <input name="enabled" type="checkbox" value="true" <%= slotCfg.enabled ? "checked" : "" %> />
+      Enable pickup slots
+    </label>
+    <div class="row" style="gap:12px;flex-wrap:wrap;">
+      <label>
+        <span>Slot start (IST)</span>
+        <input name="startTime" type="time" value="<%= slotCfg.startTime || "" %>" style="max-width:200px;width:100%;" />
+      </label>
+      <label>
+        <span>Slot end (IST)</span>
+        <input name="endTime" type="time" value="<%= slotCfg.endTime || "" %>" style="max-width:200px;width:100%;" />
+      </label>
+      <label>
+        <span>Duration (minutes)</span>
+        <input name="durationMinutes" type="number" min="5" max="240" value="<%= slotCfg.durationMinutes || 15 %>" style="max-width:200px;width:100%;" />
+      </label>
+      <label>
+        <span>Capacity per slot</span>
+        <input name="capacity" type="number" min="1" max="500" value="<%= slotCfg.capacity || 10 %>" style="max-width:200px;width:100%;" />
+      </label>
+      <label>
+        <span>Days ahead</span>
+        <input name="daysAhead" type="number" min="0" max="7" value="<%= slotCfg.daysAhead ?? 1 %>" style="max-width:200px;width:100%;" />
+      </label>
+    </div>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn" type="submit">Save Slots</button>
+    </div>
+  </form>
+</div>
+<% } %>
+
 <% if (locals.operatingHoursAction) { %>
 <div class="card">
   <h2 class="h2" style="margin-top:0;">Operating Hours</h2>
