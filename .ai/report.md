@@ -125,11 +125,30 @@ Covered by the comprehensive suite (in-memory):
 
 ## 6. Stress / Load Testing
 
-**Not executed.** The repository's load tooling and the configured `.env`
-database are not an isolated environment; running them risks affecting real
-data (see the production-database incident documented in `.ai/INCIDENT_REPORT.md`).
-Per the evidence rule in `test.md`, this gate is recorded as **not run**, not as
-passed. Concurrency at the unit level (slot overbooking) was tested directly.
+**Not executed against the configured environment.** The repository's shared
+load/e2e tooling and the configured `.env` database are not an isolated
+environment; running them risks affecting real data (see the production-database
+incident documented in `.ai/INCIDENT_REPORT.md`). Per the evidence rule in
+`test.md`, this gate is recorded as **not run**, not as passed.
+
+Concurrency at the unit level (slot overbooking) was tested directly: 10
+concurrent reservations against capacity 3 → exactly 3 succeed.
+
+**Follow-up run (2026-09-20): isolated browser e2e for the vendor-profile V2
+flow was executed** via `npm run test:e2e:vendor-profile`, which boots an
+in-memory MongoDB and the real app on a private port (no shared/production data
+accessed). Result: **15/15 passed** (anonymous redirect, student blocked,
+student-profile regression, account/shop/snapshot, month/today/custom ranges,
+invalid & future ranges, name/phone editing with restricted-field read-only,
+invalid-edit rejection, nav entry, existing vendor pages, mobile viewport).
+
+**Blocked:** the *shared* `npm run test:e2e` suite (`playwright.config.js`)
+cannot be run in this environment because `tests/global-setup.mjs` /
+`global-teardown.mjs` connect to `process.env.MONGO_URI` and toggle a real
+shop (`isActive`/`isOpen`) plus re-link a vendor in the live database. With the
+single `.env` pointing at production and no `.env.development` split, running it
+would mutate production data — the documented incident vector. Resolving this
+requires an operator-provided isolated database/staging environment.
 
 ---
 
@@ -209,7 +228,11 @@ committed as `4652b44` so all Stage 1 feature work is committed.
 the comprehensive, regression, risk-based and global gates pass (222/222) under
 an isolated in-memory database. All Stage 1 feature work is now committed
 (F01/F02 finalized as `4652b44` in a follow-up run; F03–F07 and the quality-gate
-suite were already committed). Stress/load and shared-suite browser e2e are
-explicitly **not verified** in this environment for the safety reasons above;
-the vendor-profile flow is covered by an isolated in-memory Playwright harness
-instead.
+suite were already committed). The vendor-profile V2 browser flow is additionally
+verified end-to-end by an isolated in-memory Playwright harness (15/15).
+
+The **shared** Playwright suite and **stress/load** gates remain **not verified**
+for a hard, environment-level blocker: the single `.env` points at production and
+the shared e2e harness mutates the live database, so running them would risk real
+data (see §6 and `.ai/INCIDENT_REPORT.md`). This requires an operator to provide
+an isolated database / staging environment before those gates can be run safely.
