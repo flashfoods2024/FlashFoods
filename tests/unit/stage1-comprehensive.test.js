@@ -5,7 +5,7 @@
 // authorization matrix. Uses an in-memory MongoDB only — it never connects to
 // the configured application database.
 
-import test, { before, after, beforeEach } from "node:test";
+import test, { before, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import path from "node:path";
@@ -57,6 +57,21 @@ let currentUserId = null;
 let activeUser = null;
 let seedCart = null;
 let lastFlash = null;
+
+// ponytail: F04 slots are today-only with earliest = now + prep, so every
+// slot-dependent test freezes the clock at a fixed midday instant (13:00 IST).
+// Without this the suite passes or fails depending on the wall-clock hour it
+// happens to run in (e.g. after ~22:00 IST no same-day slot can meet prep).
+const FIXED_NOW_MS = new Date("2026-09-20T07:30:00.000Z").getTime();
+const RealDate = Date;
+class FixedDate extends RealDate {
+  constructor(...args) {
+    super(...(args.length ? args : [FIXED_NOW_MS]));
+  }
+  static now() {
+    return FIXED_NOW_MS;
+  }
+}
 
 before(async () => {
   process.env.QR_SECRET = QR_SECRET;
@@ -122,6 +137,7 @@ after(async () => {
 });
 
 beforeEach(async () => {
+  global.Date = FixedDate;
   await Promise.all([
     Shop.deleteMany({}),
     User.deleteMany({}),
@@ -146,7 +162,6 @@ beforeEach(async () => {
       endTime: "23:59",
       durationMinutes: 60,
       capacity: 2,
-      daysAhead: 1,
     },
     discount: { enabled: true, percent: 10 },
   });
@@ -173,6 +188,10 @@ beforeEach(async () => {
     available: true,
     variants: [{ label: "Regular", price: 100 }],
   });
+});
+
+afterEach(async () => {
+  global.Date = RealDate;
 });
 
 async function request(pathname, { method = "GET", user = null, body, form, accept, headers } = {}) {

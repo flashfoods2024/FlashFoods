@@ -62,16 +62,13 @@
           <input name="slotEndTime" type="time" value="<%= shop?.pickupSlots?.endTime || "" %>" />
         </label>
         <label>
-          <span>Duration (minutes)</span>
+          <span>Preparation Time (minutes)</span>
           <input name="slotDuration" type="number" min="5" max="240" value="<%= shop?.pickupSlots?.durationMinutes || 15 %>" />
+          <span class="muted small">Minimum lead time before a pickup can occur. The earliest slot starts at now + preparation time.</span>
         </label>
         <label>
           <span>Capacity per slot</span>
           <input name="slotCapacity" type="number" min="1" max="500" value="<%= shop?.pickupSlots?.capacity || 10 %>" />
-        </label>
-        <label>
-          <span>Days ahead</span>
-          <input name="slotDaysAhead" type="number" min="0" max="7" value="<%= shop?.pickupSlots?.daysAhead ?? 1 %>" />
         </label>
       </div>
     </fieldset>

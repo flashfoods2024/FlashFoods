@@ -424,7 +424,6 @@ adminRouter.post(
         endTime: req.body?.slotEndTime,
         durationMinutes: req.body?.slotDuration,
         capacity: req.body?.slotCapacity,
-        daysAhead: req.body?.slotDaysAhead,
       });
       const discount = validateDiscountSettings({
         enabled: req.body?.discountEnabled,
@@ -602,7 +601,6 @@ adminRouter.post(
         endTime: req.body?.slotEndTime,
         durationMinutes: req.body?.slotDuration,
         capacity: req.body?.slotCapacity,
-        daysAhead: req.body?.slotDaysAhead,
       });
       const discount = validateDiscountSettings({
         enabled: req.body?.discountEnabled,

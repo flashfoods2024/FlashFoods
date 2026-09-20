@@ -14,7 +14,7 @@
 | F01 | Student Profile | PASS | `tests/unit/vendor-profile.test.js` (student regression) + existing profile route tests | included below |
 | F02 | Vendor Profile | PASS | `tests/unit/vendor-profile.test.js`, `tests/unit/vendor-analytics.test.js` | included below |
 | F03 | Shop Open / Close Timing | PASS | `tests/unit/shop-hours.test.js` | 30 |
-| F04 | Pickup Slots | PASS | `tests/unit/pickup-slots.test.js` | 23 |
+| F04 | Pickup Slots | PASS | `tests/unit/pickup-slots.test.js` | 39 |
 | F05 | Vendor Discounts | PASS | `tests/unit/discount.test.js` | 17 |
 | F06 | FCM Migration | PASS | `tests/unit/fcm.test.js` | 11 |
 | F07 | QR Pickup | PASS | `tests/unit/qr-pickup.test.js` | 15 |
@@ -27,13 +27,16 @@
 ### Feature + regression + global suite
 
 ```
-npm test   →   222 pass, 0 fail   (tests/unit/**/*.test.js, in-memory DB)
+npm test   →   238 pass, 0 fail   (tests/unit/**/*.test.js, in-memory DB)
 ```
 
 This run includes the feature tests above plus the pre-existing suites
 (money, otp, signature, webhook-signature, payment-verification, order-cancel,
 order-adjust, order-math, notification-dispatch, vendor-analytics,
-vendor-profile, discount).
+vendor-profile, discount). The count is 238 following the F04 final bug-fix +
+UI cleanup (39 tests in `tests/unit/pickup-slots.test.js`, including the
+11:20→11:30 and 11:35→11:45 critical cases) and the comprehensive-suite clock
+freeze described below.
 
 Command:
 
@@ -62,7 +65,19 @@ in-memory DB and exercises the features together:
   manual open/close switch.
 - **F04:** slots constrained to operating hours; capacity enforced atomically;
   **10 concurrent reservations against capacity 3 → exactly 3 succeed**
-  (overbooking proven impossible); release on cancel.
+  (overbooking proven impossible); release on cancel. **Preparation-time
+  finalization:** the configured `durationMinutes` is now enforced as the
+  vendor's **preparation time** — the earliest valid slot always begins at
+  `max(now + preparation time, window start)` with no rounding to the old
+  slot-start grid (enforced both in the student-facing list and server-side at
+  reservation: `pickupStart < now + prep` is rejected). **Days Ahead removed:**
+  no vendor/admin UI control, no request parsing, no validation, no role in
+  generation (stored `Shop.pickupSlots.daysAhead` on old documents is ignored;
+  no migration needed). User-facing label is **"Preparation Time (minutes)"**
+  with "Minimum lead time before a pickup can occur." help text; vendor Pickup
+  Slots section uses a compact responsive grid. Slots are today-only (IST), so
+  the comprehensive suite freezes the clock at 13:00 IST to stay
+  wall-clock-independent.
 - **F05:** single-round paise math; food-only discount (parcel excluded);
   adjustment and parcel toggle preserve the discount; gateway amount uses the
   discounted total.
@@ -225,11 +240,12 @@ committed as `4652b44` so all Stage 1 feature work is committed.
 ## 10. Verdict
 
 🟢 **Stage 1 feature build COMPLETE** — F01–F07 all pass their feature tests, and
-the comprehensive, regression, risk-based and global gates pass (222/222) under
+the comprehensive, regression, risk-based and global gates pass (238/238) under
 an isolated in-memory database. All Stage 1 feature work is now committed
 (F01/F02 finalized as `4652b44` in a follow-up run; F03–F07 and the quality-gate
-suite were already committed). The vendor-profile V2 browser flow is additionally
-verified end-to-end by an isolated in-memory Playwright harness (15/15).
+suite were already committed; the F04 final bug-fix + UI cleanup + Days Ahead
+removal was verified in the working tree, uncommitted at time of writing). The vendor-profile V2 browser flow is additionally verified
+end-to-end by an isolated in-memory Playwright harness (15/15).
 
 The **shared** Playwright suite and **stress/load** gates remain **not verified**
 for a hard, environment-level blocker: the single `.env` points at production and

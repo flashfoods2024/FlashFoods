@@ -1,9 +1,14 @@
 // Pickup-slot logic.
 //
-// A shop may configure a daily pickup window (start/end) split into fixed
-// duration slots, each with its own capacity. Students choose a slot instead of
-// a free-form time, and capacity is enforced atomically through the
-// PickupSlotBooking ledger so a slot can never be overbooked.
+// A shop may configure a daily pickup window (start/end). Students choose a
+// slot instead of a free-form time, and capacity is enforced atomically
+// through the PickupSlotBooking ledger so a slot can never be overbooked.
+//
+// The configured `durationMinutes` is the shop's "Preparation Time (minutes)"
+// — the minimum lead time before a pickup can occur. The earliest valid
+// pickup is `max(now + preparation time, window start)`; the first slot
+// starts exactly there and later slots follow at `duration`-minute steps
+// (see `generateSlotInstants`). The same value is also the slot width.
 //
 // All wall-clock times are IST (Asia/Kolkata), matching the rest of the app.
 
@@ -16,13 +21,14 @@ import {
 import { validatePickupTime } from "./time.js";
 
 const IST_OFFSET_MS = 330 * 60 * 1000;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const MIN_DURATION = 5;
 const MAX_DURATION = 240;
 const MIN_CAPACITY = 1;
 const MAX_CAPACITY = 500;
-const MAX_DAYS_AHEAD = 7;
+// ponytail: daysAhead removed from F04; stored Shop.pickupSlots.daysAhead (if
+// present on old documents) is ignored, never read. DB field kept so no
+// migration is needed.
 
 function isEnabledFlag(value) {
   return value === true || value === "true" || value === "on" || value === "1" || value === 1;
@@ -49,10 +55,6 @@ export function validatePickupSlotSettings(raw = {}) {
     if (Number.isInteger(capacity) && capacity >= MIN_CAPACITY && capacity <= MAX_CAPACITY) {
       settings.capacity = capacity;
     }
-    const daysAhead = Number(raw.daysAhead);
-    if (Number.isInteger(daysAhead) && daysAhead >= 0 && daysAhead <= MAX_DAYS_AHEAD) {
-      settings.daysAhead = daysAhead;
-    }
     return { ok: true, settings };
   }
 
@@ -74,7 +76,7 @@ export function validatePickupSlotSettings(raw = {}) {
   if (!Number.isInteger(duration) || duration < MIN_DURATION || duration > MAX_DURATION) {
     return {
       ok: false,
-      error: `Slot duration must be between ${MIN_DURATION} and ${MAX_DURATION} minutes.`,
+      error: `Preparation time must be between ${MIN_DURATION} and ${MAX_DURATION} minutes.`,
     };
   }
   if (endMinutes - startMinutes < duration) {
@@ -89,11 +91,6 @@ export function validatePickupSlotSettings(raw = {}) {
     };
   }
 
-  let daysAhead = raw.daysAhead === undefined || raw.daysAhead === "" ? 1 : Number(raw.daysAhead);
-  if (!Number.isInteger(daysAhead) || daysAhead < 0 || daysAhead > MAX_DAYS_AHEAD) {
-    return { ok: false, error: `Days ahead must be between 0 and ${MAX_DAYS_AHEAD}.` };
-  }
-
   return {
     ok: true,
     settings: {
@@ -102,7 +99,6 @@ export function validatePickupSlotSettings(raw = {}) {
       endTime: end,
       durationMinutes: duration,
       capacity,
-      daysAhead,
     },
   };
 }
@@ -122,9 +118,13 @@ function istWallTimeToDate(y, m, d, minutes) {
   );
 }
 
-// Generate the concrete slot instants for today + `daysAhead` future IST days.
-// Only slots that start strictly in the future are returned, so a student can
-// never book a slot that has already begun.
+// Generate today's concrete slot instants (IST).
+//
+// earliestPickup = max(now + preparation time, window start). The first slot
+// starts EXACTLY at earliestPickup — it is never rounded forward to the old
+// window-start grid — and later slots follow at `duration`-minute steps. A
+// slot is emitted only when its full interval fits inside the window
+// (`start + duration <= window end`), so past slots never appear.
 export function generateSlotInstants(settings, now = new Date()) {
   if (!settings || settings.enabled !== true) return [];
 
@@ -141,22 +141,20 @@ export function generateSlotInstants(settings, now = new Date()) {
     return [];
   }
 
-  const daysAhead = Number.isInteger(settings.daysAhead) ? settings.daysAhead : 1;
+  const stepMs = duration * 60 * 1000;
   const { y, m, d } = istDateParts(now);
+  const windowStartMs = istWallTimeToDate(y, m, d, startMinutes).getTime();
+  const windowEndMs = istWallTimeToDate(y, m, d, endMinutes).getTime();
+  // ponytail: ceil to the whole minute so every student viewing within the
+  // same minute sees the identical lattice (shared capacity buckets) and a
+  // displayed slot stays bookable for checkout. Never rounded to the old
+  // window-start grid; prep is only ever rounded UP, never cut short.
+  const earliestMs =
+    Math.ceil(Math.max(now.getTime() + stepMs, windowStartMs) / 60000) * 60000;
   const out = [];
 
-  for (let day = 0; day <= daysAhead; day++) {
-    const base = new Date(Date.UTC(y, m, d) + day * MS_PER_DAY);
-    const yy = base.getUTCFullYear();
-    const mm = base.getUTCMonth();
-    const dd = base.getUTCDate();
-    for (let t = startMinutes; t + duration <= endMinutes; t += duration) {
-      const start = istWallTimeToDate(yy, mm, dd, t);
-      const end = istWallTimeToDate(yy, mm, dd, t + duration);
-      if (start.getTime() > now.getTime()) {
-        out.push({ start, end });
-      }
-    }
+  for (let s = earliestMs; s + stepMs <= windowEndMs; s += stepMs) {
+    out.push({ start: new Date(s), end: new Date(s + stepMs) });
   }
 
   return out;
@@ -223,23 +221,51 @@ export async function releaseSlot(shopId, slotStart) {
   );
 }
 
-// Resolve a submitted value to one of the shop's real slots.
+// Resolve a submitted value to a valid pickup slot. Validated structurally
+// (same IST day, full interval inside the window, preparation time met,
+// operating hours) instead of exact-matching a regenerated lattice, because
+// the lattice anchor moves with `now` — exact-matching would reject honestly
+// displayed slots seconds after the cart page rendered them.
+const RESOLVE_SKEW_MS = 60 * 1000; // clock/round-trip tolerance, << prep range
 export function resolvePickupSlot(shop, value, now = new Date()) {
   const settings = shop?.pickupSlots;
   if (!settings || settings.enabled !== true) {
     return { ok: false, error: "This shop does not use pickup slots." };
   }
+  const duration = Number(settings.durationMinutes);
+  if (!Number.isInteger(duration) || duration <= 0) {
+    return { ok: false, error: "Please choose a valid pickup slot." };
+  }
   const target = new Date(value);
-  if (Number.isNaN(target.getTime())) {
+  const t = target.getTime();
+  if (Number.isNaN(t)) {
     return { ok: false, error: "Please choose a valid pickup slot." };
   }
-  const match = generateSlotInstants(settings, now)
-    .filter((slot) => isWithinOperatingHours(shop, slot.start))
-    .find((slot) => slot.start.getTime() === target.getTime());
-  if (!match) {
+  const startMinutes = parseTimeToMinutes(settings.startTime);
+  const endMinutes = parseTimeToMinutes(settings.endTime);
+  if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
     return { ok: false, error: "Please choose a valid pickup slot." };
   }
-  return { ok: true, slot: match };
+  // Today-only: the slot must fall on the same IST day as `now`.
+  const { y, m, d } = istDateParts(now);
+  const tp = istDateParts(target);
+  if (tp.y !== y || tp.m !== m || tp.d !== d) {
+    return { ok: false, error: "Please choose a valid pickup slot." };
+  }
+  const stepMs = duration * 60 * 1000;
+  const windowStartMs = istWallTimeToDate(y, m, d, startMinutes).getTime();
+  const windowEndMs = istWallTimeToDate(y, m, d, endMinutes).getTime();
+  if (t < windowStartMs || t + stepMs > windowEndMs) {
+    return { ok: false, error: "Please choose a valid pickup slot." };
+  }
+  // Preparation time: reject a slot that starts before now + prep.
+  if (t < now.getTime() + stepMs - RESOLVE_SKEW_MS) {
+    return { ok: false, error: "Please choose a valid pickup slot." };
+  }
+  if (!isWithinOperatingHours(shop, target)) {
+    return { ok: false, error: "Please choose a valid pickup slot." };
+  }
+  return { ok: true, slot: { start: target, end: new Date(t + stepMs) } };
 }
 
 // Validate + reserve in one step for order creation.
