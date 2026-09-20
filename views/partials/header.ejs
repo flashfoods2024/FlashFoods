@@ -17,6 +17,7 @@
     <script src="/js/firebase/firebase-messaging-compat.js"></script>
     <script>
     window.__FIREBASE_CONFIG__ = <%- JSON.stringify(firebaseConfig) %>;
+    window.__FCM_VENDOR_ID__ = <%- JSON.stringify(String(currentUser.id)) %>;
     </script>
     <script src="/js/firebase-client.js"></script>
     <% } %>

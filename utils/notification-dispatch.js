@@ -9,6 +9,30 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Build the FCM notification + data payload for a new order.
+//
+// The `tag` is derived from the order id, so repeat/duplicate deliveries for the
+// same order collapse into a single system notification (no duplicate alert),
+// and `vendorId` targets only the shop's own vendor.
+// Pure + exported so it can be unit-tested without a live FCM connection.
+export function buildNewOrderNotification(order, vendorId) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  return {
+    notification: {
+      title: "New Order",
+      body: `₹${Number(order.total).toFixed(2)} — ${items.length} item(s)`,
+      icon: "/icons/icon-192x192.png",
+    },
+    data: {
+      vendorId: String(vendorId),
+      orderId: String(order._id),
+      click_action: "/vendor/orders/pending",
+      tag: "flashfoods-new-order-" + String(order._id),
+      timestamp: String(Date.now()),
+    },
+  };
+}
+
 export async function dispatchNewOrderNotification(order) {
   if (!isFcmConfigured()) {
     console.log("[FCM] dispatch skipped — Firebase not configured");
@@ -31,18 +55,9 @@ export async function dispatchNewOrderNotification(order) {
     }
 
     const registrationTokens = tokens.map((t) => t.token);
+    const { notification, data } = buildNewOrderNotification(order, vendorId);
 
-    await sendWithRetry(registrationTokens, {
-      title: "New Order",
-      body: `₹${Number(order.total).toFixed(2)} — ${order.items.length} item(s)`,
-      icon: "/icons/icon-192x192.png",
-    }, {
-      vendorId: vendorId,
-      orderId: String(order._id),
-      click_action: "/vendor/orders/pending",
-      tag: "flashfoods-new-order-" + String(order._id),
-      timestamp: String(Date.now()),
-    });
+    await sendWithRetry(registrationTokens, notification, data);
   } catch (err) {
     console.error("[FCM] dispatch error:", err.message);
   }
