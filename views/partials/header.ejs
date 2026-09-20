@@ -77,6 +77,14 @@
                 <a class="nav__link nav-main__greet<%= currentPath === "/profile" ? " is-active" : "" %>" href="/profile">
                   Hi, <%= currentUser.name %>
                 </a>
+              <% } else if (currentUser.role === "vendor" && typeof vendorShop !== "undefined" && vendorShop && vendorShop.slug) { %>
+                <a
+                  class="nav__link nav__text nav-main__greet<%= currentPath === "/vendor/profile" ? " is-active" : "" %>"
+                  href="/vendor/profile"
+                  title="View your vendor profile"
+                >
+                  Hi, <%= currentUser.name %>
+                </a>
               <% } else { %>
                 <span class="nav__text nav-main__greet">
                   Hi, <%= currentUser.name %>
