@@ -18,6 +18,7 @@ import {
 } from "../config/phonepe.js";
 import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
 import { emitPendingCount } from "../socket/index.js";
+import { dispatchOrderReadyNotification } from "../utils/notification-dispatch.js";
 import { computeParcelCharge } from "../utils/pricing.js";
 import { otpExpiryFrom, isOtpExpired } from "../utils/otp.js";
 import { toPaise, fromPaise } from "../utils/money.js";
@@ -709,6 +710,12 @@ vendorRouter.post(
     }
 
     emitPendingCount(updated.shop);
+
+    // F06.5 — notify the ordering student. Fire-and-forget (never throws,
+    // never blocks the redirect). Runs only here, after the atomic
+    // accepted → ready_for_pickup transition succeeded, so duplicate or
+    // failed transitions never produce a notification. Vendor flow unchanged.
+    dispatchOrderReadyNotification(updated);
 
     req.flash(
       "success",

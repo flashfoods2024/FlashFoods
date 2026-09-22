@@ -12,12 +12,18 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/notification-manager.js"></script>
     <script src="/js/update-manager.js"></script>
-    <% if (currentUser && currentUser.role === "vendor" && firebaseConfig) { %>
+    <% if (currentUser && (currentUser.role === "vendor" || currentUser.role === "student") && firebaseConfig) { %>
     <script src="/js/firebase/firebase-app-compat.js"></script>
     <script src="/js/firebase/firebase-messaging-compat.js"></script>
     <script>
     window.__FIREBASE_CONFIG__ = <%- JSON.stringify(firebaseConfig) %>;
     window.__FCM_VENDOR_ID__ = <%- JSON.stringify(String(currentUser.id)) %>;
+    window.__FCM_USER_ID__ = <%- JSON.stringify(String(currentUser.id)) %>;
+    <% if (currentUser.role === "student") { %>
+    window.__FCM_REGISTER_URL__ = "/api/fcm/student/register";
+    window.__FCM_UNREGISTER_URL__ = "/api/fcm/student/unregister";
+    window.__FCM_DEFAULT_PAGE__ = "/orders";
+    <% } %>
     </script>
     <script src="/js/firebase-client.js"></script>
     <% } %>

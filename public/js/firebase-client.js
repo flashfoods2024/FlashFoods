@@ -9,12 +9,16 @@
   if (!config) return;
   var vapidKey = config.vapidKey || null;
 
-  // Token ownership is keyed per vendor so switching accounts on the same
-  // browser cannot leave a stale token bound to the previous vendor.
-  var vendorId = String(window.__FCM_VENDOR_ID__ || "unknown");
-  var TOKEN_KEY = "fcm_token:" + vendorId;
+  // Token ownership is keyed per user so switching accounts on the same
+  // browser cannot leave a stale token bound to the previous user.
+  // Vendors use __FCM_VENDOR_ID__ (kept for compatibility); students set
+  // __FCM_USER_ID__ with role-specific register URLs from the header.
+  var userId = String(window.__FCM_USER_ID__ || window.__FCM_VENDOR_ID__ || "unknown");
+  var TOKEN_KEY = "fcm_token:" + userId;
   var VENDOR_KEY = "fcm_vendor";
-  var DEFAULT_DASHBOARD = "/vendor/orders/pending";
+  var REGISTER_URL = window.__FCM_REGISTER_URL__ || "/api/fcm/register";
+  var UNREGISTER_URL = window.__FCM_UNREGISTER_URL__ || "/api/fcm/unregister";
+  var DEFAULT_DASHBOARD = window.__FCM_DEFAULT_PAGE__ || "/vendor/orders/pending";
 
   if (firebase.apps.length === 0) {
     try {
@@ -33,16 +37,16 @@
     });
   }
 
-  // If a different vendor previously registered here, release that binding.
+  // If a different user previously registered here, release that binding.
   var previousVendor = localStorage.getItem(VENDOR_KEY);
-  if (previousVendor && previousVendor !== vendorId) {
+  if (previousVendor && previousVendor !== userId) {
     var staleToken = localStorage.getItem("fcm_token:" + previousVendor);
     if (staleToken) {
-      jsonPost("/api/fcm/unregister", { token: staleToken }).catch(function () {});
+      jsonPost(UNREGISTER_URL, { token: staleToken }).catch(function () {});
     }
     localStorage.removeItem("fcm_token:" + previousVendor);
   }
-  localStorage.setItem(VENDOR_KEY, vendorId);
+  localStorage.setItem(VENDOR_KEY, userId);
 
   // Persist a (possibly refreshed) token, releasing the previous one first.
   function registerToken(token) {
@@ -50,11 +54,11 @@
     var previous = localStorage.getItem(TOKEN_KEY);
     var chain = Promise.resolve();
     if (previous && previous !== token) {
-      chain = jsonPost("/api/fcm/unregister", { token: previous }).catch(function () {});
+      chain = jsonPost(UNREGISTER_URL, { token: previous }).catch(function () {});
     }
     return chain
       .then(function () {
-        return jsonPost("/api/fcm/register", {
+        return jsonPost(REGISTER_URL, {
           token: token,
           deviceInfo: navigator.userAgent,
         });
@@ -105,7 +109,7 @@
       });
   });
 
-  // Initial registration. Skip the permission prompt when this vendor already
+  // Initial registration. Skip the permission prompt when this user already
   // has a registered token and permission is still granted.
   var existing = localStorage.getItem(TOKEN_KEY);
   if (existing && Notification.permission === "granted") return;
