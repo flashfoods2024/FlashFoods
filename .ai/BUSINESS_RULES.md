@@ -91,6 +91,19 @@ pending_payment → cancelled (payment failed or timeout)
 3. Vendor enters the OTP to mark an order as completed.
 4. OTP lookup is scoped to the vendor's shop and `ready_for_pickup` status.
 
+## Pickup Contract (vendor-scans-student-QR, OTP backup-only)
+
+Pickup is vendor-scans-student-QR with OTP as backup-only (origin: F07, see
+`.ai/HISTORY.md`). The implementation lives in `utils/qr-pickup.js`,
+student QR display, the vendor scanner (`views/vendor/verify.ejs` plus the
+Pending Orders verify bar), `POST /vendor/verify-qr`, and the OTP path, with
+atomic `ready_for_pickup → completed` + `collectedAt`; greenfield
+rebuild of any of these is forbidden. `ready_for_pickup` implies paid
+eligibility via the existing `paid → accepted → ready_for_pickup` chain —
+no new payment architecture. Forbidden in
+active work: vendor pickup-confirm buttons, new intermediate pickup
+statuses, student-scans-vendor direction, mandatory OTP.
+
 ## Notification Rules
 
 1. Socket.IO emits pending count changes to the vendor's shop room.

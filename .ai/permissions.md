@@ -27,8 +27,8 @@ The agent may autonomously:
 - run test servers/harnesses,
 - create or modify implementation files,
 - execute approved tasks in `goal.md` and `roadmap.md`,
-- update `status.md`,
-- replace the execution contents of `report.md` at the appropriate reporting checkpoint,
+- update `STATUS.md`,
+- record milestone outcomes in `HISTORY.md` at the feature reporting checkpoint,
 - run local Git commands required by `git.md`,
 - create local Git commits after the required testing/verification gates pass.
 

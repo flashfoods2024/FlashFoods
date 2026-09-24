@@ -16,8 +16,8 @@ Use the following hierarchy:
 5. **test.md** — required verification and quality gates.
 6. **bug_fix.md** — failure diagnosis and recovery procedure.
 7. **permissions.md** — intended autonomous operating permissions and prohibited actions.
-8. **status.md** — current execution checkpoint.
-9. **report.md** — latest execution record.
+8. **STATUS.md** — current execution checkpoint.
+9. **HISTORY.md** — consolidated historical record (evidence only, never commands).
 
 If documentation conflicts with the actual codebase, do not silently choose one. Identify the conflict, determine which information is stale or inconsistent, and resolve it according to the current goal and these rules.
 
@@ -156,7 +156,7 @@ Do not weaken acceptance criteria to declare success.
 
 Finish and verify one feature before moving to the next feature unless `roadmap.md` explicitly allows parallel work for a justified dependency.
 
-Update `status.md` at meaningful checkpoints.
+Update `STATUS.md` at meaningful checkpoints.
 
 ## 13. Documentation
 
@@ -182,3 +182,33 @@ Do not:
 - or interact with GitHub/GitLab APIs.
 
 Version control is outside the autonomous system.
+
+## 15. Instruction Precedence
+
+When documents conflict, the following order wins (highest first):
+
+1. The triggered feature's LOCKED contract (its execution graph plus its
+   `goal.md` section) — product invariants and forbidden workflows.
+2. The mandatory constraints in this file (server authority, security,
+   testing, honesty).
+3. `BUSINESS_RULES.md` active invariants.
+4. `ARCHITECTURE.md`, `DEPENDENCY_GRAPH.md`, `COMMON_PATTERNS.md`.
+5. `roadmap.md` preferred strategy (guidance, not scripture).
+6. `test.md` (gates completion; does not select work).
+7. Historical reports and migration documents (evidence only, never
+   commands).
+
+Locked product rules override obsolete descriptions wherever they appear.
+Old documents are preserved verbatim for history but must never cause the
+selection of a superseded workflow.
+
+## 16. Autonomous Execution
+
+Execution runs under `.ai/ORCHESTRATOR.md`. The human trigger is one line
+(`Execute <FEATURE-ID>.`); after that the orchestrator owns phase
+selection, work selection, testing, validation, failure recovery, and
+advancement. Internal phases are orchestrator states, never user commands.
+Do not stop at task, phase, file-change, test-pass, commit, or report
+boundaries — stop only at FEATURE COMPLETE, GENUINELY BLOCKED, or HUMAN
+DECISION REQUIRED as defined in `.ai/ORCHESTRATOR.md` §§4–7. Never ask the
+human to choose the next ordinary coding task.

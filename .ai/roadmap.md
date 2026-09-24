@@ -1,4 +1,4 @@
-# FlashFoods V2 — Stage 1 Roadmap
+# FlashFoods Roadmap — Active / Future Work
 
 ## Roadmap Philosophy
 
@@ -23,84 +23,22 @@ BUILD → FEATURE TEST → FIX → RETEST → VERIFY → PASS
 
 Only after the current feature passes may the next feature begin.
 
-## Recommended Sequence
+## Completed
 
-### F01 — Student Profile
+Stage 1 (F01–F05, F06/F06.5, F07) is COMPLETE — details in `.ai/HISTORY.md`.
+No feature is currently active (`goal.md`: NONE).
 
-Start with the least invasive user-facing profile work.
+## Candidate Future Work (unplanned, unordered)
 
-Preferred approach:
-- inspect current student profile implementation,
-- preserve existing routes/authentication,
-- make the smallest safe additions needed for the goal,
-- add focused tests.
+Carried forward from history — each needs a goal definition before execution:
 
-### F02 — Vendor Profile
+1. E2E/load environment isolation (staged DB, harness prod-guard).
+2. Slot-reservation expiry sweep for abandoned `pending_payment` orders.
+3. Auth hardening backlog: login rate limiting, Socket.IO auth, MemoryStore replacement, CSRF, session invalidation on reset.
+4. Easebuzz completion-or-disable; analytics-cache performance.
+5. Playwright fixture seeding for the shared suite.
 
-Build on existing vendor authentication, vendor-to-shop ownership and existing admin analytics patterns.
-
-Preferred approach:
-- derive ownership from authenticated vendor/session,
-- reuse existing shop/order analytics logic,
-- use bounded MongoDB aggregation,
-- keep EJS UI consistent with the current application,
-- add focused authorization and analytics tests.
-
-### F03 — Shop Open / Close Timing
-
-Implement operating-hours configuration before pickup-slot logic so later slot behaviour can depend on valid shop hours.
-
-Preferred approach:
-- centralize time validation,
-- reuse existing shop state logic,
-- define clear timezone behaviour,
-- test boundary conditions before continuing.
-
-### F04 — Pickup Slots
-
-Use the established shop-hours behaviour as the constraint for slot generation.
-
-Preferred approach:
-- define slot generation rules,
-- define capacity rules,
-- enforce capacity server-side,
-- test concurrency/overbooking cases,
-- preserve existing pickup workflow.
-
-### F05 — Vendor Discounts
-
-Implement discounts after order/shop configuration is stable.
-
-Preferred approach:
-- define authoritative discount calculation,
-- reuse existing money utilities,
-- ensure payment amounts use server-calculated totals,
-- test rounding, invalid values, disabled discounts, cancellations/refunds where applicable.
-
-### F06 — FCM Migration
-
-Perform notification architecture work only after the order/pickup features are stable.
-
-Preferred approach:
-- map current Socket.IO notification flows,
-- identify what must remain real-time,
-- introduce FCM incrementally,
-- preserve fallback behaviour while validating background delivery,
-- test token lifecycle and duplicate delivery.
-
-### F07 — QR Pickup
-
-Implement QR pickup last among the feature builds because it touches an operationally sensitive workflow and must coexist safely with OTP pickup.
-
-Preferred approach:
-- define a minimal signed/validated payload,
-- make the server authoritative,
-- bind verification to authenticated vendor + order + shop,
-- prevent replay and duplicate completion,
-- keep OTP as fallback,
-- test malformed, expired, reused, wrong-shop, wrong-order, and concurrent cases.
-
-## After F01–F07
+## After Each Future Feature
 
 Run the post-feature quality sequence defined in `test.md`:
 

@@ -33,11 +33,11 @@ For every feature in `goal.md`:
 3. If any test fails, follow `bug_fix.md`, fix the root cause, and retest.
 4. Perform the feature verification defined by `test.md`.
 5. Confirm the feature's Definition of Done is satisfied.
-6. Update `status.md` to record the feature as PASS/COMPLETE.
+6. Update `STATUS.md` to record the feature as PASS/COMPLETE.
 7. Review the working-tree changes before staging anything.
 8. Stage **only files belonging to the completed feature and the related status/documentation update**.
 9. Create one local Git commit for that completed feature.
-10. Record the commit hash/message in `status.md` or the appropriate execution report.
+10. Record the commit hash/message in `STATUS.md` or the appropriate execution report.
 11. Only after the commit succeeds may the agent move to the next feature.
 
 ## Commit Isolation
@@ -103,7 +103,7 @@ The agent must NOT begin the next feature until all of these are true for the cu
 - required feature tests pass;
 - required regression checks pass;
 - verification passes;
-- `status.md` updated;
+- `STATUS.md` updated;
 - local Git commit created successfully.
 
 ## End-of-Goal Commit

@@ -95,37 +95,39 @@ Verify:
 - cancellation/refund interactions where applicable,
 - vendor isolation.
 
-### F06 FCM
+### F06.5 Student Order Ready Notification — COMPLETE
 
 Verify:
-- token registration,
-- token refresh,
-- invalid token handling,
-- foreground delivery,
-- background delivery,
-- correct vendor targeting,
-- duplicate notification prevention,
-- required Socket.IO functionality still works.
+- vendor marking ready triggers exactly one student notification,
+- correct student targeting (no cross-student leak),
+- single notification sound (no alarm, no continuous ringing),
+- background/closed-PWA delivery,
+- tap opens the correct order page,
+- existing vendor notifications unchanged.
 
-### F07 QR Pickup
+### F07 QR Pickup — READY (trigger: `Execute F07.`)
 
 Verify:
-- valid QR,
-- invalid QR,
+- student QR generated per order,
+- vendor scanner shows name, phone, order number, items, quantity, amount,
+- valid QR closes order immediately (completed),
+- invalid/failed QR does NOT close order (stays ready_for_pickup),
 - malformed QR,
 - wrong vendor,
 - wrong shop,
 - wrong order,
-- expired QR if expiry is implemented,
 - reused QR,
 - replay attempt,
-- concurrent verification,
+- concurrent verification (single close),
 - server-authoritative pickup completion,
-- OTP fallback still works.
+- OTP fallback works when QR fails,
+- existing OTP flow still functional,
+- no vendor pickup-confirm button exists in the flow,
+- no partial-close state and no order reopening.
 
 ## 3. New-Feature Comprehensive Test
 
-After F01–F07 all individually pass:
+After F01–F05 + F06.5 + F07 all individually pass:
 
 Run the complete feature set together.
 
@@ -134,7 +136,7 @@ Test interactions such as:
 - discounts + payment totals,
 - pickup slots + orders,
 - QR pickup + order status,
-- FCM + new order/pickup events,
+- F06.5 ready-notification + F07 QR pickup,
 - profiles + role authorization.
 
 ## 4. Risk-Based Testing
