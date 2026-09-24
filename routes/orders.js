@@ -206,7 +206,24 @@ ordersRouter.post(
         return res.status(400).json({ error: pickupReservation.error });
       }
 
-      const { keyId, instance } = createRazorpayFromShop(shop);
+      const { keyId, keySecret, instance } = createRazorpayFromShop(shop);
+      // ponytail: temporary auth-failure diagnostic, remove after root cause proven
+      console.log("RAZORPAY CRED DEBUG:", {
+        source:
+          shop.paymentConfigured &&
+          shop.paymentSettings?.razorpay?.keyId &&
+          shop.paymentSettings?.razorpay?.keySecret
+            ? "shop:paymentSettings.razorpay"
+            : "env:RAZORPAY_*",
+        keyId,
+        secretLength: String(keySecret || "").length,
+        secretFirst5: String(keySecret || "").slice(0, 5),
+        secretLast5: String(keySecret || "").slice(-5),
+        secretHasWhitespace: /\s/.test(String(keySecret || "")),
+        shopId: String(shop._id),
+        shopName: shop.name,
+        cartShopId: String(cart.shopId),
+      });
 
       const rzpOrder = await instance.orders.create({
         amount: totalPaise,
