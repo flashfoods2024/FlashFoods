@@ -950,10 +950,11 @@ vendorRouter.post(
         $set: {
           status: "completed",
           collectedAt: candidate.collectedAt || now,
+          pickupMethod: "otp",
         },
       },
       { new: true },
-    ).populate("customer", "name email");
+    ).populate("customer", "name email phone");
 
     if (!order) {
       console.warn(
@@ -974,7 +975,20 @@ vendorRouter.post(
     });
 
     if (req.accepts("json")) {
-      return res.json({ success: true, message: `Pickup verified for ${order.customer?.name || "customer"}.` });
+      return res.json({
+        success: true,
+        message: `Pickup verified for ${order.customer?.name || "customer"}.`,
+        handover: {
+          orderNumber: String(order._id).slice(-6).toUpperCase(),
+          studentName: order.customer?.name || "Customer",
+          phone: order.customer?.phone || "",
+          items: (order.items || []).map((i) => ({ name: i.name, quantity: i.quantity })),
+          total: order.total,
+          pickupTime: order.pickupTime || null,
+          collectedAt: order.collectedAt || null,
+          method: "otp",
+        },
+      });
     }
 
     req.flash(
@@ -998,7 +1012,10 @@ vendorRouter.post(
   async (req, res) => {
     const raw = String((req.body && req.body.qr) || "").trim();
 
-    const wantsJson = req.accepts("json");
+    // Best-match negotiation: a truthy req.accepts("json") is true for every
+    // browser form POST (Accept includes */*), which stranded vendors on a
+    // raw JSON page. Compare the best match instead (existing codebase pattern).
+    const wantsJson = req.accepts(["json", "html"]) === "json";
 
     if (!raw) {
       if (wantsJson) return res.status(400).json({ error: "Scan or enter a pickup QR code." });
@@ -1037,11 +1054,12 @@ vendorRouter.post(
 
     // Atomic completion scoped to this vendor's shop. A replayed or already
     // completed QR loses the claim and can never complete an order twice.
+    // ponytail: handover built inline; shared helper if a third verify path appears.
     const order = await Order.findOneAndUpdate(
       { _id: verdict.orderId, shop: req.vendorShopId, status: "ready_for_pickup" },
-      { $set: { status: "completed", collectedAt: new Date() } },
+      { $set: { status: "completed", collectedAt: new Date(), pickupMethod: "qr" } },
       { new: true },
-    ).populate("customer", "name");
+    ).populate("customer", "name phone");
 
     if (!order) {
       const existing = await Order.findOne({
@@ -1071,15 +1089,43 @@ vendorRouter.post(
       return res.json({
         success: true,
         message: `Pickup verified for ${order.customer?.name || "customer"}.`,
+        handover: {
+          orderNumber: String(order._id).slice(-6).toUpperCase(),
+          studentName: order.customer?.name || "Customer",
+          phone: order.customer?.phone || "",
+          items: (order.items || []).map((i) => ({ name: i.name, quantity: i.quantity })),
+          total: order.total,
+          pickupTime: order.pickupTime || null,
+          collectedAt: order.collectedAt || null,
+          method: "qr",
+        },
       });
     }
 
-    req.flash(
-      "success",
-      `Pickup verified for ${order.customer?.name || "customer"}.`,
-    );
-    return res.redirect("/vendor/verify");
-  },
+    const readyOrders = await Order.find({
+      shop: req.vendorShopId,
+      status: "ready_for_pickup",
+    })
+      .sort({ pickupTime: 1, createdAt: 1 })
+      .populate("customer", "name")
+      .lean();
+
+    return res.render("vendor/verify", {
+      pageTitle: "Verify Pickup",
+      waitingPickup: readyOrders.length,
+      orders: readyOrders,
+      handover: {
+        orderNumber: String(order._id).slice(-6).toUpperCase(),
+        studentName: order.customer?.name || "Customer",
+        phone: order.customer?.phone || "",
+        items: (order.items || []).map((i) => ({ name: i.name, quantity: i.quantity })),
+        total: order.total,
+        pickupTime: order.pickupTime || null,
+        collectedAt: order.collectedAt || null,
+        method: "qr",
+      },
+    });
+  }
 );
 
 vendorRouter.post(

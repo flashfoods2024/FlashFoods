@@ -48,11 +48,15 @@ function signaturesMatch(a, b) {
  */
 export function createPickupQr(order, { now = new Date(), ttlMs = DEFAULT_TTL_MS, secret } = {}) {
   if (!order || !order._id || !order.shop) return null;
+  // Callers may pass a populated shop object (e.g. after `.populate("shop")`);
+  // unwrap to the raw id so the token never embeds "[object Object]".
+  const shopId = order.shop && typeof order.shop === "object" ? order.shop._id : order.shop;
+  if (!shopId) return null;
   const expiresAt = order.pickupOtpExpiresAt
     ? new Date(order.pickupOtpExpiresAt).getTime()
     : now.getTime() + ttlMs;
   const exp = Number.isFinite(expiresAt) ? expiresAt : now.getTime() + ttlMs;
-  const payload = `${VERSION}.${order._id}.${order.shop}.${exp}`;
+  const payload = `${VERSION}.${order._id}.${shopId}.${exp}`;
   return `${payload}.${sign(payload, getSecret(secret))}`;
 }
 

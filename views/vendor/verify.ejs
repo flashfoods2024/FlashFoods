@@ -34,6 +34,21 @@
   <video id="qr-video" playsinline style="display:none;max-width:280px;border-radius:8px;margin-top:8px;"></video>
 </div>
 
+<% if (typeof handover !== "undefined" && handover) { %>
+<div class="card" id="handover-card">
+  <p class="eyebrow">Pickup verified — hand over the food</p>
+  <h2 class="h2" style="margin-top:0;">Order #<%= handover.orderNumber %></h2>
+  <p><strong><%= handover.studentName %></strong><% if (handover.phone) { %> &middot; <span class="mono"><%= handover.phone %></span><% } %></p>
+  <ul class="plain-list">
+    <% handover.items.forEach((item) => { %>
+      <li><%= item.quantity %> x <%= item.name %></li>
+    <% }) %>
+  </ul>
+  <p class="cart-total"><strong>Amount:</strong> &#8377;<%= Number(handover.total).toFixed(2) %></p>
+  <p class="muted small">Pickup: <%= formatPickupTime(handover.pickupTime) %></p>
+</div>
+<% } %>
+
 <script>
   (function () {
     var scanBtn = document.getElementById("qr-scan-btn");

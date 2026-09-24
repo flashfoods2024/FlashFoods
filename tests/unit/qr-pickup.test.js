@@ -81,8 +81,28 @@ test("malformed tokens are rejected", () => {
   assert.equal(verifyPickupQr(null, { secret: SECRET }).reason, "malformed");
 });
 
-test("QR expiry follows the order's pickup-code expiry when present", () => {
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+test("a populated shop object still yields a valid QR token (no [object Object])", () => {
+  // Regression: routes/orders.js populates `shop` before calling createPickupQr.
+  const order = {
+    _id: "6a4944f2f889bb405d929b15",
+    shop: { _id: "6a4944f2f889bb405d929b16", name: "Shop A", slug: "shop-a" },
+  };
+  const token = createPickupQr(order, { secret: SECRET, now: new Date(0), ttlMs: FUTURE });
+  assert.ok(token);
+  assert.ok(!token.includes("[object Object]"), `corrupt token: ${token}`);
+  assert.match(token, /^v1\.[a-f0-9]{24}\.[a-f0-9]{24}\.\d+\.[A-Za-z0-9_-]{32}$/i);
+
+  const verdict = verifyPickupQr(token, {
+    secret: SECRET,
+    shopId: "6a4944f2f889bb405d929b16",
+    now: new Date(0),
+  });
+  assert.equal(verdict.ok, true);
+  assert.equal(verdict.orderId, order._id);
+  assert.equal(verdict.shop, "6a4944f2f889bb405d929b16");
+});
+
+test("QR expiry follows the order's pickup-code expiry when present", () => {  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
   const order = {
     _id: "6a4944f2f889bb405d929b15",
     shop: "6a4944f2f889bb405d929b16",

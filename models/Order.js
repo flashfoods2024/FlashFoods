@@ -52,6 +52,13 @@ const orderSchema = new mongoose.Schema(
       default: null,
     },
 
+    // F07: which credential closed the pickup. Null until collection.
+    pickupMethod: {
+      type: String,
+      enum: ["qr", "otp"],
+      default: null,
+    },
+
     status: {
       type: String,
       enum: [
