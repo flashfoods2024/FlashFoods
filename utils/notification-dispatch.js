@@ -9,6 +9,30 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Build the FCM notification + data payload for a new order.
+//
+// The `tag` is derived from the order id, so repeat/duplicate deliveries for the
+// same order collapse into a single system notification (no duplicate alert),
+// and `vendorId` targets only the shop's own vendor.
+// Pure + exported so it can be unit-tested without a live FCM connection.
+export function buildNewOrderNotification(order, vendorId) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  return {
+    notification: {
+      title: "New Order",
+      body: `₹${Number(order.total).toFixed(2)} — ${items.length} item(s)`,
+      icon: "/icons/icon-192x192.png",
+    },
+    data: {
+      vendorId: String(vendorId),
+      orderId: String(order._id),
+      click_action: "/vendor/orders/pending",
+      tag: "flashfoods-new-order-" + String(order._id),
+      timestamp: String(Date.now()),
+    },
+  };
+}
+
 export async function dispatchNewOrderNotification(order) {
   if (!isFcmConfigured()) {
     console.log("[FCM] dispatch skipped — Firebase not configured");
@@ -31,20 +55,86 @@ export async function dispatchNewOrderNotification(order) {
     }
 
     const registrationTokens = tokens.map((t) => t.token);
+    const { notification, data } = buildNewOrderNotification(order, vendorId);
 
-    await sendWithRetry(registrationTokens, {
-      title: "New Order",
-      body: `₹${Number(order.total).toFixed(2)} — ${order.items.length} item(s)`,
-      icon: "/icons/icon-192x192.png",
-    }, {
-      vendorId: vendorId,
-      orderId: String(order._id),
-      click_action: "/vendor/orders/pending",
-      tag: "flashfoods-new-order-" + String(order._id),
-      timestamp: String(Date.now()),
-    });
+    await sendWithRetry(registrationTokens, notification, data);
   } catch (err) {
     console.error("[FCM] dispatch error:", err.message);
+  }
+}
+
+// F06.5 — build the FCM payload notifying a student that their order is
+// ready for pickup.
+//
+// WhatsApp-style delivery: a single system sound, no alarm, no continuous
+// ringing. That comes from `requireInteraction: false` + `renotify: false`
+// (passed as webpush overrides at send time) and the per-order `tag`
+// (`order-ready-<orderId>`), which collapses repeat deliveries for the same
+// order into one notification instead of stacking.
+// Future-safe metadata (shopId, shopName, type) rides in `data`.
+// Pure + exported so it can be unit-tested without a live FCM connection.
+export function buildOrderReadyNotification(order, shopName) {
+  const orderId = String(order._id);
+  return {
+    notification: {
+      title: "Order Ready",
+      body: shopName
+        ? `Your order from ${shopName} is ready for pickup.`
+        : "Your order is ready for pickup.",
+      icon: "/icons/icon-192x192.png",
+    },
+    data: {
+      type: "order_ready",
+      orderId,
+      shopId: String(order.shop),
+      shopName: shopName ? String(shopName) : "",
+      click_action: `/orders/${orderId}`,
+      tag: `order-ready-${orderId}`,
+      timestamp: String(Date.now()),
+    },
+  };
+}
+
+// All device tokens registered by one student. Exported for testing.
+export async function findStudentTokens(customerId) {
+  return FcmToken.find({ customerId }).lean();
+}
+
+// F06.5 — notify the ordering student when the vendor marks their order
+// ready. Call ONLY from the atomic accepted → ready_for_pickup transition,
+// so a duplicate/failed transition (null result) never notifies and
+// unrelated order saves never notify. Never throws; resolve vendor lookup
+// for the shop name, then reuse sendWithRetry. `messagingOverride` is a
+// test seam (same pattern as sendWithRetry); production passes nothing.
+export async function dispatchOrderReadyNotification(order, messagingOverride = null) {
+  if (!messagingOverride && !isFcmConfigured()) {
+    console.log("[FCM] order-ready dispatch skipped — Firebase not configured");
+    return;
+  }
+
+  try {
+    if (!order || !order.customer) {
+      console.log("[FCM] order-ready dispatch skipped — no customer on order");
+      return;
+    }
+
+    const shop = await Shop.findById(order.shop).select("name").lean();
+    const tokens = await findStudentTokens(order.customer);
+
+    if (!tokens.length) {
+      console.log("[FCM] order-ready dispatch skipped — no tokens for customer", String(order.customer));
+      return;
+    }
+
+    const registrationTokens = tokens.map((t) => t.token);
+    const { notification, data } = buildOrderReadyNotification(order, shop?.name);
+
+    // requireInteraction: false → single WhatsApp-style ping, auto-dismiss.
+    await sendWithRetry(registrationTokens, notification, data, 0, messagingOverride, {
+      requireInteraction: false,
+    });
+  } catch (err) {
+    console.error("[FCM] order-ready dispatch error:", err.message);
   }
 }
 
@@ -77,6 +167,7 @@ export async function sendWithRetry(
   data,
   attempt = 0,
   messagingOverride = null,
+  webpushOverrides = null,
 ) {
   const messaging = messagingOverride || getMessaging();
   if (!messaging) return;
@@ -105,6 +196,7 @@ export async function sendWithRetry(
           tag: data.tag,
           requireInteraction: true,
           renotify: false,
+          ...(webpushOverrides || {}),
         },
         fcmOptions: {
           link: data.click_action || "/vendor/orders/pending",
@@ -145,6 +237,7 @@ export async function sendWithRetry(
             data,
             attempt + 1,
             messagingOverride,
+            webpushOverrides,
           );
         }
       }
@@ -175,6 +268,7 @@ export async function sendWithRetry(
         data,
         attempt + 1,
         messagingOverride,
+        webpushOverrides,
       );
     }
     console.error("[FCM] send failed after", MAX_RETRIES + 1, "attempts:", err.message);

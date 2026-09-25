@@ -49,6 +49,8 @@ export async function adjustOrderPaid({
     keepIndices: normalized.indices,
     orderType: order.orderType,
     parcelChargePaise: toPaise(order.parcelCharge) || 0,
+    // Preserve the order's original discount across the adjustment.
+    discountPercent: Number(order.discountPercent) || 0,
   });
   if (!computed.ok) return { ok: false, reason: computed.reason };
 

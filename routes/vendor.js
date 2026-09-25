@@ -18,10 +18,18 @@ import {
 } from "../config/phonepe.js";
 import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
 import { emitPendingCount } from "../socket/index.js";
+import { dispatchOrderReadyNotification } from "../utils/notification-dispatch.js";
 import { computeParcelCharge } from "../utils/pricing.js";
 import { otpExpiryFrom, isOtpExpired } from "../utils/otp.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 import { computeParcelTotals } from "../utils/order-math.js";
+import {
+  getShopAvailability,
+  validateOperatingHours,
+} from "../utils/shop-hours.js";
+import { validatePickupSlotSettings } from "../utils/pickup-slots.js";
+import { validateDiscountSettings } from "../utils/discount.js";
+import { verifyPickupQr } from "../utils/qr-pickup.js";
 import { cancelOrderPaid } from "../utils/order-cancel.js";
 import { adjustOrderPaid } from "../utils/order-adjust.js";
 import rateLimit from "express-rate-limit";
@@ -178,6 +186,9 @@ vendorRouter.get(
     return res.render("vendor/menu", {
       pageTitle: "Vendor Dashboard",
       shop,
+      availability: getShopAvailability(shop),
+      slotSettings: shop.pickupSlots,
+      discountSettings: shop.discount,
       menuItems,
     });
   },
@@ -218,6 +229,130 @@ vendorRouter.post(
 
       req.flash("error", "Failed to update shop status.");
 
+      return res.redirect("/vendor/menu");
+    }
+  },
+);
+
+// Save the shop's daily operating hours. Times are interpreted in IST and only
+// constrain student-facing availability; the manual open/close toggle remains
+// the master switch. Both fields blank clears the hours (no time constraint).
+vendorRouter.post(
+  "/vendor/shop/hours",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/menu");
+      }
+
+      const result = validateOperatingHours(
+        req.body?.openingTime,
+        req.body?.closingTime,
+      );
+
+      if (!result.ok) {
+        req.flash("error", result.error);
+        return res.redirect("/vendor/menu");
+      }
+
+      shop.openingTime = result.openingTime;
+      shop.closingTime = result.closingTime;
+      await shop.save();
+
+      req.flash(
+        "success",
+        result.openingTime
+          ? "Operating hours saved."
+          : "Operating hours cleared. The manual open/close toggle now applies.",
+      );
+      return res.redirect("/vendor/menu");
+    } catch (error) {
+      console.error(error);
+      req.flash("error", "Failed to save operating hours.");
+      return res.redirect("/vendor/menu");
+    }
+  },
+);
+
+// Save the shop's pickup-slot configuration (window, duration, capacity).
+vendorRouter.post(
+  "/vendor/shop/pickup-slots",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/menu");
+      }
+
+      const result = validatePickupSlotSettings(req.body || {});
+      if (!result.ok) {
+        req.flash("error", result.error);
+        return res.redirect("/vendor/menu");
+      }
+
+      shop.pickupSlots = result.settings;
+      await shop.save();
+
+      req.flash(
+        "success",
+        result.settings.enabled
+          ? "Pickup slots saved."
+          : "Pickup slots disabled. Students pick any available time.",
+      );
+      return res.redirect("/vendor/menu");
+    } catch (error) {
+      console.error(error);
+      req.flash("error", "Failed to save pickup slots.");
+      return res.redirect("/vendor/menu");
+    }
+  },
+);
+
+// Save the shop's percentage discount (applies to the food subtotal only).
+vendorRouter.post(
+  "/vendor/shop/discount",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  async (req, res) => {
+    try {
+      const shop = await Shop.findById(req.vendorShopId);
+      if (!shop) {
+        req.flash("error", "Shop not found.");
+        return res.redirect("/vendor/menu");
+      }
+
+      const result = validateDiscountSettings(req.body || {});
+      if (!result.ok) {
+        req.flash("error", result.error);
+        return res.redirect("/vendor/menu");
+      }
+
+      shop.discount = result.settings;
+      await shop.save();
+
+      req.flash(
+        "success",
+        result.settings.enabled
+          ? `Discount of ${result.settings.percent}% saved.`
+          : "Discount disabled.",
+      );
+      return res.redirect("/vendor/menu");
+    } catch (error) {
+      console.error(error);
+      req.flash("error", "Failed to save discount.");
       return res.redirect("/vendor/menu");
     }
   },
@@ -576,6 +711,12 @@ vendorRouter.post(
 
     emitPendingCount(updated.shop);
 
+    // F06.5 — notify the ordering student. Fire-and-forget (never throws,
+    // never blocks the redirect). Runs only here, after the atomic
+    // accepted → ready_for_pickup transition succeeded, so duplicate or
+    // failed transitions never produce a notification. Vendor flow unchanged.
+    dispatchOrderReadyNotification(updated);
+
     req.flash(
       "success",
       "Order marked ready. Student can pick up with their code.",
@@ -809,10 +950,11 @@ vendorRouter.post(
         $set: {
           status: "completed",
           collectedAt: candidate.collectedAt || now,
+          pickupMethod: "otp",
         },
       },
       { new: true },
-    ).populate("customer", "name email");
+    ).populate("customer", "name email phone");
 
     if (!order) {
       console.warn(
@@ -833,7 +975,20 @@ vendorRouter.post(
     });
 
     if (req.accepts("json")) {
-      return res.json({ success: true, message: `Pickup verified for ${order.customer?.name || "customer"}.` });
+      return res.json({
+        success: true,
+        message: `Pickup verified for ${order.customer?.name || "customer"}.`,
+        handover: {
+          orderNumber: String(order._id).slice(-6).toUpperCase(),
+          studentName: order.customer?.name || "Customer",
+          phone: order.customer?.phone || "",
+          items: (order.items || []).map((i) => ({ name: i.name, quantity: i.quantity })),
+          total: order.total,
+          pickupTime: order.pickupTime || null,
+          collectedAt: order.collectedAt || null,
+          method: "otp",
+        },
+      });
     }
 
     req.flash(
@@ -842,6 +997,135 @@ vendorRouter.post(
     );
     return res.redirect("/vendor/verify");
   },
+);
+
+// QR pickup verification. The QR payload is a signed token bound to a single
+// order + shop + expiry; replay is blocked by the atomic `ready_for_pickup`
+// precondition (the same guarantee the OTP flow uses). OTP remains available.
+vendorRouter.post(
+  "/vendor/verify-qr",
+  requireDb,
+  requireAuth,
+  requireVendor,
+  requireVendorShop,
+  otpVerifyLimiter,
+  async (req, res) => {
+    const raw = String((req.body && req.body.qr) || "").trim();
+
+    // Best-match negotiation: a truthy req.accepts("json") is true for every
+    // browser form POST (Accept includes */*), which stranded vendors on a
+    // raw JSON page. Compare the best match instead (existing codebase pattern).
+    const wantsJson = req.accepts(["json", "html"]) === "json";
+
+    if (!raw) {
+      if (wantsJson) return res.status(400).json({ error: "Scan or enter a pickup QR code." });
+      req.flash("error", "Scan or enter a pickup QR code.");
+      return res.redirect("/vendor/verify");
+    }
+
+    // Server-authoritative validation: signature, shop binding and expiry.
+    const verdict = verifyPickupQr(raw, { shopId: req.vendorShopIdStr });
+    if (!verdict.ok) {
+      if (verdict.reason === "expired") {
+        if (wantsJson) {
+          return res
+            .status(410)
+            .json({ error: "This pickup QR code has expired. Ask the canteen to re-issue it." });
+        }
+        req.flash("error", "This pickup QR code has expired. Ask the canteen to re-issue it.");
+        return res.redirect("/vendor/verify");
+      }
+      if (verdict.reason === "wrong_shop") {
+        if (wantsJson) {
+          return res.status(404).json({ error: "This pickup QR code is not for this canteen." });
+        }
+        req.flash("error", "This pickup QR code is not for this canteen.");
+        return res.redirect("/vendor/verify");
+      }
+      // malformed / forged
+      console.warn("[QR] rejected pickup QR:", {
+        reason: verdict.reason,
+        shop: req.vendorShopIdStr,
+      });
+      if (wantsJson) return res.status(400).json({ error: "Invalid pickup QR code." });
+      req.flash("error", "Invalid pickup QR code.");
+      return res.redirect("/vendor/verify");
+    }
+
+    // Atomic completion scoped to this vendor's shop. A replayed or already
+    // completed QR loses the claim and can never complete an order twice.
+    // ponytail: handover built inline; shared helper if a third verify path appears.
+    const order = await Order.findOneAndUpdate(
+      { _id: verdict.orderId, shop: req.vendorShopId, status: "ready_for_pickup" },
+      { $set: { status: "completed", collectedAt: new Date(), pickupMethod: "qr" } },
+      { new: true },
+    ).populate("customer", "name phone");
+
+    if (!order) {
+      const existing = await Order.findOne({
+        _id: verdict.orderId,
+        shop: req.vendorShopId,
+      })
+        .select("status")
+        .lean();
+
+      if (wantsJson) {
+        return res.status(409).json({
+          error: existing
+            ? "This order was already collected or is not ready for pickup."
+            : "Order not found.",
+        });
+      }
+      req.flash(
+        "error",
+        existing
+          ? "This order was already collected or is not ready for pickup."
+          : "Order not found.",
+      );
+      return res.redirect("/vendor/verify");
+    }
+
+    if (wantsJson) {
+      return res.json({
+        success: true,
+        message: `Pickup verified for ${order.customer?.name || "customer"}.`,
+        handover: {
+          orderNumber: String(order._id).slice(-6).toUpperCase(),
+          studentName: order.customer?.name || "Customer",
+          phone: order.customer?.phone || "",
+          items: (order.items || []).map((i) => ({ name: i.name, quantity: i.quantity })),
+          total: order.total,
+          pickupTime: order.pickupTime || null,
+          collectedAt: order.collectedAt || null,
+          method: "qr",
+        },
+      });
+    }
+
+    const readyOrders = await Order.find({
+      shop: req.vendorShopId,
+      status: "ready_for_pickup",
+    })
+      .sort({ pickupTime: 1, createdAt: 1 })
+      .populate("customer", "name")
+      .lean();
+
+    return res.render("vendor/verify", {
+      pageTitle: "Verify Pickup",
+      waitingPickup: readyOrders.length,
+      orders: readyOrders,
+      handover: {
+        orderNumber: String(order._id).slice(-6).toUpperCase(),
+        studentName: order.customer?.name || "Customer",
+        phone: order.customer?.phone || "",
+        items: (order.items || []).map((i) => ({ name: i.name, quantity: i.quantity })),
+        total: order.total,
+        pickupTime: order.pickupTime || null,
+        collectedAt: order.collectedAt || null,
+        method: "qr",
+      },
+    });
+  }
 );
 
 vendorRouter.post(
@@ -879,6 +1163,7 @@ vendorRouter.post(
       items: order.items,
       orderType: targetType,
       parcelChargePaise: chargePaise,
+      discountPercent: Number(order.discountPercent) || 0,
     });
     if (!totals.ok) {
       return res.status(400).json({ error: "Order contains an invalid item." });

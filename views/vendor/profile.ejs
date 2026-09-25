@@ -1,0 +1,424 @@
+<%
+  const a = analytics && analytics.ok ? analytics : null;
+  const emptyPeriod = { orders: 0, revenue: 0 };
+  const periods = a
+    ? a.periods
+    : { today: emptyPeriod, week: emptyPeriod, month: emptyPeriod };
+  const summary = a
+    ? a.summary
+    : { orders: 0, revenue: 0, itemsSold: 0, averageOrderValue: 0 };
+  const bestSellers = a ? a.bestSellers : [];
+  const money = function (value) {
+    return "\u20B9" + Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  };
+  const count = function (value) {
+    return Number(value || 0).toLocaleString("en-IN");
+  };
+%>
+<%- include("../partials/header", { pageTitle }) %>
+
+<section class="hero hero--compact">
+  <h1>Vendor Profile</h1>
+</section>
+
+<section class="card profile-head">
+  <div class="profile-avatar"><%= account.name.charAt(0).toUpperCase() %></div>
+  <div>
+    <h2 class="profile-head__greeting" id="vendor-profile-name"><%= account.name %></h2>
+    <p class="muted"><%= shop.name %></p>
+  </div>
+</section>
+
+<section class="card vendor-profile-card">
+  <h2 class="card__title">Account Information</h2>
+
+  <form id="vendor-profile-form" novalidate>
+    <div class="profile-row">
+      <label class="profile-row__label" for="vendor-name-input">Vendor Name</label>
+      <input
+        class="input profile-row__control"
+        id="vendor-name-input"
+        name="name"
+        type="text"
+        maxlength="80"
+        autocomplete="name"
+        value="<%= account.name %>"
+      />
+    </div>
+
+    <div class="profile-row">
+      <span class="profile-row__label">Shop Name</span>
+      <span class="profile-row__value" id="vendor-shop-name">
+        <%= shop.name %>
+        <span class="badge-readonly">Read-only</span>
+      </span>
+    </div>
+
+    <div class="profile-row">
+      <span class="profile-row__label">Email</span>
+      <span class="profile-row__value" id="vendor-email">
+        <%= account.email %>
+        <span class="badge-readonly">Read-only</span>
+      </span>
+    </div>
+
+    <div class="profile-row">
+      <label class="profile-row__label" for="vendor-phone-input">Phone</label>
+      <input
+        class="input profile-row__control"
+        id="vendor-phone-input"
+        name="phone"
+        type="tel"
+        inputmode="numeric"
+        maxlength="10"
+        autocomplete="tel"
+        placeholder="10-digit mobile number"
+        value="<%= account.phone %>"
+      />
+    </div>
+
+    <div class="profile-row">
+      <span class="profile-row__label">Member Since</span>
+      <span class="profile-row__value"><%= account.memberSince %></span>
+    </div>
+
+    <div class="vendor-profile-form__actions">
+      <button class="btn btn--small" id="vendor-profile-save" type="submit">Save changes</button>
+      <span class="muted small">Email, shop assignment and account status can only be changed by an admin.</span>
+    </div>
+  </form>
+
+  <p class="vendor-profile-status" id="vendor-profile-msg" role="status" hidden></p>
+</section>
+
+<section class="profile-section">
+  <h2 class="profile-section__title">Business Snapshot</h2>
+  <p class="muted small">Completed orders only, in Asia/Kolkata time.</p>
+  <div class="profile-stats">
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Today's Orders</p>
+      <p class="analytics-kpi-value" data-period="today" data-metric="orders"><%= count(periods.today.orders) %></p>
+      <p class="analytics-kpi-desc">Completed today</p>
+    </article>
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Today's Revenue</p>
+      <p class="analytics-kpi-value" data-period="today" data-metric="revenue"><%= money(periods.today.revenue) %></p>
+      <p class="analytics-kpi-desc">Completed today</p>
+    </article>
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">This Week's Orders</p>
+      <p class="analytics-kpi-value" data-period="week" data-metric="orders"><%= count(periods.week.orders) %></p>
+      <p class="analytics-kpi-desc">Since Monday</p>
+    </article>
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">This Week's Revenue</p>
+      <p class="analytics-kpi-value" data-period="week" data-metric="revenue"><%= money(periods.week.revenue) %></p>
+      <p class="analytics-kpi-desc">Since Monday</p>
+    </article>
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">This Month's Orders</p>
+      <p class="analytics-kpi-value" data-period="month" data-metric="orders"><%= count(periods.month.orders) %></p>
+      <p class="analytics-kpi-desc">Since the 1st</p>
+    </article>
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">This Month's Revenue</p>
+      <p class="analytics-kpi-value" data-period="month" data-metric="revenue"><%= money(periods.month.revenue) %></p>
+      <p class="analytics-kpi-desc">Since the 1st</p>
+    </article>
+  </div>
+</section>
+
+<section class="profile-section" id="vendor-analytics">
+  <h2 class="profile-section__title">Analytics</h2>
+
+  <div class="analytics-filter-bar">
+    <div class="analytics-filter-group">
+      <label class="analytics-filter-label" for="vendor-range-today">Period</label>
+      <div class="analytics-date-btns" role="group" aria-labelledby="vendor-range-today">
+        <button type="button" class="analytics-date-btn" data-range="today" id="vendor-range-today">Today</button>
+        <button type="button" class="analytics-date-btn" data-range="week">This Week</button>
+        <button type="button" class="analytics-date-btn is-active" data-range="month">This Month</button>
+        <button type="button" class="analytics-date-btn" data-range="custom">Custom</button>
+      </div>
+    </div>
+
+    <div class="analytics-custom-range" id="vendor-custom-range" style="display: none">
+      <label class="sr-only" for="vendor-start-date">Start date</label>
+      <input type="date" id="vendor-start-date" class="analytics-input" />
+      <span class="analytics-range-sep">to</span>
+      <label class="sr-only" for="vendor-end-date">End date</label>
+      <input type="date" id="vendor-end-date" class="analytics-input" />
+      <button type="button" class="btn btn--small" id="vendor-apply-range">Apply</button>
+    </div>
+  </div>
+
+  <p class="muted small" id="vendor-analytics-status" role="status">
+    <% if (!a) { %><%= (analytics && analytics.error) || "Analytics unavailable." %><% } %>
+  </p>
+
+  <div class="analytics-kpi-grid">
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Total Orders</p>
+      <p class="analytics-kpi-value" data-kpi="orders"><%= count(summary.orders) %></p>
+      <p class="analytics-kpi-desc" id="vendor-range-label"><%= a ? a.label : "Selected period" %></p>
+    </article>
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Total Revenue</p>
+      <p class="analytics-kpi-value" data-kpi="revenue"><%= money(summary.revenue) %></p>
+      <p class="analytics-kpi-desc">Completed orders</p>
+    </article>
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Items Sold</p>
+      <p class="analytics-kpi-value" data-kpi="itemsSold"><%= count(summary.itemsSold) %></p>
+      <p class="analytics-kpi-desc">Removed items excluded</p>
+    </article>
+    <article class="card analytics-kpi-card">
+      <p class="analytics-kpi-label">Avg Order Value</p>
+      <p class="analytics-kpi-value" data-kpi="averageOrderValue"><%= money(summary.averageOrderValue) %></p>
+      <p class="analytics-kpi-desc">Revenue / Orders</p>
+    </article>
+  </div>
+
+  <section class="card admin-panel">
+    <div class="analytics-table-header">
+      <h2 class="h2">Best Sellers</h2>
+      <span class="muted small">Top 5 for the selected period</span>
+    </div>
+    <div class="analytics-table-wrap">
+      <table class="table analytics-table" id="vendor-best-sellers-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Quantity Sold</th>
+            <th>Revenue</th>
+          </tr>
+        </thead>
+        <tbody id="vendor-best-sellers-body">
+          <% bestSellers.forEach(function (item) { %>
+            <tr>
+              <td><strong><%= item.name %></strong></td>
+              <td><%= count(item.quantity) %></td>
+              <td><%= money(item.revenue) %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <div class="analytics-empty" id="vendor-best-sellers-empty" style="display: <%= bestSellers.length ? "none" : "block" %>">
+      <p class="muted">No item sales in the selected period.</p>
+    </div>
+  </section>
+</section>
+
+<script>
+  (function () {
+    var rangeButtons = document.querySelectorAll(".analytics-date-btn[data-range]");
+    var customWrap = document.getElementById("vendor-custom-range");
+    var startInput = document.getElementById("vendor-start-date");
+    var endInput = document.getElementById("vendor-end-date");
+    var applyBtn = document.getElementById("vendor-apply-range");
+    var statusEl = document.getElementById("vendor-analytics-status");
+    var rangeLabelEl = document.getElementById("vendor-range-label");
+    var bestSellersBody = document.getElementById("vendor-best-sellers-body");
+    var bestSellersEmpty = document.getElementById("vendor-best-sellers-empty");
+
+    var form = document.getElementById("vendor-profile-form");
+    var nameInput = document.getElementById("vendor-name-input");
+    var phoneInput = document.getElementById("vendor-phone-input");
+    var saveBtn = document.getElementById("vendor-profile-save");
+    var profileMsg = document.getElementById("vendor-profile-msg");
+    var headerName = document.getElementById("vendor-profile-name");
+
+    var state = { range: "month", startDate: "", endDate: "" };
+
+    function money(value) {
+      return "\u20B9" + Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+    }
+
+    function count(value) {
+      return Number(value || 0).toLocaleString("en-IN");
+    }
+
+    function setStatus(text, isError) {
+      statusEl.textContent = text || "";
+      statusEl.classList.toggle("is-error", !!isError);
+    }
+
+    function setProfileMsg(text, isError) {
+      if (!text) {
+        profileMsg.hidden = true;
+        return;
+      }
+      profileMsg.textContent = text;
+      profileMsg.classList.toggle("is-error", !!isError);
+      profileMsg.hidden = false;
+    }
+
+    function setKpi(metric, value) {
+      var el = document.querySelector('[data-kpi="' + metric + '"]');
+      if (el) el.textContent = value;
+    }
+
+    function setPeriod(period, metric, value) {
+      var el = document.querySelector('[data-period="' + period + '"][data-metric="' + metric + '"]');
+      if (el) el.textContent = value;
+    }
+
+    function renderPeriods(periods) {
+      ["today", "week", "month"].forEach(function (period) {
+        var bucket = periods && periods[period] ? periods[period] : { orders: 0, revenue: 0 };
+        setPeriod(period, "orders", count(bucket.orders));
+        setPeriod(period, "revenue", money(bucket.revenue));
+      });
+    }
+
+    function renderBestSellers(items) {
+      bestSellersBody.textContent = "";
+      items.forEach(function (item) {
+        var row = document.createElement("tr");
+
+        var nameCell = document.createElement("td");
+        var strong = document.createElement("strong");
+        strong.textContent = item.name;
+        nameCell.appendChild(strong);
+
+        var qtyCell = document.createElement("td");
+        qtyCell.textContent = count(item.quantity);
+
+        var revenueCell = document.createElement("td");
+        revenueCell.textContent = money(item.revenue);
+
+        row.appendChild(nameCell);
+        row.appendChild(qtyCell);
+        row.appendChild(revenueCell);
+        bestSellersBody.appendChild(row);
+      });
+      bestSellersEmpty.style.display = items.length ? "none" : "block";
+    }
+
+    function setBusy(isBusy) {
+      rangeButtons.forEach(function (btn) {
+        btn.disabled = isBusy;
+      });
+      applyBtn.disabled = isBusy;
+    }
+
+    function load() {
+      var params = new URLSearchParams();
+      params.set("range", state.range);
+      if (state.range === "custom") {
+        params.set("startDate", state.startDate);
+        params.set("endDate", state.endDate);
+      }
+
+      setStatus("Loading analytics\u2026", false);
+      setBusy(true);
+
+      fetch("/vendor/profile/analytics?" + params.toString(), {
+        headers: { Accept: "application/json" },
+      })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          setBusy(false);
+          if (!result.ok || !result.data || !result.data.ok) {
+            setStatus((result.data && result.data.error) || "Could not load analytics.", true);
+            return;
+          }
+          var data = result.data;
+          renderPeriods(data.periods);
+          setKpi("orders", count(data.summary.orders));
+          setKpi("revenue", money(data.summary.revenue));
+          setKpi("itemsSold", count(data.summary.itemsSold));
+          setKpi("averageOrderValue", money(data.summary.averageOrderValue));
+          rangeLabelEl.textContent = data.label || "Selected period";
+          renderBestSellers(data.bestSellers || []);
+          setStatus("");
+        })
+        .catch(function () {
+          setBusy(false);
+          setStatus("Could not load analytics. Please try again.", true);
+        });
+    }
+
+    rangeButtons.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var range = btn.getAttribute("data-range");
+        state.range = range;
+        rangeButtons.forEach(function (other) {
+          other.classList.toggle("is-active", other === btn);
+        });
+
+        if (range === "custom") {
+          customWrap.style.display = "flex";
+          if (state.startDate && state.endDate) {
+            load();
+          } else {
+            setStatus("Choose a start and end date, then apply.", false);
+          }
+          return;
+        }
+
+        customWrap.style.display = "none";
+        state.startDate = "";
+        state.endDate = "";
+        startInput.value = "";
+        endInput.value = "";
+        load();
+      });
+    });
+
+    applyBtn.addEventListener("click", function () {
+      var start = startInput.value;
+      var end = endInput.value;
+      if (!start || !end) {
+        setStatus("Choose a start and end date.", true);
+        return;
+      }
+      state.range = "custom";
+      state.startDate = start;
+      state.endDate = end;
+      load();
+    });
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      saveBtn.disabled = true;
+      setProfileMsg("");
+
+      fetch("/vendor/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          name: nameInput.value.trim(),
+          phone: phoneInput.value.trim(),
+        }),
+      })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          saveBtn.disabled = false;
+          if (!result.ok || !result.data || !result.data.success) {
+            setProfileMsg((result.data && result.data.error) || "Could not save your profile.", true);
+            return;
+          }
+          nameInput.value = result.data.name;
+          phoneInput.value = result.data.phone;
+          headerName.textContent = result.data.name;
+          setProfileMsg("Profile updated.", false);
+        })
+        .catch(function () {
+          saveBtn.disabled = false;
+          setProfileMsg("Could not save your profile. Please try again.", true);
+        });
+    });
+  })();
+</script>
+
+<%- include("../partials/footer") %>

@@ -38,6 +38,52 @@
       </select>
     </label>
     <label>
+      <span>Opening time (IST)</span>
+      <input name="openingTime" type="time" value="<%= shop?.openingTime || "" %>" />
+    </label>
+    <label>
+      <span>Closing time (IST)</span>
+      <input name="closingTime" type="time" value="<%= shop?.closingTime || "" %>" />
+      <p class="muted small" style="margin-top:4px;">Leave both blank to disable scheduled hours. The open/closed toggle above then applies.</p>
+    </label>
+    <fieldset style="border:1px solid #ddd;border-radius:8px;padding:12px;">
+      <legend><strong>Pickup slots</strong></legend>
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" name="slotsEnabled" value="true" <%= shop?.pickupSlots?.enabled ? "checked" : "" %> />
+        Enable pickup slots
+      </label>
+      <div class="row" style="gap:12px;flex-wrap:wrap;">
+        <label>
+          <span>Slot start (IST)</span>
+          <input name="slotStartTime" type="time" value="<%= shop?.pickupSlots?.startTime || "" %>" />
+        </label>
+        <label>
+          <span>Slot end (IST)</span>
+          <input name="slotEndTime" type="time" value="<%= shop?.pickupSlots?.endTime || "" %>" />
+        </label>
+        <label>
+          <span>Preparation Time (minutes)</span>
+          <input name="slotDuration" type="number" min="5" max="240" value="<%= shop?.pickupSlots?.durationMinutes || 15 %>" />
+          <span class="muted small">Minimum lead time before a pickup can occur. The earliest slot starts at now + preparation time.</span>
+        </label>
+        <label>
+          <span>Capacity per slot</span>
+          <input name="slotCapacity" type="number" min="1" max="500" value="<%= shop?.pickupSlots?.capacity || 10 %>" />
+        </label>
+      </div>
+    </fieldset>
+    <fieldset style="border:1px solid #ddd;border-radius:8px;padding:12px;">
+      <legend><strong>Discount</strong></legend>
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" name="discountEnabled" value="true" <%= shop?.discount?.enabled ? "checked" : "" %> />
+        Enable discount
+      </label>
+      <label>
+        <span>Discount (%)</span>
+        <input name="discountPercent" type="number" min="0" max="100" step="0.01" value="<%= shop?.discount?.percent || 0 %>" />
+      </label>
+    </fieldset>
+    <label>
       <span>Assigned vendor</span>
       <select name="vendor">
         <option value="">No vendor assigned</option>

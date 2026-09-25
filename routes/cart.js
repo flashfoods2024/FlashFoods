@@ -5,6 +5,9 @@ import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { computeParcelCharge } from "../utils/pricing.js";
+import { isShopAvailable } from "../utils/shop-hours.js";
+import { getSlotAvailability } from "../utils/pickup-slots.js";
+import { getShopDiscount, computeDiscountPaise } from "../utils/discount.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 
 export const cartRouter = express.Router();
@@ -94,6 +97,9 @@ cartRouter.get(
 
     const parcelCharge = computeParcelCharge(shop, "parcel");
     const parcelChargePaise = toPaise(parcelCharge) || 0;
+    const discount = getShopDiscount(shop);
+    const discountPaise = computeDiscountPaise(subtotalPaise, discount.percent);
+    const slotAvailability = shop ? await getSlotAvailability(shop) : { enabled: false, slots: [] };
 
     return res.render("cart/index", {
       pageTitle: "Cart",
@@ -101,9 +107,12 @@ cartRouter.get(
       lines,
       subtotal,
       parcelCharge,
-      totalParcel: fromPaise(subtotalPaise + parcelChargePaise),
+      totalParcel: fromPaise(subtotalPaise - discountPaise + parcelChargePaise),
+      discountPercent: discount.enabled ? discount.percent : 0,
+      discountAmount: fromPaise(discountPaise),
       allVariantsSelected,
       razorpayKeyId,
+      slotAvailability,
     });
   },
 );
@@ -130,7 +139,7 @@ cartRouter.post(
 
     const shopIdStr = String(item.shop);
     const shop = await Shop.findById(item.shop).lean();
-    if (!shop || shop.isActive === false || shop.isOpen === false) {
+    if (!isShopAvailable(shop)) {
       req.flash("error", "This shop is currently closed.");
       return res.redirect(safeRedirect(redirect, "/shops"));
     }
@@ -247,9 +256,15 @@ cartRouter.post(
     });
     const subtotal = fromPaise(subtotalPaise);
 
-    const shop = cart.shopId ? await Shop.findById(cart.shopId).select("parcelChargeEnabled parcelCharge").lean() : null;
+    const shop = cart.shopId
+      ? await Shop.findById(cart.shopId)
+          .select("parcelChargeEnabled parcelCharge discount")
+          .lean()
+      : null;
     const parcelCharge = computeParcelCharge(shop, "parcel");
     const parcelChargePaise = toPaise(parcelCharge) || 0;
+    const discount = getShopDiscount(shop);
+    const discountPaise = computeDiscountPaise(subtotalPaise, discount.percent);
 
     return res.json({
       success: true,
@@ -257,7 +272,9 @@ cartRouter.post(
       variantPrice: vi != null && variants[vi] ? variants[vi].price : null,
       subtotal: subtotal,
       parcelCharge: parcelCharge,
-      totalParcel: fromPaise(subtotalPaise + parcelChargePaise),
+      discountPercent: discount.enabled ? discount.percent : 0,
+      discountAmount: fromPaise(discountPaise),
+      totalParcel: fromPaise(subtotalPaise - discountPaise + parcelChargePaise),
       allVariantsSelected: allVariantsSelected,
     });
   },

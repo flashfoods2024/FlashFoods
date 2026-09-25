@@ -21,6 +21,7 @@ import { vendorRouter } from "./routes/vendor.js";
 import { menuRouter } from "./routes/menu.js";
 import { adminRouter } from "./routes/admin.js";
 import { profileRouter } from "./routes/profile.js";
+import { vendorProfileRouter } from "./routes/vendor-profile.js";
 import {
   formatLocalDateTime,
   formatPickupTime,
@@ -262,6 +263,7 @@ app.use(menuRouter);
 app.use(vendorRouter);
 app.use("/api/fcm", fcmRouter);
 app.use("/admin", adminRouter);
+app.use(vendorProfileRouter);
 app.use(profileRouter);
 
 // ---------------------------------------------------------------------------

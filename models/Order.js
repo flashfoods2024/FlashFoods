@@ -34,6 +34,9 @@ const orderSchema = new mongoose.Schema(
       default: "dinein",
     },
     parcelCharge: { type: Number, default: 0, min: 0 },
+    // Snapshot of the vendor discount applied at order time (food subtotal only).
+    discountPercent: { type: Number, default: 0, min: 0, max: 100 },
+    discountAmountPaise: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
 
     pickupTime: {
@@ -46,6 +49,13 @@ const orderSchema = new mongoose.Schema(
 
     collectedAt: {
       type: Date,
+      default: null,
+    },
+
+    // F07: which credential closed the pickup. Null until collection.
+    pickupMethod: {
+      type: String,
+      enum: ["qr", "otp"],
       default: null,
     },
 

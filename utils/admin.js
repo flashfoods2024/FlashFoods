@@ -1,8 +1,11 @@
 const IST_OFFSET_MINUTES = 330;
 
+// The Date is an absolute instant, so its IST wall-clock parts are always
+// computed from UTC + the fixed IST offset. Deriving them through the host's
+// own timezone offset (as this used to) silently shifted every boundary by the
+// server's UTC offset, which broke IST day/week/month math on any non-UTC host.
 function toIstDateParts(date = new Date()) {
-  const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
-  const istMs = utcMs + IST_OFFSET_MINUTES * 60000;
+  const istMs = date.getTime() + IST_OFFSET_MINUTES * 60000;
   const ist = new Date(istMs);
   return {
     year: ist.getUTCFullYear(),

@@ -14,9 +14,18 @@
     <% shops.forEach((s) => { %>
       <a class="card card--link" href="/shops/<%= s.slug %>">
         <h2 class="card__title"><%= s.name %></h2>
+        <% var availability = s.availability || { available: s.isOpen && s.isActive !== false, label: s.isOpen && s.isActive !== false ? "Open" : "Closed", hoursLabel: "Hours not set" }; %>
+        <p>
+          <span class="tag <%= availability.available ? "tag--ok" : "tag--warn" %>">
+            <%= availability.label %>
+          </span>
+        </p>
         <% if (s.description) { %>
           <p class="muted card__desc"><%= s.description %></p>
         <% } %>
+        <p class="muted small">
+          <%= availability.configured ? availability.hoursLabel : "Hours not set" %>
+        </p>
         <span class="btn btn--small">View menu</span>
       </a>
     <% }) %>

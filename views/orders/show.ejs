@@ -70,6 +70,13 @@
       <p class="otp-box__code"><%= order.pickupOtp %></p>
       <p class="muted small">Show this code at the counter. The vendor enters it in <strong>Verify pickup</strong> when you collect.</p>
     </div>
+    <% if (typeof pickupQr !== "undefined" && pickupQr) { %>
+      <div class="qr-box" style="text-align:center;margin-top:14px;">
+        <p class="otp-box__label">Or let them scan this QR</p>
+        <img src="<%= pickupQr.dataUrl %>" alt="Pickup QR code" width="240" height="240" style="border-radius:8px;background:#fff;padding:8px;" />
+        <p class="muted small">The canteen can scan this instead of typing the code.</p>
+      </div>
+    <% } %>
   <% } else if (order.status === "completed") { %>
     <p class="muted">This order was picked up. Code used: <strong class="mono"><%= order.pickupOtp %></strong>.</p>
   <% } else if (order.status === "cancelled") { %>

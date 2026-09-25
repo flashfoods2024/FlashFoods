@@ -11,20 +11,119 @@
     shopToggleAction – POST URL for the shop toggle form (required when showShopToggle is true)
     parcelChargeAction – POST URL for the parcel settings form (optional). When provided, renders the Parcel Packaging card between Shop Status and Add New Item.
 %>
+<% var shopAvailability = locals.availability || { available: !!shop.isOpen && shop.isActive !== false, configured: false, withinHours: true, openingTime: shop.openingTime || "", closingTime: shop.closingTime || "", hoursLabel: "Hours not set", label: shop.isOpen ? "Shop Open" : "Shop Closed" }; %>
 <div class="card">
   <div class="row row--split">
-    <span class="tag <%= shop.isOpen ? "tag--ok" : "tag--warn" %>">
-      <%= shop.isOpen ? "Shop Open" : "Shop Closed" %>
+    <span class="tag <%= shopAvailability.available ? "tag--ok" : "tag--warn" %>">
+      <%= shopAvailability.available ? "Shop Open" : "Shop Closed" %>
     </span>
     <% if (locals.showShopToggle) { %>
       <form method="post" action="<%= shopToggleAction %>">
         <button class="btn" type="submit">
-          <%= shop.isOpen ? "Close Shop" : "Open Shop" %>
+          <%= shop.isOpen ? "Close Shop" : "Open Shop" %><%# note: manual master switch %>
         </button>
       </form>
     <% } %>
   </div>
+  <p class="muted small" style="margin:10px 0 0;">
+    <% if (shopAvailability.configured) { %>
+      Operating hours: <strong><%= shopAvailability.hoursLabel %></strong> (IST).
+      <% if (!shopAvailability.withinHours) { %>
+        Students currently see the shop as <strong>closed</strong> because it is outside these hours.
+      <% } %>
+    <% } else { %>
+      No operating hours set — students see the manual open/close state above.
+    <% } %>
+  </p>
 </div>
+
+<% var discountCfg = locals.discountSettings || (shop && shop.discount) || {}; %>
+<% if (locals.discountAction) { %>
+<div class="card">
+  <h2 class="h2" style="margin-top:0;">Discount</h2>
+  <p class="muted small" style="margin-top:0;">Apply a percentage discount to the food subtotal. Packaging (parcel) charges are never discounted, and all totals are calculated on the server.</p>
+  <form method="post" action="<%= discountAction %>" class="form">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+      <input name="enabled" type="checkbox" value="true" <%= discountCfg.enabled ? "checked" : "" %> />
+      Enable discount
+    </label>
+    <label>
+      <span>Discount (%)</span>
+      <input name="percent" type="number" min="0" max="100" step="0.01" value="<%= discountCfg.percent || 0 %>" style="max-width:220px;width:100%;" />
+    </label>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn" type="submit">Save Discount</button>
+    </div>
+  </form>
+</div>
+<% } %>
+
+<% var slotCfg = locals.slotSettings || (shop && shop.pickupSlots) || {}; %>
+<% if (locals.pickupSlotsAction) { %>
+<div class="card">
+  <h2 class="h2" style="margin-top:0;">Pickup Slots</h2>
+  <p class="muted small" style="margin-top:0;">Let students book a fixed pickup slot with limited capacity. When disabled, students choose any available time.</p>
+  <form method="post" action="<%= pickupSlotsAction %>" class="form">
+    <label class="slot-toggle">
+      <input name="enabled" type="checkbox" value="true" <%= slotCfg.enabled ? "checked" : "" %> />
+      <span class="slot-toggle__text">Enable pickup slots</span>
+    </label>
+    <div class="slot-grid">
+      <label>
+        <span>Slot start</span>
+        <input name="startTime" type="time" value="<%= slotCfg.startTime || "" %>" />
+      </label>
+      <label>
+        <span>Slot end</span>
+        <input name="endTime" type="time" value="<%= slotCfg.endTime || "" %>" />
+      </label>
+      <label>
+        <span>Preparation Time (minutes)</span>
+        <input name="durationMinutes" type="number" min="5" max="240" value="<%= slotCfg.durationMinutes || 15 %>" />
+        <span class="muted small slot-hint">Minimum lead time before a pickup can occur.</span>
+      </label>
+      <label>
+        <span>Capacity per slot</span>
+        <input name="capacity" type="number" min="1" max="500" value="<%= slotCfg.capacity || 10 %>" />
+      </label>
+    </div>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn" type="submit">Save Slots</button>
+    </div>
+  </form>
+  <style>
+  .slot-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;background:rgba(255,255,255,.55);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;max-width:320px;}
+  .slot-toggle input{width:auto;min-height:0;accent-color:var(--orange,#ff7a00);}
+  .slot-toggle__text{font-size:14px;}
+  .slot-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start;}
+  .slot-grid label{min-width:0;}
+  .slot-grid input{width:100%;}
+  .slot-hint{display:block;margin-top:4px;}
+  @media (max-width:900px){.slot-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media (max-width:520px){.slot-grid{grid-template-columns:minmax(0,1fr);}.slot-toggle{max-width:none;}}
+  </style>
+</div>
+<% } %>
+
+<% if (locals.operatingHoursAction) { %>
+<div class="card">
+  <h2 class="h2" style="margin-top:0;">Operating Hours</h2>
+  <p class="muted small" style="margin-top:0;">Set the daily opening and closing time (IST). Leave both blank to disable scheduled hours and rely on the manual open/close toggle.</p>
+  <form method="post" action="<%= operatingHoursAction %>" class="form">
+    <label>
+      <span>Opening time</span>
+      <input name="openingTime" type="time" value="<%= shopAvailability.openingTime || "" %>" style="max-width:220px;width:100%;" />
+    </label>
+    <label>
+      <span>Closing time</span>
+      <input name="closingTime" type="time" value="<%= shopAvailability.closingTime || "" %>" style="max-width:220px;width:100%;" />
+    </label>
+    <div style="display:flex;justify-content:flex-end;">
+      <button class="btn" type="submit">Save Hours</button>
+    </div>
+  </form>
+</div>
+<% } %>
 
 <% if (locals.parcelChargeAction) { %>
 <div class="card" style="border-left:4px solid var(--orange,#ff7a00);">

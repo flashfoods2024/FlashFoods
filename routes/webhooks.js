@@ -7,6 +7,7 @@ import { emitPendingCount } from "../socket/index.js";
 import { dispatchNewOrderNotification } from "../utils/notification-dispatch.js";
 import { verifyRazorpayWebhook } from "../utils/webhook-signature.js";
 import { toPaise } from "../utils/money.js";
+import { releaseSlot } from "../utils/pickup-slots.js";
 
 export const webhooksRouter = express.Router();
 
@@ -147,7 +148,7 @@ webhooksRouter.post(
           }
         }
       } else if (eventType === "payment.failed") {
-        await Order.findOneAndUpdate(
+        const cancelled = await Order.findOneAndUpdate(
           { razorpayOrderId, status: "pending_payment", webhookEventId: { $ne: eventId } },
           {
             $set: {
@@ -156,8 +157,14 @@ webhooksRouter.post(
               razorpayPaymentId: razorpayPaymentId || "",
               webhookEventId: eventId,
             },
-          }
+          },
+          { new: true }
         );
+
+        // Payment failed — free the slot the order reserved (no-op if none).
+        if (cancelled) {
+          await releaseSlot(cancelled.shop, cancelled.pickupTime);
+        }
 
         if (eventId) {
           await Order.updateOne(

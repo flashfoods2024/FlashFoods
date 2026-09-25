@@ -7,7 +7,7 @@ import { Order } from "../models/Order.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { generateOtp } from "../utils/otp.js";
-import { validatePickupTime } from "../utils/time.js";
+import { reservePickupSlot, releaseSlot } from "../utils/pickup-slots.js";
 import { createRazorpayFromShop } from "../config/razorpay.js";
 import {
   getEasebuzzFromShop,
@@ -27,6 +27,10 @@ import { dispatchNewOrderNotification } from "../utils/notification-dispatch.js"
 import { computeParcelCharge } from "../utils/pricing.js";
 import { signaturesMatch } from "../utils/signature.js";
 import { toPaise, fromPaise } from "../utils/money.js";
+import { isShopAvailable } from "../utils/shop-hours.js";
+import { getShopDiscount, computeDiscountPaise } from "../utils/discount.js";
+import { createPickupQr } from "../utils/qr-pickup.js";
+import QRCode from "qrcode";
 import {
   verifyRazorpayCapturedPayment,
   verifyPhonePeCompletedPayment,
@@ -103,7 +107,11 @@ async function buildOrderItemsFromCart(cart, shop, orderType) {
   }
   if (!orderItems.length) return null;
   const chargePaise = toPaise(computeParcelCharge(shop, orderType)) || 0;
-  const totalPaise = foodTotalPaise + chargePaise;
+  // The vendor discount applies to the food subtotal only, never the parcel
+  // charge. Server-authoritative: the client amount is ignored entirely.
+  const discount = getShopDiscount(shop);
+  const discountPaise = computeDiscountPaise(foodTotalPaise, discount.percent);
+  const totalPaise = foodTotalPaise - discountPaise + chargePaise;
   // Authoritative totals are computed in integer paise and only converted to
   // rupees for storage/display. This is the single source of order amounts.
   return {
@@ -114,6 +122,8 @@ async function buildOrderItemsFromCart(cart, shop, orderType) {
     totalPaise,
     parcelCharge: fromPaise(chargePaise),
     parcelChargePaise: chargePaise,
+    discountPercent: discount.enabled ? discount.percent : 0,
+    discountPaise,
   };
 }
 
@@ -161,7 +171,7 @@ ordersRouter.post(
       }
 
       const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isActive === false || shop.isOpen === false) {
+      if (!isShopAvailable(shop)) {
         return res
           .status(400)
           .json({ error: "This shop is currently closed." });
@@ -191,12 +201,29 @@ ordersRouter.post(
       }
       const { orderItems, total, parcelCharge, totalPaise } = built;
 
-      const pickupValidation = validatePickupTime(pickupTime);
-      if (!pickupValidation.valid) {
-        return res.status(400).json({ error: pickupValidation.error });
+      const pickupReservation = await reservePickupSlot(shop, pickupTime);
+      if (!pickupReservation.ok) {
+        return res.status(400).json({ error: pickupReservation.error });
       }
 
-      const { keyId, instance } = createRazorpayFromShop(shop);
+      const { keyId, keySecret, instance } = createRazorpayFromShop(shop);
+      // ponytail: temporary auth-failure diagnostic, remove after root cause proven
+      console.log("RAZORPAY CRED DEBUG:", {
+        source:
+          shop.paymentConfigured &&
+          shop.paymentSettings?.razorpay?.keyId &&
+          shop.paymentSettings?.razorpay?.keySecret
+            ? "shop:paymentSettings.razorpay"
+            : "env:RAZORPAY_*",
+        keyId,
+        secretLength: String(keySecret || "").length,
+        secretFirst5: String(keySecret || "").slice(0, 5),
+        secretLast5: String(keySecret || "").slice(-5),
+        secretHasWhitespace: /\s/.test(String(keySecret || "")),
+        shopId: String(shop._id),
+        shopName: shop.name,
+        cartShopId: String(cart.shopId),
+      });
 
       const rzpOrder = await instance.orders.create({
         amount: totalPaise,
@@ -204,20 +231,30 @@ ordersRouter.post(
         receipt: `receipt_${Date.now()}`,
       });
 
-      await Order.create({
-        customer: req.session.userId,
-        shop: cart.shopId,
-        items: orderItems,
-        total,
-        orderType: orderType || "dinein",
-        parcelCharge,
-        pickupTime: pickupValidation.date || null,
-        status: "pending_payment",
-        pickupOtp: generateOtp(),
-        paymentNote: "pending",
-        transactionId: "",
-        razorpayOrderId: rzpOrder.id,
-      });
+      try {
+        await Order.create({
+          customer: req.session.userId,
+          shop: cart.shopId,
+          items: orderItems,
+          total,
+          orderType: orderType || "dinein",
+          parcelCharge,
+          discountPercent: built.discountPercent || 0,
+          discountAmountPaise: built.discountPaise || 0,
+          pickupTime: pickupReservation.date || null,
+          status: "pending_payment",
+          pickupOtp: generateOtp(),
+          paymentNote: "pending",
+          transactionId: "",
+          razorpayOrderId: rzpOrder.id,
+        });
+      } catch (createErr) {
+        // Do not leak the reserved slot if the order could not be persisted.
+        if (pickupReservation.reserved) {
+          await releaseSlot(cart.shopId, pickupReservation.slotStart);
+        }
+        throw createErr;
+      }
 
       return res.json({ ...rzpOrder, key_id: keyId });
     } catch (err) {
@@ -395,7 +432,7 @@ ordersRouter.post(
       }
 
       const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isActive === false || shop.isOpen === false) {
+      if (!isShopAvailable(shop)) {
         return res
           .status(400)
           .json({ error: "This shop is currently closed." });
@@ -430,9 +467,9 @@ ordersRouter.post(
           .json({ error: "Easebuzz is not configured for this shop." });
       }
 
-      const pickupValidation = validatePickupTime(pickupTime);
-      if (!pickupValidation.valid) {
-        return res.status(400).json({ error: pickupValidation.error });
+      const pickupReservation = await reservePickupSlot(shop, pickupTime);
+      if (!pickupReservation.ok) {
+        return res.status(400).json({ error: pickupReservation.error });
       }
 
       const user = req.user || {};
@@ -442,20 +479,30 @@ ordersRouter.post(
       const firstname = String(user.name || "Customer").slice(0, 60);
       const email = String(user.email || "customer@flashfoods.local");
 
-      await Order.create({
-        customer: req.session.userId,
-        shop: cart.shopId,
-        items: orderItems,
-        total,
-        orderType: orderType || "dinein",
-        parcelCharge,
-        pickupTime: pickupValidation.date || null,
-        status: "pending_payment",
-        pickupOtp: generateOtp(),
-        paymentNote: "pending",
-        transactionId: "",
-        gatewayTxnId: txnid,
-      });
+      try {
+        await Order.create({
+          customer: req.session.userId,
+          shop: cart.shopId,
+          items: orderItems,
+          total,
+          orderType: orderType || "dinein",
+          parcelCharge,
+          discountPercent: built.discountPercent || 0,
+          discountAmountPaise: built.discountPaise || 0,
+          pickupTime: pickupReservation.date || null,
+          status: "pending_payment",
+          pickupOtp: generateOtp(),
+          paymentNote: "pending",
+          transactionId: "",
+          gatewayTxnId: txnid,
+        });
+      } catch (createErr) {
+        // Do not leak the reserved slot if the order could not be persisted.
+        if (pickupReservation.reserved) {
+          await releaseSlot(cart.shopId, pickupReservation.slotStart);
+        }
+        throw createErr;
+      }
 
       const hash = buildPaymentHash({
         merchantKey,
@@ -542,6 +589,9 @@ ordersRouter.post("/easebuzz/callback", requireDb, async (req, res) => {
       if (success) {
         emitPendingCount(order.shop);
         dispatchNewOrderNotification(order);
+      } else {
+        // Payment did not complete — free the slot the order reserved.
+        await releaseSlot(order.shop, order.pickupTime);
       }
     }
 
@@ -568,7 +618,7 @@ ordersRouter.post(
       }
 
       const shop = await Shop.findById(cart.shopId).lean();
-      if (!shop || shop.isActive === false || shop.isOpen === false) {
+      if (!isShopAvailable(shop)) {
         return res
           .status(400)
           .json({ error: "This shop is currently closed." });
@@ -603,9 +653,9 @@ ordersRouter.post(
           .json({ error: "PhonePe is not configured for this shop." });
       }
 
-      const pickupValidation = validatePickupTime(pickupTime);
-      if (!pickupValidation.valid) {
-        return res.status(400).json({ error: pickupValidation.error });
+      const pickupReservation = await reservePickupSlot(shop, pickupTime);
+      if (!pickupReservation.ok) {
+        return res.status(400).json({ error: pickupReservation.error });
       }
 
       const user = req.user || {};
@@ -626,20 +676,30 @@ ordersRouter.post(
         });
       }
 
-      await Order.create({
-        customer: req.session.userId,
-        shop: cart.shopId,
-        items: orderItems,
-        total,
-        orderType: orderType || "dinein",
-        parcelCharge,
-        pickupTime: pickupValidation.date || null,
-        status: "pending_payment",
-        pickupOtp: generateOtp(),
-        paymentNote: "pending",
-        transactionId: "",
-        gatewayTxnId: txnid,
-      });
+      try {
+        await Order.create({
+          customer: req.session.userId,
+          shop: cart.shopId,
+          items: orderItems,
+          total,
+          orderType: orderType || "dinein",
+          parcelCharge,
+          discountPercent: built.discountPercent || 0,
+          discountAmountPaise: built.discountPaise || 0,
+          pickupTime: pickupReservation.date || null,
+          status: "pending_payment",
+          pickupOtp: generateOtp(),
+          paymentNote: "pending",
+          transactionId: "",
+          gatewayTxnId: txnid,
+        });
+      } catch (createErr) {
+        // Do not leak the reserved slot if the order could not be persisted.
+        if (pickupReservation.reserved) {
+          await releaseSlot(cart.shopId, pickupReservation.slotStart);
+        }
+        throw createErr;
+      }
 
       const result = await createPayment({
         accessToken: auth.access_token,
@@ -774,6 +834,8 @@ ordersRouter.all("/phonepe/callback", requireDb, async (req, res) => {
           },
         },
       );
+      // Payment did not complete — free the slot the order reserved.
+      await releaseSlot(order.shop, order.pickupTime);
 
       req.flash(
         "error",
@@ -820,7 +882,7 @@ ordersRouter.post(
         .status(403)
         .send("Mock checkout only allowed for testing shop");
     }
-    if (shop.isActive === false || shop.isOpen === false) {
+    if (!isShopAvailable(shop)) {
       req.flash("error", "This shop is currently closed.");
       return res.redirect("/cart");
     }
@@ -843,9 +905,9 @@ ordersRouter.post(
     }
     const { orderItems, total, parcelCharge, totalPaise } = built;
 
-    const pickupValidation = validatePickupTime(req.body.pickupTime);
-    if (!pickupValidation.valid) {
-      req.flash("error", pickupValidation.error);
+    const pickupReservation = await reservePickupSlot(shop, req.body.pickupTime);
+    if (!pickupReservation.ok) {
+      req.flash("error", pickupReservation.error);
       return res.redirect("/cart");
     }
 
@@ -858,7 +920,9 @@ ordersRouter.post(
       total,
       orderType,
       parcelCharge,
-      pickupTime: pickupValidation.date || null,
+      discountPercent: built.discountPercent || 0,
+      discountAmountPaise: built.discountPaise || 0,
+      pickupTime: pickupReservation.date || null,
       status: "paid",
       pickupOtp,
       paymentNote: "mock",
@@ -933,9 +997,26 @@ ordersRouter.get(
       req.flash("error", "Order not found.");
       return res.redirect("/orders");
     }
+
+    // QR pickup is offered while the order awaits collection. The token is
+    // signed and shop-bound server-side; the QR only carries it to the vendor.
+    let pickupQr = null;
+    if (order.status === "ready_for_pickup") {
+      const token = createPickupQr(order);
+      if (token) {
+        try {
+          const dataUrl = await QRCode.toDataURL(token, { width: 240, margin: 1 });
+          pickupQr = { token, dataUrl };
+        } catch (err) {
+          console.error("[QR] generation failed:", err.message);
+        }
+      }
+    }
+
     return res.render("orders/show", {
       pageTitle: `Order ${String(order._id).slice(-6)}`,
       order,
+      pickupQr,
     });
   },
 );

@@ -17,6 +17,9 @@ import { isGatewayConfigured } from "./vendor.js";
 import { computeParcelCharge } from "../utils/pricing.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 import { computeParcelTotals } from "../utils/order-math.js";
+import { validateOperatingHours } from "../utils/shop-hours.js";
+import { validatePickupSlotSettings } from "../utils/pickup-slots.js";
+import { validateDiscountSettings } from "../utils/discount.js";
 import {
   formatOrderStatus,
   normalizeQuery,
@@ -411,6 +414,21 @@ adminRouter.post(
       const description = normalizeQuery(req.body?.description);
       const isOpen = String(req.body?.isOpen || "open") !== "closed";
       const assignedVendorId = normalizeQuery(req.body?.vendor);
+      const hours = validateOperatingHours(
+        req.body?.openingTime,
+        req.body?.closingTime,
+      );
+      const slots = validatePickupSlotSettings({
+        enabled: req.body?.slotsEnabled,
+        startTime: req.body?.slotStartTime,
+        endTime: req.body?.slotEndTime,
+        durationMinutes: req.body?.slotDuration,
+        capacity: req.body?.slotCapacity,
+      });
+      const discount = validateDiscountSettings({
+        enabled: req.body?.discountEnabled,
+        percent: req.body?.discountPercent,
+      });
 
       if (!name) {
         req.flash("error", "Shop name is required.");
@@ -419,6 +437,19 @@ adminRouter.post(
 
       if (!slug) {
         req.flash("error", "Shop slug is required.");
+        return res.redirect("/admin/shops/new");
+      }
+
+      if (!hours.ok) {
+        req.flash("error", hours.error);
+        return res.redirect("/admin/shops/new");
+      }
+      if (!slots.ok) {
+        req.flash("error", slots.error);
+        return res.redirect("/admin/shops/new");
+      }
+      if (!discount.ok) {
+        req.flash("error", discount.error);
         return res.redirect("/admin/shops/new");
       }
 
@@ -434,6 +465,10 @@ adminRouter.post(
         description,
         image: req.file?.path || "",
         isOpen,
+        openingTime: hours.openingTime,
+        closingTime: hours.closingTime,
+        pickupSlots: slots.settings,
+        discount: discount.settings,
         isActive: true,
       });
 
@@ -556,6 +591,21 @@ adminRouter.post(
       const description = normalizeQuery(req.body?.description);
       const isOpen = String(req.body?.isOpen || "open") !== "closed";
       const assignedVendorId = normalizeQuery(req.body?.vendor);
+      const hours = validateOperatingHours(
+        req.body?.openingTime,
+        req.body?.closingTime,
+      );
+      const slots = validatePickupSlotSettings({
+        enabled: req.body?.slotsEnabled,
+        startTime: req.body?.slotStartTime,
+        endTime: req.body?.slotEndTime,
+        durationMinutes: req.body?.slotDuration,
+        capacity: req.body?.slotCapacity,
+      });
+      const discount = validateDiscountSettings({
+        enabled: req.body?.discountEnabled,
+        percent: req.body?.discountPercent,
+      });
 
       if (!name) {
         req.flash("error", "Shop name is required.");
@@ -563,6 +613,18 @@ adminRouter.post(
       }
       if (!slug) {
         req.flash("error", "Shop slug is required.");
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
+      if (!hours.ok) {
+        req.flash("error", hours.error);
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
+      if (!slots.ok) {
+        req.flash("error", slots.error);
+        return res.redirect(`/admin/shops/${id}/edit`);
+      }
+      if (!discount.ok) {
+        req.flash("error", discount.error);
         return res.redirect(`/admin/shops/${id}/edit`);
       }
 
@@ -576,6 +638,10 @@ adminRouter.post(
       shop.slug = slug;
       shop.description = description;
       shop.isOpen = isOpen;
+      shop.openingTime = hours.openingTime;
+      shop.closingTime = hours.closingTime;
+      shop.pickupSlots = slots.settings;
+      shop.discount = discount.settings;
       if (req.file?.path) {
         shop.image = req.file.path;
       }
@@ -1239,6 +1305,7 @@ adminRouter.post("/orders/:id/toggle-parcel", async (req, res) => {
     items: order.items,
     orderType: targetType,
     parcelChargePaise: chargePaise,
+    discountPercent: Number(order.discountPercent) || 0,
   });
   if (!totals.ok) {
     req.flash("error", "Order contains an invalid item.");
