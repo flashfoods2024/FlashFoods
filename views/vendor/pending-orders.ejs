@@ -171,20 +171,26 @@
 }
 .global-verify-bar__form {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.global-verify-bar__form:last-of-type {
+  margin-bottom: 0;
 }
 .global-verify-bar__form label {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   font-size: 14px;
   font-weight: 600;
   color: #374151;
-  flex-shrink: 0;
 }
 .global-verify-bar__form input {
-  width: 120px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 8px 10px;
   font-size: 18px;
   letter-spacing: 0.15em;
@@ -196,6 +202,15 @@
 .global-verify-bar__form .btn {
   padding: 8px 20px;
   font-size: 15px;
+}
+.verify-btn-row {
+  display: flex;
+  gap: 8px;
+}
+.verify-btn-row .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
 }
 .global-verify-bar__status {
   margin-top: 8px;
@@ -235,14 +250,26 @@
       <h2>Pickup Verification</h2>
       <span class="global-verify-bar__count" id="ready-count">0 ready</span>
     </div>
+    <form id="global-qr-form" class="global-verify-bar__form">
+      <label>
+        <span>Pickup QR</span>
+        <input id="global-qr-input" name="qr" type="text" autocomplete="off" placeholder="Paste QR contents" required />
+      </label>
+      <div class="verify-btn-row">
+        <button class="btn btn--ghost" type="button" id="global-qr-scan-btn" hidden>Scan QR</button>
+        <button class="btn" type="submit">Verify QR</button>
+      </div>
+    </form>
+    <video id="global-qr-video" playsinline style="display:none;max-width:100%;border-radius:8px;margin-top:8px;"></video>
     <form id="global-verify-form" class="global-verify-bar__form">
       <label>
         <span>Pickup code</span>
         <input id="global-otp-input" name="otp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="12" autocomplete="one-time-code" placeholder="000000" required />
       </label>
-      <button class="btn" type="submit">Verify Pickup</button>
+      <button class="btn" type="submit">Verify OTP</button>
     </form>
     <div id="global-verify-status" class="global-verify-bar__status"></div>
+    <div id="global-handover"></div>
   </div>
 </div>
 
@@ -585,7 +612,8 @@
           }
           return res.json();
         })
-        .then(function () {
+        .then(function (data) {
+          if (data && data.handover) showHandover(data.handover);
           poll();
         })
         .catch(function (err) {
@@ -603,6 +631,121 @@
       el.className = "verify-error";
       el.textContent = msg;
       form.appendChild(el);
+    }
+
+    // Handover card: same data as the /vendor/verify handover card, rendered
+    // from the verify/verify-qr JSON response. No confirmation button — the
+    // order is already completed when this shows.
+    function showHandover(h) {
+      var box = document.getElementById("global-handover");
+      if (!box || !h) return;
+      var items = (h.items || [])
+        .map(function (item) {
+          return "<li>" + esc(item.quantity) + " x " + esc(item.name) + "</li>";
+        })
+        .join("");
+      box.innerHTML =
+        '<div class="card" id="handover-card">' +
+        '<p class="eyebrow">Pickup verified — hand over the food</p>' +
+        '<h2 class="h2" style="margin-top:0;">Order #' + esc(h.orderNumber) + "</h2>" +
+        "<p><strong>" + esc(h.studentName) + "</strong>" +
+        (h.phone ? ' &middot; <span class="mono">' + esc(h.phone) + "</span>" : "") +
+        "</p>" +
+        '<ul class="plain-list">' + items + "</ul>" +
+        '<p class="cart-total"><strong>Amount:</strong> &#8377;' + Number(h.total).toFixed(2) + "</p>" +
+        "</div>";
+    }
+
+    // Global QR verification: POST to the existing /vendor/verify-qr route,
+    // show the handover card, refresh the list (completed order drops out).
+    var globalQrForm = document.getElementById("global-qr-form");
+    var globalQrInput = document.getElementById("global-qr-input");
+    var globalQrScanBtn = document.getElementById("global-qr-scan-btn");
+    var globalQrVideo = document.getElementById("global-qr-video");
+
+    function submitQr() {
+      var qr = globalQrInput.value.trim();
+      if (!qr) {
+        globalStatus.textContent = "Scan or paste a pickup QR code.";
+        globalStatus.className = "global-verify-bar__status global-verify-bar__status--error";
+        return;
+      }
+      globalStatus.textContent = "";
+      globalStatus.className = "global-verify-bar__status";
+      var btn = globalQrForm.querySelector('[type="submit"]');
+      if (btn) btn.disabled = true;
+      fetch("/vendor/verify-qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ qr: qr }),
+        credentials: "same-origin",
+      })
+        .then(function (res) {
+          if (!res.ok) {
+            return res.json().then(function (data) {
+              throw new Error(data.error || "Verification failed");
+            });
+          }
+          return res.json();
+        })
+        .then(function (data) {
+          globalStatus.textContent = "Order #" + (data.handover ? data.handover.orderNumber : "") + " verified.";
+          globalStatus.className = "global-verify-bar__status global-verify-bar__status--success";
+          if (data && data.handover) showHandover(data.handover);
+          globalQrInput.value = "";
+          poll();
+          globalQrInput.focus();
+        })
+        .catch(function (err) {
+          globalStatus.textContent = err.message;
+          globalStatus.className = "global-verify-bar__status global-verify-bar__status--error";
+          globalQrInput.focus();
+        })
+        .finally(function () {
+          if (btn) btn.disabled = false;
+        });
+    }
+
+    if (globalQrForm && globalQrInput) {
+      globalQrForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        submitQr();
+      });
+    }
+
+    // Camera scanning (same BarcodeDetector pattern as /vendor/verify).
+    if (globalQrScanBtn && globalQrVideo && globalQrInput && "BarcodeDetector" in window && navigator.mediaDevices) {
+      globalQrScanBtn.hidden = false;
+      var qrStream = null;
+      var qrTimer = null;
+      function stopQr() {
+        if (qrTimer) { clearInterval(qrTimer); qrTimer = null; }
+        if (qrStream) { qrStream.getTracks().forEach(function (t) { t.stop(); }); qrStream = null; }
+        globalQrVideo.style.display = "none";
+      }
+      globalQrScanBtn.addEventListener("click", function () {
+        var detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        navigator.mediaDevices
+          .getUserMedia({ video: { facingMode: "environment" } })
+          .then(function (s) {
+            qrStream = s;
+            globalQrVideo.srcObject = s;
+            globalQrVideo.style.display = "";
+            return globalQrVideo.play();
+          })
+          .then(function () {
+            qrTimer = setInterval(function () {
+              detector.detect(globalQrVideo).then(function (codes) {
+                if (codes && codes.length) {
+                  globalQrInput.value = codes[0].rawValue;
+                  stopQr();
+                  submitQr();
+                }
+              }).catch(function () {});
+            }, 400);
+          })
+          .catch(function () { alert("Camera unavailable."); });
+      });
     }
 
     // Global Pickup Verification Bar
@@ -659,6 +802,7 @@
           .then(function (data) {
             globalStatus.textContent = "Order #" + matches[0].shortId + " verified.";
             globalStatus.className = "global-verify-bar__status global-verify-bar__status--success";
+            if (data && data.handover) showHandover(data.handover);
             globalInput.value = "";
             poll();
             globalInput.focus();

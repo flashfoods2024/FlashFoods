@@ -157,6 +157,11 @@ input[type="file"] {
   color: var(--text);
 }
 
+/* The vendor greeting is also the profile entry point (see header.ejs). */
+a.nav-main__greet[href]:hover {
+  text-decoration: underline;
+}
+
 .nav-toggle {
   display: none;
   align-items: center;
@@ -2131,4 +2136,58 @@ fieldset.fieldset legend {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 26px;
+}
+
+/* Vendor Profile V2 */
+.profile-row__control {
+  flex: 1;
+  min-width: 0;
+  max-width: 280px;
+}
+
+.badge-readonly {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
+.vendor-profile-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.vendor-profile-status {
+  margin: 10px 0 0;
+  font-weight: 700;
+  color: var(--green);
+}
+
+.vendor-profile-status.is-error,
+#vendor-analytics-status.is-error {
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .vendor-profile-card .profile-row {
+    flex-wrap: wrap;
+  }
+
+  .vendor-profile-card .profile-row__label {
+    min-width: 100%;
+  }
+
+  .vendor-profile-card .profile-row__control {
+    max-width: 100%;
+  }
 }

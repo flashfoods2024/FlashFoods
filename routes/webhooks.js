@@ -1,22 +1,15 @@
 import express from "express";
-import crypto from "crypto";
 import { Order } from "../models/Order.js";
 import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
-import { getWebhookSecretFromShop } from "../config/razorpay.js";
+import { resolveWebhookSecret } from "../config/razorpay.js";
 import { emitPendingCount } from "../socket/index.js";
 import { dispatchNewOrderNotification } from "../utils/notification-dispatch.js";
+import { verifyRazorpayWebhook } from "../utils/webhook-signature.js";
+import { toPaise } from "../utils/money.js";
+import { releaseSlot } from "../utils/pickup-slots.js";
 
 export const webhooksRouter = express.Router();
-
-// Constant-time signature comparison to avoid timing attacks.
-function signaturesMatch(expectedHex, actualHex) {
-  if (!expectedHex || !actualHex) return false;
-  const a = Buffer.from(expectedHex, "utf8");
-  const b = Buffer.from(actualHex, "utf8");
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
 
 // Razorpay webhook receiver.
 //
@@ -39,6 +32,10 @@ webhooksRouter.post(
         : Buffer.from(req.body || "");
 
       if (!signature) {
+        console.warn(
+          "[razorpay-webhook] rejected: missing x-razorpay-signature header",
+          { eventId },
+        );
         return res.status(400).json({ error: "Missing signature" });
       }
 
@@ -68,35 +65,61 @@ webhooksRouter.post(
       const shop = await Shop.findById(order.shop)
         .select("paymentConfigured paymentSettings")
         .lean();
-      const webhookSecret = getWebhookSecretFromShop(shop);
 
-      if (!webhookSecret) {
-        console.error("Razorpay webhook secret not configured.");
-        return res.status(500).json({ error: "Webhook not configured" });
+      // Fail closed on missing configuration: never verify with an empty key.
+      const { secret, source, reason } = resolveWebhookSecret(shop);
+      if (!secret) {
+        console.error(
+          "[razorpay-webhook] REJECTED: webhook secret not configured — failing closed",
+          {
+            orderId: String(order._id),
+            shopId: order.shop ? String(order.shop) : null,
+            secretSource: source,
+            reason,
+            eventId,
+          },
+        );
+        return res.status(503).json({ error: "Webhook not configured" });
       }
 
-      const expected = crypto
-        .createHmac("sha256", webhookSecret)
-        .update(rawBody)
-        .digest("hex");
-
-      if (!signaturesMatch(expected, signature)) {
+      const verdict = verifyRazorpayWebhook({ secret, rawBody, signature });
+      if (!verdict.ok) {
+        console.error(
+          "[razorpay-webhook] signature verification failed — rejecting event",
+          {
+            orderId: String(order._id),
+            shopId: order.shop ? String(order.shop) : null,
+            secretSource: source,
+            reason: verdict.reason,
+            eventId,
+          },
+        );
         return res.status(400).json({ error: "Invalid signature" });
       }
 
       // Idempotency: if this exact event was already processed, ack and stop.
       if (eventId && order.webhookEventId === eventId) {
+        console.log("[razorpay-webhook] duplicate event ignored", {
+          orderId: String(order._id),
+          eventId,
+        });
         return res.status(200).json({ received: true, duplicate: true });
       }
 
       const eventType = event?.event;
 
       if (eventType === "payment.captured") {
-        // Only advance orders that are still awaiting payment. This prevents a
-        // late webhook from clobbering an order already moved forward by a
-        // vendor (ready_for_pickup/completed) or by /verify-payment.
+        // Idempotency is part of the atomic claim itself: the
+        // `webhookEventId: { $ne: eventId }` precondition means two
+        // concurrent deliveries of the same event cannot both win, so
+        // notifications and pending counts fire exactly once. Money is
+        // already protected by the `status: "pending_payment"` precondition.
         const updated = await Order.findOneAndUpdate(
-          { razorpayOrderId, status: "pending_payment" },
+          {
+            razorpayOrderId,
+            status: "pending_payment",
+            webhookEventId: { $ne: eventId },
+          },
           {
             $set: {
               status: "paid",
@@ -104,6 +127,7 @@ webhooksRouter.post(
               transactionId: razorpayPaymentId,
               razorpayPaymentId,
               webhookEventId: eventId,
+              amountChargedPaise: toPaise(order.total),
             },
           },
           { new: true }
@@ -112,19 +136,20 @@ webhooksRouter.post(
         if (updated) {
           emitPendingCount(order.shop);
           dispatchNewOrderNotification(updated);
-        }
-
-        // If it was not pending (already paid/handled), still record the event
-        // id so repeat deliveries are recognised as duplicates.
-        if (!updated && eventId) {
-          await Order.updateOne(
-            { razorpayOrderId },
-            { $set: { webhookEventId: eventId } }
-          );
+        } else {
+          // Either already advanced by /verify-payment, or a duplicate
+          // delivery that lost the claim. Record the event id either way so
+          // repeat deliveries are recognised as duplicates.
+          if (eventId) {
+            await Order.updateOne(
+              { razorpayOrderId },
+              { $set: { webhookEventId: eventId } }
+            );
+          }
         }
       } else if (eventType === "payment.failed") {
-        await Order.findOneAndUpdate(
-          { razorpayOrderId, status: "pending_payment" },
+        const cancelled = await Order.findOneAndUpdate(
+          { razorpayOrderId, status: "pending_payment", webhookEventId: { $ne: eventId } },
           {
             $set: {
               status: "cancelled",
@@ -132,8 +157,14 @@ webhooksRouter.post(
               razorpayPaymentId: razorpayPaymentId || "",
               webhookEventId: eventId,
             },
-          }
+          },
+          { new: true }
         );
+
+        // Payment failed — free the slot the order reserved (no-op if none).
+        if (cancelled) {
+          await releaseSlot(cancelled.shop, cancelled.pickupTime);
+        }
 
         if (eventId) {
           await Order.updateOne(

@@ -54,6 +54,35 @@ const shopSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Operating hours as 24-hour "HH:MM" strings in IST. Empty string means
+    // "no hours configured" and availability falls back to the isOpen flag.
+    openingTime: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    closingTime: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    // Pickup-slot configuration. When `enabled`, students must choose one of
+    // the generated slots (see utils/pickup-slots.js) and capacity is enforced
+    // server-side via the PickupSlotBooking ledger.
+    pickupSlots: {
+      enabled: { type: Boolean, default: false },
+      startTime: { type: String, default: "", trim: true },
+      endTime: { type: String, default: "", trim: true },
+      durationMinutes: { type: Number, default: 15, min: 5, max: 240 },
+      capacity: { type: Number, default: 10, min: 1, max: 500 },
+      daysAhead: { type: Number, default: 1, min: 0, max: 7 },
+    },
+    // Percentage discount applied to the food subtotal (never the parcel
+    // charge). The authoritative calculation lives in utils/discount.js.
+    discount: {
+      enabled: { type: Boolean, default: false },
+      percent: { type: Number, default: 0, min: 0, max: 100 },
+    },
     isActive: {
       type: Boolean,
       default: true,

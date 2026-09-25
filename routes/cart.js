@@ -5,6 +5,10 @@ import { Shop } from "../models/Shop.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { computeParcelCharge } from "../utils/pricing.js";
+import { isShopAvailable } from "../utils/shop-hours.js";
+import { getSlotAvailability } from "../utils/pickup-slots.js";
+import { getShopDiscount, computeDiscountPaise } from "../utils/discount.js";
+import { toPaise, fromPaise } from "../utils/money.js";
 
 export const cartRouter = express.Router();
 
@@ -14,6 +18,16 @@ function getCart(req) {
   }
   if (!Array.isArray(req.session.cart.items)) req.session.cart.items = [];
   return req.session.cart;
+}
+
+// Only allow same-origin, path-only redirect destinations. A fully
+// attacker-controlled value ("https://evil.com" or the protocol-relative
+// "//evil.com") would otherwise ship an authenticated student — and their
+// session cookie in the request — to an off-domain page.
+function safeRedirect(value, fallback) {
+  if (!value || typeof value !== "string") return fallback;
+  if (!value.startsWith("/") || value.startsWith("//")) return fallback;
+  return value;
 }
 
 cartRouter.get(
@@ -61,15 +75,17 @@ cartRouter.get(
         .filter(Boolean);
     }
 
-    var subtotal = 0;
+    var subtotalPaise = 0;
     var allVariantsSelected = true;
     lines.forEach(function(l) {
       if (l.variantId == null && l.variants.length > 1) {
         allVariantsSelected = false;
         return;
       }
-      subtotal += (l.variantPrice != null ? l.variantPrice : l.price) * l.quantity;
+      const unitPaise = toPaise(l.variantPrice != null ? l.variantPrice : l.price);
+      if (unitPaise !== null) subtotalPaise += unitPaise * l.quantity;
     });
+    const subtotal = fromPaise(subtotalPaise);
 
     let razorpayKeyId = "";
     if (shop?.paymentGateway === "razorpay") {
@@ -80,6 +96,10 @@ cartRouter.get(
     }
 
     const parcelCharge = computeParcelCharge(shop, "parcel");
+    const parcelChargePaise = toPaise(parcelCharge) || 0;
+    const discount = getShopDiscount(shop);
+    const discountPaise = computeDiscountPaise(subtotalPaise, discount.percent);
+    const slotAvailability = shop ? await getSlotAvailability(shop) : { enabled: false, slots: [] };
 
     return res.render("cart/index", {
       pageTitle: "Cart",
@@ -87,9 +107,12 @@ cartRouter.get(
       lines,
       subtotal,
       parcelCharge,
-      totalParcel: subtotal + parcelCharge,
+      totalParcel: fromPaise(subtotalPaise - discountPaise + parcelChargePaise),
+      discountPercent: discount.enabled ? discount.percent : 0,
+      discountAmount: fromPaise(discountPaise),
       allVariantsSelected,
       razorpayKeyId,
+      slotAvailability,
     });
   },
 );
@@ -105,20 +128,20 @@ cartRouter.post(
 
     if (!menuItemId || !mongoose.isValidObjectId(String(menuItemId))) {
       req.flash("error", "Invalid item.");
-      return res.redirect(redirect || "/shops");
+      return res.redirect(safeRedirect(redirect, "/shops"));
     }
 
     const item = await MenuItem.findById(menuItemId).lean();
     if (!item || !item.available) {
       req.flash("error", "That item is not available.");
-      return res.redirect(redirect || "/shops");
+      return res.redirect(safeRedirect(redirect, "/shops"));
     }
 
     const shopIdStr = String(item.shop);
     const shop = await Shop.findById(item.shop).lean();
-    if (!shop || shop.isActive === false || shop.isOpen === false) {
+    if (!isShopAvailable(shop)) {
       req.flash("error", "This shop is currently closed.");
-      return res.redirect(redirect || "/shops");
+      return res.redirect(safeRedirect(redirect, "/shops"));
     }
 
     const cart = getCart(req);
@@ -167,7 +190,7 @@ cartRouter.post(
     }
 
     req.flash("success", "Added to cart.");
-    const dest = redirect || (shop ? `/shops/${shop.slug}` : "/shops");
+    const dest = safeRedirect(redirect, shop ? `/shops/${shop.slug}` : "/shops");
     return res.redirect(dest);
   },
 );
@@ -214,8 +237,8 @@ cartRouter.post(
     const menuItems = await MenuItem.find({ _id: { $in: ids } }).lean();
     const byId = new Map(menuItems.map((m) => [String(m._id), m]));
 
-    var subtotal = 0;
     var allVariantsSelected = true;
+    var subtotalPaise = 0;
     cart.items.forEach(function(li) {
       var m = byId.get(String(li.menuItemId));
       if (!m) return;
@@ -228,11 +251,20 @@ cartRouter.post(
       if (lvi != null && m.variants && m.variants[lvi]) {
         price = m.variants[lvi].price;
       }
-      subtotal += price * (li.quantity || 1);
+      const unitPaise = toPaise(price);
+      if (unitPaise !== null) subtotalPaise += unitPaise * (li.quantity || 1);
     });
+    const subtotal = fromPaise(subtotalPaise);
 
-    const shop = cart.shopId ? await Shop.findById(cart.shopId).select("parcelChargeEnabled parcelCharge").lean() : null;
+    const shop = cart.shopId
+      ? await Shop.findById(cart.shopId)
+          .select("parcelChargeEnabled parcelCharge discount")
+          .lean()
+      : null;
     const parcelCharge = computeParcelCharge(shop, "parcel");
+    const parcelChargePaise = toPaise(parcelCharge) || 0;
+    const discount = getShopDiscount(shop);
+    const discountPaise = computeDiscountPaise(subtotalPaise, discount.percent);
 
     return res.json({
       success: true,
@@ -240,7 +272,9 @@ cartRouter.post(
       variantPrice: vi != null && variants[vi] ? variants[vi].price : null,
       subtotal: subtotal,
       parcelCharge: parcelCharge,
-      totalParcel: subtotal + parcelCharge,
+      discountPercent: discount.enabled ? discount.percent : 0,
+      discountAmount: fromPaise(discountPaise),
+      totalParcel: fromPaise(subtotalPaise - discountPaise + parcelChargePaise),
       allVariantsSelected: allVariantsSelected,
     });
   },

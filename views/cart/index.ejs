@@ -121,6 +121,11 @@
     <p class="cart-total">
       <strong>Cart Subtotal:</strong> ₹<span id="cart-subtotal"><%= subtotal.toFixed(2) %></span>
     </p>
+    <% if (typeof discountPercent !== 'undefined' && discountPercent > 0) { %>
+    <p class="cart-total" id="discount-row" style="color:#0a7d33;">
+      <strong>Discount (<%= discountPercent %>%):</strong> −₹<span id="discount-amount"><%= Number(discountAmount || 0).toFixed(2) %></span>
+    </p>
+    <% } %>
     <p class="cart-total" id="parcel-charge-row" style="display:none;">
       <strong>Parcel Charge:</strong> ₹<span id="parcel-charge-amount"><%= Number(parcelCharge).toFixed(2) %></span>
     </p>
@@ -156,14 +161,26 @@
     </div>
 
     <div class="pickup-time-section">
+      <% var slotsEnabled = !!(slotAvailability && slotAvailability.enabled); %>
       <label for="pickupTime">
-        <strong>Pickup Time</strong>
+        <strong><%= slotsEnabled ? "Pickup Slot" : "Pickup Time" %></strong>
       </label>
       <select id="pickupTime" class="input">
-        <option value="">Select pickup time</option>
+        <option value=""><%= slotsEnabled ? "Select pickup slot" : "Select pickup time" %></option>
+        <% if (slotsEnabled) { %>
+          <% slotAvailability.slots.forEach(function (slot) { %>
+            <option value="<%= slot.startIso %>" <%= slot.available ? "" : "disabled" %>>
+              <%= slot.label %><%= slot.available ? "" : " (full)" %>
+            </option>
+          <% }); %>
+        <% } %>
       </select>
       <p class="muted small">
-        Choose when you plan to collect your order.
+        <% if (slotsEnabled) { %>
+          Choose a pickup slot. Slots marked full are no longer bookable.
+        <% } else { %>
+          Choose when you plan to collect your order.
+        <% } %>
       </p>
     </div>
 
@@ -210,6 +227,7 @@
   var parcelChargeEnabled = <%= shop?.parcelChargeEnabled ? 'true' : 'false' %>;
   var parcelChargeParcel = <%= Number(parcelCharge) %>;
   var cartSubtotal = <%= subtotal %>;
+  var cartDiscount = <%= Number(typeof discountAmount !== 'undefined' ? discountAmount : 0) %>;
   var parcelRow = document.getElementById("parcel-charge-row");
   var parcelAmountEl = document.getElementById("parcel-charge-amount");
   var subtotalEl = document.getElementById("cart-subtotal");
@@ -221,7 +239,7 @@
       parcelRow.style.display = isParcel ? "" : "none";
     }
     if (totalEl) {
-      var total = cartSubtotal + (isParcel ? parcelChargeParcel : 0);
+      var total = cartSubtotal - cartDiscount + (isParcel ? parcelChargeParcel : 0);
       totalEl.textContent = total.toFixed(2);
     }
   }
@@ -247,7 +265,8 @@
 
   // ── PICKUP TIME OPTIONS ──
   var pickupSelect = document.getElementById("pickupTime");
-  if (pickupSelect) {
+  var slotsFromServer = <%= (typeof slotAvailability !== 'undefined' && slotAvailability && slotAvailability.enabled) ? 'true' : 'false' %>;
+  if (pickupSelect && !slotsFromServer) {
     (function generatePickupTimes() {
       var now = new Date();
       for (var i = 5; i <= 120; i += 5) {
@@ -306,6 +325,11 @@
         }
         if (parcelAmountEl) {
           parcelAmountEl.textContent = parcelChargeParcel.toFixed(2);
+        }
+        if (data.discountAmount != null) {
+          cartDiscount = Number(data.discountAmount);
+          var discEl = document.getElementById("discount-amount");
+          if (discEl) discEl.textContent = cartDiscount.toFixed(2);
         }
 
         // Re-evaluate all-variants state

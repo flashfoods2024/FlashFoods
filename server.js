@@ -10,6 +10,7 @@ import dotenv from "dotenv";
 import connectDb from "./config/db.js";
 import { Shop } from "./models/Shop.js";
 import { attachUser } from "./middleware/auth.js";
+import { csrfOriginProtection } from "./middleware/csrfOriginProtection.js";
 import { authRouter } from "./routes/auth.js";
 import { authMeRouter } from "./routes/api/authMe.js";
 import { shopsRouter } from "./routes/shops.js";
@@ -20,6 +21,7 @@ import { vendorRouter } from "./routes/vendor.js";
 import { menuRouter } from "./routes/menu.js";
 import { adminRouter } from "./routes/admin.js";
 import { profileRouter } from "./routes/profile.js";
+import { vendorProfileRouter } from "./routes/vendor-profile.js";
 import {
   formatLocalDateTime,
   formatPickupTime,
@@ -73,7 +75,16 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-const disableRateLimit = process.env.DISABLE_RATE_LIMIT === "true";
+// Never let the rate limiter be switched off in production — it is the app's
+// only brute-force defense. The flag is honoured in development/test only.
+const isProduction = process.env.NODE_ENV === "production";
+if (process.env.DISABLE_RATE_LIMIT === "true" && isProduction) {
+  console.error(
+    "SECURITY: DISABLE_RATE_LIMIT=true is ignored because NODE_ENV=production.",
+  );
+}
+const disableRateLimit =
+  process.env.DISABLE_RATE_LIMIT === "true" && !isProduction;
 
 app.use(
   helmet({
@@ -149,6 +160,10 @@ app.use(webhooksRouter);
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// CSRF: require same-origin Origin/Referer on all non-GET requests
+// (payment-gateway postbacks are exempted in middleware/csrfConfig.js).
+app.use(csrfOriginProtection);
 
 if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
   console.error(
@@ -248,6 +263,7 @@ app.use(menuRouter);
 app.use(vendorRouter);
 app.use("/api/fcm", fcmRouter);
 app.use("/admin", adminRouter);
+app.use(vendorProfileRouter);
 app.use(profileRouter);
 
 // ---------------------------------------------------------------------------

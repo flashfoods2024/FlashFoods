@@ -18,6 +18,82 @@
   </form>
 </div>
 
+<div class="card">
+  <h2 class="h2" style="margin-top:0;">QR pickup</h2>
+  <p class="muted small">Scan the student's pickup QR, or paste its contents. The server validates the QR before completing the order.</p>
+  <form method="post" action="/vendor/verify-qr" class="form verify-form" id="qr-form">
+    <label>
+      <span>Pickup QR</span>
+      <input name="qr" id="qr-input" type="text" autocomplete="off" placeholder="Paste QR contents" required />
+    </label>
+    <div class="row" style="gap:8px;">
+      <button class="btn" type="submit">Complete order</button>
+      <button class="btn btn--ghost" type="button" id="qr-scan-btn" hidden>Scan with camera</button>
+    </div>
+  </form>
+  <video id="qr-video" playsinline style="display:none;max-width:280px;border-radius:8px;margin-top:8px;"></video>
+</div>
+
+<% if (typeof handover !== "undefined" && handover) { %>
+<div class="card" id="handover-card">
+  <p class="eyebrow">Pickup verified — hand over the food</p>
+  <h2 class="h2" style="margin-top:0;">Order #<%= handover.orderNumber %></h2>
+  <p><strong><%= handover.studentName %></strong><% if (handover.phone) { %> &middot; <span class="mono"><%= handover.phone %></span><% } %></p>
+  <ul class="plain-list">
+    <% handover.items.forEach((item) => { %>
+      <li><%= item.quantity %> x <%= item.name %></li>
+    <% }) %>
+  </ul>
+  <p class="cart-total"><strong>Amount:</strong> &#8377;<%= Number(handover.total).toFixed(2) %></p>
+  <p class="muted small">Pickup: <%= formatPickupTime(handover.pickupTime) %></p>
+</div>
+<% } %>
+
+<script>
+  (function () {
+    var scanBtn = document.getElementById("qr-scan-btn");
+    var video = document.getElementById("qr-video");
+    var input = document.getElementById("qr-input");
+    var form = document.getElementById("qr-form");
+    if (!scanBtn || !video || !input || !form) return;
+    if (!("BarcodeDetector" in window) || !navigator.mediaDevices) return;
+
+    scanBtn.hidden = false;
+    var stream = null;
+    var timer = null;
+
+    function stop() {
+      if (timer) { clearInterval(timer); timer = null; }
+      if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+      video.style.display = "none";
+    }
+
+    scanBtn.addEventListener("click", function () {
+      var detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+      navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: "environment" } })
+        .then(function (s) {
+          stream = s;
+          video.srcObject = s;
+          video.style.display = "";
+          return video.play();
+        })
+        .then(function () {
+          timer = setInterval(function () {
+            detector.detect(video).then(function (codes) {
+              if (codes && codes.length) {
+                input.value = codes[0].rawValue;
+                stop();
+                form.submit();
+              }
+            }).catch(function () {});
+          }, 400);
+        })
+        .catch(function () { alert("Camera unavailable."); });
+    });
+  })();
+</script>
+
 <% if (orders && orders.length) { %>
   <section class="vendor-section">
     <div class="row row--split">

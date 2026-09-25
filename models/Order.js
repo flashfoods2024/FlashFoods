@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { otpExpiryFrom } from "../utils/otp.js";
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -33,6 +34,9 @@ const orderSchema = new mongoose.Schema(
       default: "dinein",
     },
     parcelCharge: { type: Number, default: 0, min: 0 },
+    // Snapshot of the vendor discount applied at order time (food subtotal only).
+    discountPercent: { type: Number, default: 0, min: 0, max: 100 },
+    discountAmountPaise: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
 
     pickupTime: {
@@ -45,6 +49,13 @@ const orderSchema = new mongoose.Schema(
 
     collectedAt: {
       type: Date,
+      default: null,
+    },
+
+    // F07: which credential closed the pickup. Null until collection.
+    pickupMethod: {
+      type: String,
+      enum: ["qr", "otp"],
       default: null,
     },
 
@@ -62,6 +73,11 @@ const orderSchema = new mongoose.Schema(
     },
 
     pickupOtp: { type: String, required: true },
+
+    // When the pickup code stops being valid. Defaults to a full TTL from
+    // creation and is refreshed by the vendor "mark ready" transition. Legacy
+    // documents predating this field have no timestamp (null).
+    pickupOtpExpiresAt: { type: Date, default: () => otpExpiryFrom() },
 
     paymentNote: { type: String, default: "pending" },
     transactionId: { type: String, default: "" },
@@ -87,6 +103,17 @@ const orderSchema = new mongoose.Schema(
       enum: ["none", "pending", "completed", "failed"],
       default: "none",
     },
+
+    // Gateway refund reference, persisted for audit/reconciliation.
+    refundId: { type: String, default: "" },
+
+    // When the refund reached a terminal state (completed or failed).
+    refundProcessedAt: { type: Date, default: null },
+
+    // Authoritative amount actually captured by the gateway, in integer paise.
+    // Set when an order transitions to `paid`; refund math must use this value
+    // rather than the mutable `total`.
+    amountChargedPaise: { type: Number, default: null },
 
     // Adjustment fields — populated when vendor removes items from a paid/accepted order
     originalTotal: { type: Number },

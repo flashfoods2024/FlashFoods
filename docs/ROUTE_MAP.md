@@ -75,6 +75,16 @@
 | GET | /vendor/payment/settings | Vendor | requireDb, requireAuth, requireVendor, requireVendorShop | Payment settings page |
 | POST | /vendor/payment/settings | Vendor | requireDb, requireAuth, requireVendor, requireVendorShop | Update payment settings |
 
+## Vendor Profile Routes (`vendorProfileRouter`)
+
+| Method | Path | Auth | Middleware | Description |
+|--------|------|------|-----------|-------------|
+| GET | /vendor/profile | Vendor | requireDb, requireAuth, requireVendor, requireVendorShop | Profile page: account details, today/week/month snapshot, range analytics, best sellers |
+| GET | /vendor/profile/analytics | Vendor | requireDb, requireAuth, requireVendor, requireVendorShop | Range analytics JSON (`range=today\|week\|month\|custom`, `startDate`, `endDate`) |
+| POST | /vendor/profile | Vendor | requireDb, requireAuth, requireVendor, requireVendorShop | Update name/phone only (all other fields ignored) |
+
+Ownership for these routes always comes from the authenticated session (`req.user.shop`); `shopId`/`vendorId` in the query string or body are ignored.
+
 ## Admin Routes (`adminRouter`) — All prefixed with `/admin`
 
 | Method | Path | Middleware | Description |
