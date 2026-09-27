@@ -14,11 +14,11 @@
 - **Impact:** Vendor cannot automatically refund Easebuzz orders
 - **Fix:** Implement Easebuzz refund API integration
 
-### 3. No Auth Route Rate Limiting
+### 3. No Auth Route Rate Limiting — superseded by policy
 - **Files:** routes/auth.js
-- **Issue:** Rate limiting is global (300 req/15min) but not specifically applied to auth routes
-- **Impact:** Brute force attack risk on login/signup endpoints
-- **Fix:** Add dedicated rate limiter for auth routes (e.g., 10 attempts/15min)
+- **Issue:** Was: rate limiting global-only. Per locked product policy FlashFoods has no rate limiting; this item is retained for history only and is not actionable.
+- **Impact:** None under current policy.
+- **Fix:** None — do not add a rate limiter (policy).
 
 ## Medium Priority
 

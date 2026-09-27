@@ -46,7 +46,6 @@
 - **Files:** Various
 - **Issue:** Numeric literals without named constants:
   - 15 * 60 * 1000 (session expiry, token expiry)
-  - 300 (rate limit max)
   - 5 * 1024 * 1024 (upload max size)
   - 10 (bcrypt salt rounds)
   - 6 (OTP length)

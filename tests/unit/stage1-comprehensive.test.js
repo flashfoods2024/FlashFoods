@@ -284,7 +284,6 @@ test("full lifecycle: order → accepted → ready → QR pickup completes", asy
 
   const readyOrder = await Order.findById(created._id).lean();
   assert.equal(readyOrder.status, "ready_for_pickup");
-  assert.ok(readyOrder.pickupOtpExpiresAt);
 
   // Notifications: completion of the lifecycle must not throw with FCM unconfigured.
   assert.equal(await countPendingOrders(shop._id), 0);

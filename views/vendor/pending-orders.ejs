@@ -662,12 +662,37 @@
     var globalQrInput = document.getElementById("global-qr-input");
     var globalQrScanBtn = document.getElementById("global-qr-scan-btn");
     var globalQrVideo = document.getElementById("global-qr-video");
+    var qrClearTimer = null;
+
+    // Early UX guard only: checks the FlashFoods token SHAPE
+    // (v1.<24hexOrderId>.<24hexShopId>.<signature>) so a Google Pay QR,
+    // random QR, copied fragment, or arbitrary text fails locally with a
+    // clear message. Never repairs/transforms input; signature/shop
+    // decisions stay server-side in verifyPickupQr. Pickup credentials never
+    // expire by time — validity is the order's `ready_for_pickup` status.
+    // Covers both paste and camera paths because the camera handler assigns
+    // rawValue verbatim then calls submitQr().
+    var QR_SHAPE_ERROR = "Invalid FlashFoods pickup QR. Please scan the student's FlashFoods QR or paste its complete QR contents. A Google Pay QR, random QR, copied fragment, or typed code is not valid here.";
+    function isFlashFoodsQrShape(value) {
+      var parts = String(value).trim().split(".");
+      if (parts.length !== 4 || parts[0] !== "v1") return false;
+      if (!/^[a-f0-9]{24}$/i.test(parts[1])) return false;
+      if (!/^[a-f0-9]{24}$/i.test(parts[2])) return false;
+      if (!parts[3]) return false;
+      return true;
+    }
 
     function submitQr() {
       var qr = globalQrInput.value.trim();
       if (!qr) {
         globalStatus.textContent = "Scan or paste a pickup QR code.";
         globalStatus.className = "global-verify-bar__status global-verify-bar__status--error";
+        return;
+      }
+      if (!isFlashFoodsQrShape(qr)) {
+        globalStatus.textContent = QR_SHAPE_ERROR;
+        globalStatus.className = "global-verify-bar__status global-verify-bar__status--error";
+        globalQrInput.focus();
         return;
       }
       globalStatus.textContent = "";
@@ -695,6 +720,17 @@
           globalQrInput.value = "";
           poll();
           globalQrInput.focus();
+          // Show the verified order details for 5 seconds, then return to
+          // the scanner/pickup view (the completed order has dropped out).
+          if (qrClearTimer) { clearTimeout(qrClearTimer); qrClearTimer = null; }
+          qrClearTimer = setTimeout(function () {
+            qrClearTimer = null;
+            var box = document.getElementById("global-handover");
+            if (box) box.innerHTML = "";
+            globalStatus.textContent = "";
+            globalStatus.className = "global-verify-bar__status";
+            globalQrInput.focus();
+          }, 5000);
         })
         .catch(function (err) {
           globalStatus.textContent = err.message;

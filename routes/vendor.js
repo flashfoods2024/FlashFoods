@@ -20,7 +20,6 @@ import { formatPickupTime, getPickupUrgency } from "../utils/time.js";
 import { emitPendingCount } from "../socket/index.js";
 import { dispatchOrderReadyNotification } from "../utils/notification-dispatch.js";
 import { computeParcelCharge } from "../utils/pricing.js";
-import { otpExpiryFrom, isOtpExpired } from "../utils/otp.js";
 import { toPaise, fromPaise } from "../utils/money.js";
 import { computeParcelTotals } from "../utils/order-math.js";
 import {
@@ -32,20 +31,8 @@ import { validateDiscountSettings } from "../utils/discount.js";
 import { verifyPickupQr } from "../utils/qr-pickup.js";
 import { cancelOrderPaid } from "../utils/order-cancel.js";
 import { adjustOrderPaid } from "../utils/order-adjust.js";
-import rateLimit from "express-rate-limit";
 
 export const vendorRouter = express.Router();
-
-// OTP brute-force guard. The pickup code is 6 digits, so without a throttle a
-// vendor session (or a stolen one) could enumerate codes quickly. Scoped to the
-// verification endpoint only so normal vendor traffic is unaffected.
-const otpVerifyLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many pickup code attempts. Please wait and try again." },
-});
 
 // Whether the shop's currently selected gateway has the credentials it needs.
 export function isGatewayConfigured(shop) {
@@ -680,16 +667,13 @@ vendorRouter.post(
     }
 
     // Atomic transition: only an `accepted` order can become ready, so a
-    // double-click can neither mark it ready twice nor refresh the TTL twice.
+    // double-click can never mark it ready twice.
     const updated = await Order.findOneAndUpdate(
       { _id: id, shop: req.vendorShopId, status: "accepted" },
       {
         $set: {
           status: "ready_for_pickup",
           readyAt: new Date(),
-          // Start the pickup-code TTL from the moment the code becomes usable,
-          // so a long prep time never eats into the customer's pickup window.
-          pickupOtpExpiresAt: otpExpiryFrom(),
         },
       },
       { new: true },
@@ -887,7 +871,6 @@ vendorRouter.post(
   requireAuth,
   requireVendor,
   requireVendorShop,
-  otpVerifyLimiter,
   async (req, res) => {
     const raw = String((req.body && req.body.otp) || "").replace(/\D/g, "");
     const otp = raw.slice(0, 6);
@@ -912,27 +895,6 @@ vendorRouter.post(
         return res.status(404).json({ error: "No order waiting for pickup matches that code." });
       }
       req.flash("error", "No order waiting for pickup matches that code.");
-      return res.redirect("/vendor/verify");
-    }
-
-    // Expiry check runs before completion. A missing timestamp on a legacy
-    // order means "no expiry recorded" and is allowed (backward compatible);
-    // every order created after this change carries one.
-    if (isOtpExpired(candidate.pickupOtpExpiresAt, now)) {
-      console.warn("[OTP] rejected expired pickup code:", {
-        orderId: String(candidate._id),
-        shop: req.vendorShopIdStr,
-        expiredAt: candidate.pickupOtpExpiresAt || null,
-      });
-      if (req.accepts("json")) {
-        return res.status(410).json({
-          error: "This pickup code has expired. Ask the canteen to re-issue it.",
-        });
-      }
-      req.flash(
-        "error",
-        "This pickup code has expired. Ask the canteen to re-issue it.",
-      );
       return res.redirect("/vendor/verify");
     }
 
@@ -1000,7 +962,7 @@ vendorRouter.post(
 );
 
 // QR pickup verification. The QR payload is a signed token bound to a single
-// order + shop + expiry; replay is blocked by the atomic `ready_for_pickup`
+// order + shop; replay is blocked by the atomic `ready_for_pickup`
 // precondition (the same guarantee the OTP flow uses). OTP remains available.
 vendorRouter.post(
   "/vendor/verify-qr",
@@ -1008,7 +970,6 @@ vendorRouter.post(
   requireAuth,
   requireVendor,
   requireVendorShop,
-  otpVerifyLimiter,
   async (req, res) => {
     const raw = String((req.body && req.body.qr) || "").trim();
 
@@ -1023,18 +984,11 @@ vendorRouter.post(
       return res.redirect("/vendor/verify");
     }
 
-    // Server-authoritative validation: signature, shop binding and expiry.
+    // Server-authoritative validation: signature and shop binding. Pickup
+    // credentials never expire by time; a completed order rejects the replay
+    // below via the `ready_for_pickup` precondition.
     const verdict = verifyPickupQr(raw, { shopId: req.vendorShopIdStr });
     if (!verdict.ok) {
-      if (verdict.reason === "expired") {
-        if (wantsJson) {
-          return res
-            .status(410)
-            .json({ error: "This pickup QR code has expired. Ask the canteen to re-issue it." });
-        }
-        req.flash("error", "This pickup QR code has expired. Ask the canteen to re-issue it.");
-        return res.redirect("/vendor/verify");
-      }
       if (verdict.reason === "wrong_shop") {
         if (wantsJson) {
           return res.status(404).json({ error: "This pickup QR code is not for this canteen." });

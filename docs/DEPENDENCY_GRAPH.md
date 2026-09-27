@@ -222,7 +222,6 @@ graph TD
 | resend | ^6.17.1 | Email SDK |
 | sharp | ^0.32.6 | Image processing |
 | helmet | ^8.2.0 | Security headers |
-| express-rate-limit | ^8.5.2 | Rate limiting |
 | express-session | ^1.18.1 | Session management |
 | connect-flash | ^0.1.1 | Flash messages |
 | dotenv | ^16.5.0 | Environment variables |

@@ -99,7 +99,6 @@ Always consider:
 - output encoding
 - injection risks
 - CSRF
-- rate limiting
 - mass assignment
 - sensitive data exposure
 - payment manipulation

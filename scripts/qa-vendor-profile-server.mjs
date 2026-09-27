@@ -30,7 +30,6 @@ process.env.MONGO_URI = uri;
 process.env.MONGODB_URI = uri;
 process.env.PORT = String(PORT);
 process.env.SESSION_SECRET = "qa-vendor-profile-secret";
-process.env.DISABLE_RATE_LIMIT = "true";
 if (!process.env.NODE_ENV) process.env.NODE_ENV = "development";
 
 const mongoose = (await import("mongoose")).default;

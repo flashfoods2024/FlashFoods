@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { otpExpiryFrom } from "../utils/otp.js";
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -73,11 +72,6 @@ const orderSchema = new mongoose.Schema(
     },
 
     pickupOtp: { type: String, required: true },
-
-    // When the pickup code stops being valid. Defaults to a full TTL from
-    // creation and is refreshed by the vendor "mark ready" transition. Legacy
-    // documents predating this field have no timestamp (null).
-    pickupOtpExpiresAt: { type: Date, default: () => otpExpiryFrom() },
 
     paymentNote: { type: String, default: "pending" },
     transactionId: { type: String, default: "" },

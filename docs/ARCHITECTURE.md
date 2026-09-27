@@ -38,7 +38,7 @@ FlashFoods is a monolithic web application for college canteen pre-ordering. It 
 │                                                                      │
 │  ┌─────────────────────────────────────────────────────────────┐    │
 │  │                   Middleware Pipeline                        │    │
-│  │  Helmet → RateLimiter → Session → Flash → attachUser →     │    │
+│  │  Helmet → Session → Flash → attachUser →          │    │
 │  │  res.locals (user, cart, shop, flash, helpers)              │    │
 │  └─────────────────────────────────────────────────────────────┘    │
 │                                                                      │

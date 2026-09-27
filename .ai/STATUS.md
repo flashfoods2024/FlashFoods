@@ -38,6 +38,6 @@ History: `.ai/HISTORY.md`.
 4. No admin audit logging
 5. Password reset does not invalidate existing sessions
 6. No CSRF protection (sameSite cookie commented out)
-7. No auth rate limiting (brute force risk)
+7. No rate limiting (removed by product policy, not a defect)
 8. Cart not persisted across server restarts
 9. Socket.IO has no authentication middleware

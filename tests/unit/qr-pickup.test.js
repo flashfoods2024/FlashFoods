@@ -23,17 +23,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VIEWS_DIR = path.join(__dirname, "..", "..", "views");
 const SECRET = "qr-test-secret";
 
-const FUTURE = Date.now() + 60 * 60 * 1000;
-
 // ---------------------------------------------------------------------------
-// Token sign/verify (pure)
+// Token sign/verify (pure). Pickup credentials never expire by time: validity
+// is the order's `ready_for_pickup` status at verification time.
 // ---------------------------------------------------------------------------
 
 test("a QR round-trips for the right shop", () => {
   const order = { _id: "6a4944f2f889bb405d929b15", shop: "6a4944f2f889bb405d929b16" };
-  const token = createPickupQr(order, { secret: SECRET, now: new Date(0), ttlMs: FUTURE });
+  const token = createPickupQr(order, { secret: SECRET });
 
-  const verdict = verifyPickupQr(token, { secret: SECRET, shopId: order.shop, now: new Date(0) });
+  const verdict = verifyPickupQr(token, { secret: SECRET, shopId: order.shop });
   assert.equal(verdict.ok, true);
   assert.equal(verdict.orderId, order._id);
   assert.equal(verdict.shop, order.shop);
@@ -41,39 +40,37 @@ test("a QR round-trips for the right shop", () => {
 
 test("a tampered QR is rejected as forged", () => {
   const order = { _id: "6a4944f2f889bb405d929b15", shop: "6a4944f2f889bb405d929b16" };
-  const token = createPickupQr(order, { secret: SECRET, now: new Date(0), ttlMs: FUTURE });
+  const token = createPickupQr(order, { secret: SECRET });
 
   // Swap the order id but keep the original signature.
   const tampered = token.replace(order._id, "6a4944f2f889bb405d929b99");
-  assert.equal(verifyPickupQr(tampered, { secret: SECRET, shopId: order.shop, now: new Date(0) }).reason, "forged");
+  assert.equal(verifyPickupQr(tampered, { secret: SECRET, shopId: order.shop }).reason, "forged");
 
   // A token signed with the wrong secret must not verify.
-  const other = createPickupQr(order, { secret: "different", now: new Date(0), ttlMs: FUTURE });
-  assert.equal(verifyPickupQr(other, { secret: SECRET, shopId: order.shop, now: new Date(0) }).reason, "forged");
+  const other = createPickupQr(order, { secret: "different" });
+  assert.equal(verifyPickupQr(other, { secret: SECRET, shopId: order.shop }).reason, "forged");
 });
 
 test("a QR for another shop is rejected", () => {
   const order = { _id: "6a4944f2f889bb405d929b15", shop: "6a4944f2f889bb405d929b16" };
-  const token = createPickupQr(order, { secret: SECRET, now: new Date(0), ttlMs: FUTURE });
+  const token = createPickupQr(order, { secret: SECRET });
   const verdict = verifyPickupQr(token, {
     secret: SECRET,
     shopId: "6a4944f2f889bb405d929b17",
-    now: new Date(0),
   });
   assert.equal(verdict.ok, false);
   assert.equal(verdict.reason, "wrong_shop");
 });
 
-test("an expired QR is rejected", () => {
+test("a QR stays valid regardless of elapsed time (no time-based expiry)", () => {
   const order = { _id: "6a4944f2f889bb405d929b15", shop: "6a4944f2f889bb405d929b16" };
-  const token = createPickupQr(order, { secret: SECRET, now: new Date(0), ttlMs: 1000 });
-  const verdict = verifyPickupQr(token, { secret: SECRET, shopId: order.shop, now: new Date(5000) });
-  assert.equal(verdict.ok, false);
-  assert.equal(verdict.reason, "expired");
+  const token = createPickupQr(order, { secret: SECRET });
+  // No `now` parameter exists anymore: verification is time-independent.
+  assert.equal(verifyPickupQr(token, { secret: SECRET, shopId: order.shop }).ok, true);
 });
 
 test("malformed tokens are rejected", () => {
-  for (const bad of ["", "garbage", "v1.abc.def.ghi.jkl", "v2.6a4944f2f889bb405d929b15.x.1.sig"]) {
+  for (const bad of ["", "garbage", "v1.abc.def", "v2.6a4944f2f889bb405d929b15.6a4944f2f889bb405d929b16.sig", "v1.6a4944f2f889bb405d929b15.6a4944f2f889bb405d929b16.123.sig"]) {
     const verdict = verifyPickupQr(bad, { secret: SECRET });
     assert.equal(verdict.ok, false, `expected reject for ${JSON.stringify(bad)}`);
     assert.equal(verdict.reason, "malformed");
@@ -87,35 +84,28 @@ test("a populated shop object still yields a valid QR token (no [object Object])
     _id: "6a4944f2f889bb405d929b15",
     shop: { _id: "6a4944f2f889bb405d929b16", name: "Shop A", slug: "shop-a" },
   };
-  const token = createPickupQr(order, { secret: SECRET, now: new Date(0), ttlMs: FUTURE });
+  const token = createPickupQr(order, { secret: SECRET });
   assert.ok(token);
   assert.ok(!token.includes("[object Object]"), `corrupt token: ${token}`);
-  assert.match(token, /^v1\.[a-f0-9]{24}\.[a-f0-9]{24}\.\d+\.[A-Za-z0-9_-]{32}$/i);
+  assert.match(token, /^v1\.[a-f0-9]{24}\.[a-f0-9]{24}\.[A-Za-z0-9_-]{32}$/i);
 
   const verdict = verifyPickupQr(token, {
     secret: SECRET,
     shopId: "6a4944f2f889bb405d929b16",
-    now: new Date(0),
   });
   assert.equal(verdict.ok, true);
   assert.equal(verdict.orderId, order._id);
   assert.equal(verdict.shop, "6a4944f2f889bb405d929b16");
 });
 
-test("QR expiry follows the order's pickup-code expiry when present", () => {  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-  const order = {
-    _id: "6a4944f2f889bb405d929b15",
-    shop: "6a4944f2f889bb405d929b16",
-    pickupOtpExpiresAt: expiresAt,
-  };
-  const token = createPickupQr(order, { secret: SECRET, now: new Date(0) });
-  // Immediately valid...
-  assert.equal(verifyPickupQr(token, { secret: SECRET, shopId: order.shop, now: new Date(0) }).ok, true);
-  // ...but expired after the recorded timestamp.
-  assert.equal(
-    verifyPickupQr(token, { secret: SECRET, shopId: order.shop, now: new Date(expiresAt.getTime() + 1) }).reason,
-    "expired",
-  );
+test("the legacy expiry-bearing token format is rejected as malformed", () => {
+  const legacy = "v1.6a4944f2f889bb405d929b15.6a4944f2f889bb405d929b16.1790515693174.uvMF5Du-9fybIpNVMtnUsyrKDy0MFqJ4";
+  const verdict = verifyPickupQr(legacy, {
+    secret: SECRET,
+    shopId: "6a4944f2f889bb405d929b16",
+  });
+  assert.equal(verdict.ok, false);
+  assert.equal(verdict.reason, "malformed");
 });
 
 // ---------------------------------------------------------------------------
@@ -228,7 +218,6 @@ beforeEach(async () => {
     total: 100,
     pickupOtp: "123456",
     status: "ready_for_pickup",
-    pickupOtpExpiresAt: new Date(FUTURE),
   };
   orderReadyA = await Order.create({ ...base, shop: shopA._id });
   orderReadyB = await Order.create({ ...base, shop: shopB._id });
@@ -307,23 +296,25 @@ test("forged and malformed QR values are rejected", async () => {
   assert.equal(order.status, "ready_for_pickup");
 });
 
-test("an expired QR is rejected", async () => {
-  const past = await Order.create({
+test("a QR stays valid regardless of elapsed time (no expiry rejection)", async () => {
+  // An order that has been ready for days still completes: there is no
+  // pickupOtpExpiresAt anymore and verification takes no timestamp.
+  const old = await Order.create({
     customer: student._id,
     shop: shopA._id,
     items: [{ name: "Meal", price: 100, quantity: 1 }],
     total: 100,
     pickupOtp: "999999",
     status: "ready_for_pickup",
-    pickupOtpExpiresAt: new Date(Date.now() - 60 * 1000),
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
   });
-  const token = createPickupQr(past);
+  const token = createPickupQr(old);
 
   const res = await request("/vendor/verify-qr", { method: "POST", user: vendorA, body: { qr: token }, accept: "application/json" });
-  assert.equal(res.status, 410);
+  assert.equal(res.status, 200);
 
-  const after = await Order.findById(past._id).lean();
-  assert.equal(after.status, "ready_for_pickup");
+  const after = await Order.findById(old._id).lean();
+  assert.equal(after.status, "completed");
 });
 
 test("students and unauthenticated users cannot use QR verification", async () => {

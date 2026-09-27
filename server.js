@@ -1,6 +1,5 @@
 import express from "express";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import session from "express-session";
 import flash from "connect-flash";
 import path from "path";
@@ -67,34 +66,14 @@ const app = express();
 // so req.secure/protocol reflect the X-Forwarded-Proto: https header. Required for
 // express-session to issue the Secure cookie behind Render's TLS-terminating proxy.
 app.set("trust proxy", 1);
-//RATE LIMITING: 300 requests per 15 minutes per IP
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Never let the rate limiter be switched off in production — it is the app's
-// only brute-force defense. The flag is honoured in development/test only.
-const isProduction = process.env.NODE_ENV === "production";
-if (process.env.DISABLE_RATE_LIMIT === "true" && isProduction) {
-  console.error(
-    "SECURITY: DISABLE_RATE_LIMIT=true is ignored because NODE_ENV=production.",
-  );
-}
-const disableRateLimit =
-  process.env.DISABLE_RATE_LIMIT === "true" && !isProduction;
-
+// NOTE: FlashFoods has no rate limiting by product policy. Helmet, session,
+// CSRF origin protection, and auth/authorization middleware below are the
+// active protections; do not reintroduce throttling here.
 app.use(
   helmet({
     contentSecurityPolicy: false,
   }),
 );
-
-if (!disableRateLimit) {
-  app.use(limiter);
-}
 
 const port = Number(process.env.PORT || 3000);
 

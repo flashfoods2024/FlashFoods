@@ -28,7 +28,7 @@
 | Email (Resend) | ✅ Working | Password reset only |
 | Password Reset | ✅ Working | 15-min token expiry |
 | Admin Dashboard | ✅ Working | Stats, analytics |
-| Rate Limiting | ✅ Working | 300 req/15min |
+| Rate Limiting | ❌ Removed | None by product policy |
 | Helmet | ✅ Working | CSP disabled |
 | E2E Tests | ⚠️ Minimal | 1 login test only |
 | CI/CD | ✅ Setup | GitHub Actions |
@@ -41,7 +41,7 @@
 4. No audit logging for admin actions
 5. Only one E2E test exists (login)
 6. No health check endpoint
-7. No rate limiting specifically on auth routes (brute force risk)
+7. No rate limiting (removed by product policy, not a defect)
 8. Password reset does not invalidate existing sessions
 9. Cart is not persisted across sessions (server restart loses carts)
 10. No notification preferences configuration
@@ -52,4 +52,3 @@
 - Easebuzz refund implementation
 - Comprehensive test suite
 - Admin audit logging
-- Auth route rate limiting

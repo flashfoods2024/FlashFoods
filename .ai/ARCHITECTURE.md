@@ -37,7 +37,7 @@ FlashFoods is a server-side rendered web application using the Express framework
 ## Request Flow
 
 ```
-Request → Helmet → Rate Limiter → Session → Flash → attachUser → 
+Request → Helmet → Session → Flash → attachUser → 
   res.locals setup → Router → Route Handler → 
   (Middleware chain: requireDb → requireAuth → requireRole) →
   Controller Logic → Model Query → Render EJS / Send JSON

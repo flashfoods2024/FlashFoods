@@ -1,16 +1,22 @@
 // QR pickup tokens.
 //
-// A pickup QR encodes a compact, HMAC-signed token bound to a single order, a
-// single shop, and an expiry. The server verifies the signature (constant-time),
-// the shop binding, and the expiry before completing anything, so a QR cannot be
-// forged, used by another shop, or replayed once the order has been collected.
+// A pickup QR encodes a compact, HMAC-signed token bound to a single order
+// and a single shop. The server verifies the signature (constant-time) and
+// the shop binding before completing anything, so a QR cannot be forged or
+// used by another shop.
+//
+// Pickup credentials never expire by time: a token stays valid while its
+// order is `ready_for_pickup` and becomes unusable once verification moves
+// the order to `completed` (the verifier requires `ready_for_pickup`, so a
+// replayed credential finds no eligible order). Format:
+//
+//   v1.<orderId>.<shopId>.<signature>
 //
 // The signature secret prefers QR_SECRET, then SESSION_SECRET, then a dev
 // fallback so local development still works. Production should set QR_SECRET.
 
 import crypto from "crypto";
 
-const DEFAULT_TTL_MS = 30 * 60 * 1000;
 const VERSION = "v1";
 
 function getSecret(override) {
@@ -43,20 +49,16 @@ function signaturesMatch(a, b) {
 }
 
 /**
- * Build the QR token for an order. Expiry follows the order's pickup-code
- * expiry when present, otherwise `now + ttlMs`.
+ * Build the QR token for an order. No timestamp is embedded: validity is
+ * determined solely by the order's status at verification time.
  */
-export function createPickupQr(order, { now = new Date(), ttlMs = DEFAULT_TTL_MS, secret } = {}) {
+export function createPickupQr(order, { secret } = {}) {
   if (!order || !order._id || !order.shop) return null;
   // Callers may pass a populated shop object (e.g. after `.populate("shop")`);
   // unwrap to the raw id so the token never embeds "[object Object]".
   const shopId = order.shop && typeof order.shop === "object" ? order.shop._id : order.shop;
   if (!shopId) return null;
-  const expiresAt = order.pickupOtpExpiresAt
-    ? new Date(order.pickupOtpExpiresAt).getTime()
-    : now.getTime() + ttlMs;
-  const exp = Number.isFinite(expiresAt) ? expiresAt : now.getTime() + ttlMs;
-  const payload = `${VERSION}.${order._id}.${shopId}.${exp}`;
+  const payload = `${VERSION}.${order._id}.${shopId}`;
   return `${payload}.${sign(payload, getSecret(secret))}`;
 }
 
@@ -64,30 +66,26 @@ export function createPickupQr(order, { now = new Date(), ttlMs = DEFAULT_TTL_MS
  * Verify a QR token.
  *
  * @returns {{ ok: true, orderId: string, shop: string } | { ok: false, reason: string }}
- *   reason ∈ malformed | forged | wrong_shop | expired
+ *   reason ∈ malformed | forged | wrong_shop
  */
-export function verifyPickupQr(token, { shopId, now = new Date(), secret } = {}) {
+export function verifyPickupQr(token, { shopId, secret } = {}) {
   if (typeof token !== "string") return { ok: false, reason: "malformed" };
 
   const parts = token.trim().split(".");
-  if (parts.length !== 5 || parts[0] !== VERSION) {
+  if (parts.length !== 4 || parts[0] !== VERSION) {
     return { ok: false, reason: "malformed" };
   }
 
-  const [, orderId, shop, expStr, signature] = parts;
+  const [, orderId, shop, signature] = parts;
   if (!/^[a-f0-9]{24}$/i.test(orderId)) return { ok: false, reason: "malformed" };
-  const exp = Number(expStr);
-  if (!Number.isFinite(exp)) return { ok: false, reason: "malformed" };
 
-  const payload = `${VERSION}.${orderId}.${shop}.${expStr}`;
+  const payload = `${VERSION}.${orderId}.${shop}`;
   const expected = sign(payload, getSecret(secret));
   if (!signaturesMatch(expected, signature)) return { ok: false, reason: "forged" };
 
   if (shopId && String(shopId) !== String(shop)) {
     return { ok: false, reason: "wrong_shop" };
   }
-
-  if (now.getTime() > exp) return { ok: false, reason: "expired" };
 
   return { ok: true, orderId, shop };
 }

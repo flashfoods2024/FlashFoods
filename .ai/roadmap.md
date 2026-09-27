@@ -34,7 +34,7 @@ Carried forward from history — each needs a goal definition before execution:
 
 1. E2E/load environment isolation (staged DB, harness prod-guard).
 2. Slot-reservation expiry sweep for abandoned `pending_payment` orders.
-3. Auth hardening backlog: login rate limiting, Socket.IO auth, MemoryStore replacement, CSRF, session invalidation on reset.
+3. Auth hardening backlog: Socket.IO auth, MemoryStore replacement, CSRF, session invalidation on reset. (Rate limiting is excluded by product policy.)
 4. Easebuzz completion-or-disable; analytics-cache performance.
 5. Playwright fixture seeding for the shared suite.
 

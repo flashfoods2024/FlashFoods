@@ -21,11 +21,11 @@ Live adversarial checks against the running server. All attacks rejected.
 | 105-op randomized abuse (accept×2, complete×2, replay, invalid OTP, cancel) | Acid | Legal terminal state, `collectedAt` invariant intact |
 
 ## Defense-in-depth observed (code-verified)
-- HMAC-SHA256 QR tokens, constant-time compare, shop binding, server-side expiry.
+- HMAC-SHA256 QR tokens, constant-time compare, shop binding. Pickup credentials never expire by time; validity is the order's `ready_for_pickup` status, invalidated by completion.
 - Ownership derived from session (`requireVendorShop`); no client-supplied shop/vendor trust.
 - Session regeneration on login/logout (anti-fixation); disabled accounts cannot log in.
-- Rate limiting middleware present (300 req / 15 min / IP).
-- OTP lookup scoped to `{ shop, pickupOtp, status: ready_for_pickup }` + expiry + atomic completion.
+- No rate limiting (removed by product policy); Helmet, session, CSRF origin protection, and auth/authorization remain active.
+- OTP lookup scoped to `{ shop, pickupOtp, status: ready_for_pickup }` + atomic completion; no time-based expiry.
 
 ## Recommendation
 - Resolve M1 in `BUG_REPORT.md` so Playwright permission specs (`tests/permissions.spec.js`) run in CI again — they are the automated guard for these boundaries.

@@ -88,7 +88,6 @@ async function makeOrder(overrides = {}) {
     total: 250,
     pickupOtp: "654321",
     status: "ready_for_pickup",
-    pickupOtpExpiresAt: new Date(FUTURE),
     pickupTime: new Date(FUTURE),
     ...overrides,
   });
@@ -273,6 +272,40 @@ test("F07: legacy /vendor/verify page still renders QR + OTP forms", async () =>
   assert.ok(html.includes('action="/vendor/verify-qr"'));
   assert.ok(html.includes('name="qr"'));
   assert.ok(html.includes('name="otp"'));
+});
+
+test("F07: OTP stays valid regardless of elapsed time (no time-based expiry)", async () => {
+  const order = await makeOrder({
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+  });
+  const res = await request("/vendor/verify", { method: "POST", user: vendorA, body: { otp: "654321" } });
+  assert.equal(res.status, 200);
+  const after = await Order.findById(order._id).lean();
+  assert.equal(after.status, "completed");
+  assert.equal(after.pickupMethod, "otp");
+});
+
+test("F07: same OTP after completion fails (state invalidation, zero mutation)", async () => {
+  const order = await makeOrder();
+  const first = await request("/vendor/verify", { method: "POST", user: vendorA, body: { otp: "654321" } });
+  assert.equal(first.status, 200);
+  const replay = await request("/vendor/verify", { method: "POST", user: vendorA, body: { otp: "654321" } });
+  assert.equal(replay.status, 404);
+  const after = await Order.findById(order._id).lean();
+  assert.equal(after.status, "completed");
+});
+
+test("F07: concurrent OTP verifications single-close", async () => {
+  const order = await makeOrder();
+  const [a, b] = await Promise.all([
+    request("/vendor/verify", { method: "POST", user: vendorA, body: { otp: "654321" } }),
+    request("/vendor/verify", { method: "POST", user: vendorA, body: { otp: "654321" } }),
+  ]);
+  const statuses = [a.status, b.status].sort();
+  assert.deepEqual(statuses, [200, 409]);
+  const after = await Order.findById(order._id).lean();
+  assert.equal(after.status, "completed");
+  assert.equal(after.pickupMethod, "otp");
 });
 
 test("F07: verify page has no post-scan pickup-confirmation button", async () => {

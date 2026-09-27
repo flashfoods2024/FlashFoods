@@ -6,7 +6,7 @@
 2. **Password Hashing**: bcrypt with 10 salt rounds.
 3. **Login**: Disabled accounts (`isActive: false`) cannot log in.
 4. **Password Reset**: Token expires after 15 minutes. Token is SHA-256 hashed before storage. Reset does not invalidate existing sessions.
-5. **Rate Limiting**: 300 requests per 15 minutes per IP (can be disabled via `DISABLE_RATE_LIMIT=true`).
+5. **Rate Limiting**: none — FlashFoods has no rate limiting by product policy.
 
 ## Vendor Rules
 
@@ -90,6 +90,9 @@ pending_payment → cancelled (payment failed or timeout)
 2. OTP is generated using `crypto.randomInt(0, 1000000)` padded to 6 digits.
 3. Vendor enters the OTP to mark an order as completed.
 4. OTP lookup is scoped to the vendor's shop and `ready_for_pickup` status.
+5. OTPs never expire by time: a code stays valid while its order is
+   `ready_for_pickup` and becomes unusable once verification completes the
+   order (the verifier requires `ready_for_pickup`).
 
 ## Pickup Contract (vendor-scans-student-QR, OTP backup-only)
 
@@ -100,7 +103,9 @@ Pending Orders verify bar), `POST /vendor/verify-qr`, and the OTP path, with
 atomic `ready_for_pickup → completed` + `collectedAt`; greenfield
 rebuild of any of these is forbidden. `ready_for_pickup` implies paid
 eligibility via the existing `paid → accepted → ready_for_pickup` chain —
-no new payment architecture. Forbidden in
+no new payment architecture. QR and OTP remain valid indefinitely while
+`order.status === ready_for_pickup`; completion invalidates the credential
+through order state. There is NO time-based pickup expiration. Forbidden in
 active work: vendor pickup-confirm buttons, new intermediate pickup
 statuses, student-scans-vendor direction, mandatory OTP.
 
