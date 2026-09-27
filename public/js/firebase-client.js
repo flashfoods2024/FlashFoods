@@ -97,17 +97,11 @@
     }
   });
 
-  // Token refresh: browsers rotate FCM tokens; re-register the new value.
-  messaging.onTokenRefresh(function () {
-    messaging
-      .getToken({ vapidKey: vapidKey })
-      .then(function (token) {
-        return registerToken(token);
-      })
-      .catch(function (err) {
-        console.error("[FCM] Token refresh failed:", err.message);
-      });
-  });
+  // NOTE: no onTokenRefresh handler. The bundled Firebase Messaging SDK
+  // (v9+ compat) removed that callback; token rotation is handled
+  // internally and getToken() below always resolves the current token, so
+  // every fresh registration re-registers the live value. Calling the
+  // removed method throws and would abort registration entirely.
 
   // Initial registration. Skip the permission prompt when this user already
   // has a registered token and permission is still granted.
