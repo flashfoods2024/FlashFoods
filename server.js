@@ -230,6 +230,11 @@ app.use(async (req, res, next) => {
 });
 
 app.get("/", (req, res) => {
+  // Vendors work from Pending Orders, never the marketing home (PWA
+  // start_url, bookmarks, and direct visits all land here).
+  if (req.user && req.user.role === "vendor") {
+    return res.redirect("/vendor/orders/pending");
+  }
   res.render("home", { pageTitle: null });
 });
 
