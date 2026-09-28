@@ -314,3 +314,56 @@ test("F07: verify page has no post-scan pickup-confirmation button", async () =>
   const html = await res.text();
   assert.ok(!/pickup-confirm|confirm pickup|confirm order/i.test(html));
 });
+
+test("F07: vendor tapping Ready twice dispatches order-ready exactly once", async () => {
+  const order = await makeOrder({ status: "accepted" });
+  const lines = [];
+  const origLog = console.log;
+  console.log = (...args) => void lines.push(args.map(String).join(" "));
+  try {
+    const first = await request(`/vendor/orders/${order._id}/ready`, { method: "POST", user: vendorA });
+    assert.equal(first.status, 302);
+    const afterFirst = await Order.findById(order._id).lean();
+    assert.equal(afterFirst.status, "ready_for_pickup");
+    // Fire-and-forget dispatch runs after the transition; allow it to log.
+    await new Promise((r) => setTimeout(r, 200));
+
+    const second = await request(`/vendor/orders/${order._id}/ready`, { method: "POST", user: vendorA });
+    assert.equal(second.status, 302);
+    await new Promise((r) => setTimeout(r, 200));
+    const afterSecond = await Order.findById(order._id).lean();
+    assert.equal(afterSecond.status, "ready_for_pickup");
+    assert.equal(
+      String(afterSecond.readyAt),
+      String(afterFirst.readyAt),
+      "second Ready must not re-transition",
+    );
+  } finally {
+    console.log = origLog;
+  }
+  const readyLines = lines.filter((l) => l.includes("[FCM] order-ready"));
+  assert.equal(readyLines.length, 1, `expected one order-ready dispatch, saw ${readyLines.length}`);
+});
+
+test("F07: Ready on an already-collected order dispatches nothing", async () => {
+  const order = await makeOrder();
+  const done = await request("/vendor/verify", { method: "POST", user: vendorA, body: { otp: "654321" } });
+  assert.equal(done.status, 200);
+  const lines = [];
+  const origLog = console.log;
+  console.log = (...args) => void lines.push(args.map(String).join(" "));
+  try {
+    const res = await request(`/vendor/orders/${order._id}/ready`, { method: "POST", user: vendorA });
+    assert.equal(res.status, 302);
+    await new Promise((r) => setTimeout(r, 200));
+  } finally {
+    console.log = origLog;
+  }
+  assert.equal(
+    lines.filter((l) => l.includes("[FCM] order-ready")).length,
+    0,
+    "completed orders must never dispatch order-ready",
+  );
+  const after = await Order.findById(order._id).lean();
+  assert.equal(after.status, "completed");
+});

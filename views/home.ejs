@@ -21,6 +21,55 @@
             <a class="btn" href="/shops">Browse canteens</a>
             <a class="btn btn--outline" href="/orders">My orders</a>
           </div>
+          <div class="card" id="order-updates-card" hidden style="margin-top:12px;">
+            <p><strong>Turn on order updates</strong></p>
+            <p class="muted small">Get a notification the moment your order is ready for pickup.</p>
+            <p>
+              <button class="btn" type="button" id="order-updates-btn">Turn on order updates</button>
+            </p>
+            <p class="muted small" id="order-updates-status" role="status"></p>
+          </div>
+          <script>
+            (function () {
+              var card = document.getElementById("order-updates-card");
+              var btn = document.getElementById("order-updates-btn");
+              var statusEl = document.getElementById("order-updates-status");
+              if (!card || !btn || !statusEl) return;
+              if (!("Notification" in window)) return;
+              function cachedToken() {
+                try {
+                  var id = String((window.__FCM_USER_ID__ || window.__FCM_VENDOR_ID__) || "unknown");
+                  return localStorage.getItem("fcm_token:" + id);
+                } catch (e) {
+                  return null;
+                }
+              }
+              // Only ask when updates are not already working.
+              if (Notification.permission === "granted" && cachedToken()) return;
+              card.hidden = false;
+              btn.addEventListener("click", function () {
+                btn.disabled = true;
+                statusEl.textContent = "Working… keep this page open.";
+                function done(msg, ok) {
+                  btn.disabled = false;
+                  statusEl.textContent = msg;
+                  if (ok) {
+                    setTimeout(function () { card.hidden = true; }, 4000);
+                  }
+                }
+                if (typeof window.__FCM_RETRY__ === "function") {
+                  window.__FCM_RETRY__().then(function () {
+                    done(cachedToken() ? "Done — order updates on." : "Still off. Allow notifications for this site and tap again.", !!cachedToken());
+                  });
+                } else {
+                  Notification.requestPermission().then(function (p) {
+                    done(p === "granted" ? "Done — order updates on." : "Still off. Allow notifications for this site and tap again.", p === "granted");
+                    if (p === "granted") window.location.reload();
+                  });
+                }
+              });
+            })();
+          </script>
         <% } else if (currentUser.role === "vendor") { %>
           <p class="muted">Pending orders to ready pickup to completed.</p>
           <div class="row">

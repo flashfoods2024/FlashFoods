@@ -31,6 +31,7 @@ test("buildOrderReadyNotification targets the order page with a stable dedupe ta
 
   // Tap opens the correct order page.
   assert.equal(first.data.click_action, "/orders/order-1");
+  assert.equal(first.data.url, "/orders/order-1");
 
   // Future-safe metadata.
   assert.equal(first.data.type, "order_ready");

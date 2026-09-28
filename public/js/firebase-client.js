@@ -129,6 +129,38 @@
     });
   }
 
+  // Manual retry used by the banner and by in-page opt-in cards
+  // (e.g. student home "Turn on order updates"). Re-runs the full
+  // permission → subscribe → register chain on demand.
+  function retryRegistration() {
+    return ensureServiceWorker()
+      .then(function () {
+        return Notification.requestPermission();
+      })
+      .then(function (permission) {
+        if (permission !== "granted") {
+          showOffBanner();
+          return null;
+        }
+        return getTokenWithSW();
+      })
+      .then(function (token) {
+        if (!token) {
+          showOffBanner();
+          return null;
+        }
+        return registerToken(token);
+      })
+      .then(hideOffBanner)
+      .catch(function () {
+        showOffBanner();
+      });
+  }
+
+  if (typeof window !== "undefined") {
+    window.__FCM_RETRY__ = retryRegistration;
+  }
+
   // Visible fallback: if push registration fails on this device (e.g. the
   // browser's push service rejects subscribe), show a small banner instead
   // of failing silently. Tapping it re-requests permission and retries, so
@@ -149,25 +181,7 @@
     el.setAttribute("style", "position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;padding:12px;border:0;border-radius:10px;background:#ff7a00;color:#fff;font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.25);");
     el.addEventListener("click", function () {
       hideOffBanner();
-      Notification.requestPermission()
-        .then(function (permission) {
-          if (permission !== "granted") {
-            showOffBanner();
-            return null;
-          }
-          return getTokenWithSW();
-        })
-        .then(function (token) {
-          if (!token) {
-            showOffBanner();
-            return null;
-          }
-          return registerToken(token);
-        })
-        .then(hideOffBanner)
-        .catch(function () {
-          showOffBanner();
-        });
+      retryRegistration();
     });
     if (document.body) document.body.appendChild(el);
   }

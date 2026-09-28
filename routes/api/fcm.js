@@ -6,6 +6,10 @@ export const fcmRouter = Router();
 
 fcmRouter.use(requireAuth);
 
+function tokenPrefix(token) {
+  return String(token).slice(0, 8);
+}
+
 fcmRouter.post("/register", requireVendor, async (req, res) => {
   try {
     const { token, deviceInfo } = req.body;
@@ -33,6 +37,7 @@ fcmRouter.post("/register", requireVendor, async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
+    console.log(`[FCM] register role=vendor user=${req.user._id} token=${tokenPrefix(token)}`);
     res.json({ success: true });
   } catch (err) {
     console.error("FCM register error:", err);
@@ -87,6 +92,7 @@ fcmRouter.post("/student/register", requireStudent, async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
+    console.log(`[FCM] register role=student user=${req.user._id} token=${tokenPrefix(token)}`);
     res.json({ success: true });
   } catch (err) {
     console.error("FCM student register error:", err);

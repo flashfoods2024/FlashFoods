@@ -98,6 +98,7 @@ export function buildOrderReadyNotification(order, shopName) {
       shopId: String(order.shop),
       shopName: shopName ? String(shopName) : "",
       click_action: `/orders/${orderId}`,
+      url: `/orders/${orderId}`,
       tag: `order-ready-${orderId}`,
       timestamp: String(Date.now()),
     },
@@ -139,9 +140,18 @@ export async function dispatchOrderReadyNotification(order, messagingOverride = 
     const { notification, data } = buildOrderReadyNotification(order, shop?.name);
 
     // requireInteraction: false → single WhatsApp-style ping, auto-dismiss.
-    await sendWithRetry(registrationTokens, notification, data, 0, messagingOverride, {
+    const result = await sendWithRetry(registrationTokens, notification, data, 0, messagingOverride, {
       requireInteraction: false,
     });
+    const sent = result ? result.successCount : 0;
+    const failed = result ? result.failureCount : 0;
+    const studentId = String(order.customer);
+    console.log(
+      `[FCM] order-ready order=${order._id} student=${studentId} tokens=${registrationTokens.length} sent=${sent} failed=${failed}`,
+    );
+    if (result && result.invalidTokens && result.invalidTokens.length > 0) {
+      console.log(`[FCM] removed stale token student=${studentId} count=${result.invalidTokens.length}`);
+    }
   } catch (err) {
     console.error("[FCM] order-ready dispatch error:", err.message);
   }

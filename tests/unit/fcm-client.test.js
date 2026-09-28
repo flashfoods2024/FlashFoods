@@ -119,7 +119,7 @@ async function runClient({ permission = "granted", storedToken = null, messaging
     thrown = err;
   }
   const banner = sandbox.document.getElementById("fcm-off-banner");
-  return { thrown, fetchCalls, localStorage, getTokenCalls, onMessageHandler, banner };
+  return { thrown, fetchCalls, localStorage, getTokenCalls, onMessageHandler, banner, windowRef: sandbox.window };
 }
 
 test("init completes without TypeError on SDKs lacking onTokenRefresh", async () => {
@@ -148,6 +148,17 @@ test("cached token + granted permission still skips re-registration", async () =
   assert.equal(thrown, null);
   assert.equal(getTokenCalls, 0);
   assert.equal(fetchCalls.length, 0);
+});
+
+test("window.__FCM_RETRY__ re-runs registration on demand (opt-in card hook)", async () => {
+  const ctx = await runClient();
+  assert.equal(ctx.thrown, null);
+  assert.equal(typeof ctx.windowRef.__FCM_RETRY__, "function");
+  const before = ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length;
+  await ctx.windowRef.__FCM_RETRY__();
+  for (let i = 0; i < 30; i++) await new Promise((r) => setImmediate(r));
+  const after = ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length;
+  assert.equal(after, before + 1, "manual retry must register exactly once more");
 });
 
 test("getToken failure shows the offline banner instead of failing silently", async () => {
