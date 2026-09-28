@@ -27,13 +27,29 @@ function memoryStorage() {
   };
 }
 
-async function runClient({ permission = "granted", storedToken = null, messagingExtra = {}, getTokenImpl = null, serviceWorkerImpl = null } = {}) {
+async function flush(rounds = 20) {
+  for (let i = 0; i < rounds; i++) await new Promise((r) => setImmediate(r));
+}
+
+// Poll-wait for an async condition (timers + promise chains) instead of
+// hoping a fixed flush count suffices under parallel-test load.
+async function waitFor(fn, tries = 200) {
+  for (let i = 0; i < tries; i++) {
+    if (fn()) return;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  assert.ok(fn(), "condition never became true");
+}
+
+async function runClient({ permission = "granted", storedToken = null, messagingExtra = {}, getTokenImpl = null, serviceWorkerImpl = null, failPost = null, noBody = false } = {}) {
   const fetchCalls = [];
+  const logLines = [];
   const localStorage = memoryStorage();
   if (storedToken) localStorage.setItem("fcm_token:vendor-1", storedToken);
 
   // Minimal document stub for the offline banner path.
   const elements = {};
+  const docHandlers = {};
   function makeEl() {
     const handlers = {};
     const el = {
@@ -47,20 +63,27 @@ async function runClient({ permission = "granted", storedToken = null, messaging
     };
     return el;
   }
-  const documentStub = {
-    getElementById: (id) => elements[id] || null,
-    createElement: () => makeEl(),
-    body: {
+  const bodyObj = {
       appendChild: (el) => {
         if (el.id) elements[el.id] = el;
-        el.parentNode = documentStub.body;
+        el.parentNode = bodyObj;
       },
       removeChild: (el) => {
         if (el.id && elements[el.id] === el) delete elements[el.id];
         el.parentNode = null;
         return el;
       },
-    },
+    };
+  const documentStub = {
+    getElementById: (id) => elements[id] || null,
+    createElement: () => makeEl(),
+    addEventListener: (ev, fn) => void (docHandlers[ev] = fn),
+    removeEventListener: (ev) => void delete docHandlers[ev],
+    // Test hook: fire a DOM event (e.g. DOMContentLoaded for late mount).
+    __fire: (ev) => docHandlers[ev] && docHandlers[ev](),
+    // Test hook: simulate <head> execution (no body yet), then parsing done.
+    __setBody: () => void (documentStub.body = bodyObj),
+    body: noBody ? null : bodyObj,
   };
 
   let onMessageHandler = null;
@@ -76,11 +99,17 @@ async function runClient({ permission = "granted", storedToken = null, messaging
   };
 
   const sandbox = {
-    console: { error: () => {}, log: () => {}, warn: () => {} },
+    console: { error: () => {}, log: (m) => void logLines.push(String(m)), warn: () => {} },
     localStorage,
     document: documentStub,
+    setTimeout,
+    clearTimeout,
     fetch: (url, init) => {
       fetchCalls.push({ url, body: init?.body });
+      const regPosts = fetchCalls.filter((c) => c.url === "/api/fcm/register").length;
+      if (url === "/api/fcm/register" && (failPost === "always" || (failPost === "once" && regPosts === 1))) {
+        return Promise.reject(new Error("network down"));
+      }
       return Promise.resolve({ ok: true });
     },
     Notification: {
@@ -104,6 +133,7 @@ async function runClient({ permission = "granted", storedToken = null, messaging
   sandbox.window = {
     __FIREBASE_CONFIG__: { apiKey: "x", vapidKey: "vkey" },
     __FCM_USER_ID__: "vendor-1",
+    __FCM_REGISTER_RETRY_MS__: 0,
     // The client probes capabilities on `window`.
     Notification: sandbox.Notification,
     navigator: sandbox.navigator,
@@ -119,7 +149,7 @@ async function runClient({ permission = "granted", storedToken = null, messaging
     thrown = err;
   }
   const banner = sandbox.document.getElementById("fcm-off-banner");
-  return { thrown, fetchCalls, localStorage, getTokenCalls, onMessageHandler, banner, windowRef: sandbox.window };
+  return { thrown, fetchCalls, localStorage, getTokenCalls, onMessageHandler, banner, windowRef: sandbox.window, logLines, document: documentStub };
 }
 
 test("init completes without TypeError on SDKs lacking onTokenRefresh", async () => {
@@ -143,11 +173,17 @@ test("foreground onMessage handler is still registered", async () => {
   assert.equal(typeof onMessageHandler, "function");
 });
 
-test("cached token + granted permission still skips re-registration", async () => {
-  const { thrown, getTokenCalls, fetchCalls } = await runClient({ storedToken: "cached-token" });
+test("cached token + granted permission re-registers (self-heal, no skip)", async () => {
+  const { thrown, getTokenCalls, fetchCalls, localStorage, logLines } = await runClient({ storedToken: "cached-token" });
   assert.equal(thrown, null);
-  assert.equal(getTokenCalls, 0);
-  assert.equal(fetchCalls.length, 0);
+  assert.equal(getTokenCalls, 1, "every app open refreshes the binding");
+  const regs = fetchCalls.filter((c) => c.url === "/api/fcm/register");
+  assert.equal(regs.length, 1, "idempotent upsert keeps lastSeenAt fresh");
+  assert.equal(localStorage.getItem("fcm_token:vendor-1"), "fresh-fcm-token");
+  assert.ok(
+    logLines.some((l) => l.includes("[FCM] auto-register role=vendor token=fresh-fc")),
+    `expected auto-register log, got: ${JSON.stringify(logLines)}`,
+  );
 });
 
 test("window.__FCM_RETRY__ re-runs registration on demand (opt-in card hook)", async () => {
@@ -225,4 +261,54 @@ test("subscribe waits for SW activation: getToken runs only after activated", as
   const regs = ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register");
   assert.equal(regs.length, 1);
   assert.equal(JSON.parse(regs[0].body).token, "post-activation-token");
+});
+
+test("banner mounts on DOMContentLoaded when the script runs in <head> (no body yet)", async () => {
+  const ctx = await runClient({ permission: "denied", noBody: true });
+  assert.equal(ctx.thrown, null);
+  assert.equal(ctx.document.getElementById("fcm-off-banner"), null, "nothing to mount into yet");
+  ctx.document.__setBody();
+  ctx.document.__fire("DOMContentLoaded");
+  for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
+  assert.ok(ctx.document.getElementById("fcm-off-banner"), "banner mounts once body exists");
+});
+
+test("denied permission shows the banner; tapping while still denied dismisses it", async () => {
+  const ctx = await runClient({ permission: "denied" });
+  assert.equal(ctx.thrown, null);
+  assert.equal(ctx.getTokenCalls, 0, "never prompts or subscribes when denied");
+  assert.ok(ctx.banner, "banner shows when permission is not granted");
+  ctx.banner.click();
+  for (let i = 0; i < 30; i++) await new Promise((r) => setImmediate(r));
+  assert.equal(
+    ctx.localStorage.getItem("fcm_off_dismissed"),
+    "1",
+    "tap-while-denied stops the nag",
+  );
+  assert.equal(
+    ctx.banner.parentNode,
+    null,
+    "banner hides after dismissed tap",
+  );
+});
+
+test("failed register POST retries once after delay, then succeeds silently", async () => {
+  const ctx = await runClient({ failPost: "once" });
+  assert.equal(ctx.thrown, null);
+  await waitFor(() => ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length === 2);
+  assert.equal(ctx.localStorage.getItem("fcm_token:vendor-1"), "fresh-fcm-token");
+  assert.equal(ctx.banner, null, "no banner when the retry succeeds");
+});
+
+test("register POST failing twice shows the banner", async () => {
+  const ctx = await runClient({ failPost: "always" });
+  assert.equal(ctx.thrown, null);
+  await waitFor(() => ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length === 2);
+  await waitFor(() => ctx.document.getElementById("fcm-off-banner") !== null);
+  assert.equal(
+    ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length,
+    2,
+    "exactly one retry, then give up visibly",
+  );
+  assert.ok(ctx.document.getElementById("fcm-off-banner"), "banner shows after the retry also fails");
 });

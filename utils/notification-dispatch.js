@@ -58,7 +58,11 @@ export async function dispatchNewOrderNotification(order, messagingOverride = nu
     const registrationTokens = tokens.map((t) => t.token);
     const { notification, data } = buildNewOrderNotification(order, vendorId);
 
-    const result = await sendWithRetry(registrationTokens, notification, data, 0, messagingOverride);
+    const result = await sendWithRetry(registrationTokens, notification, data, 0, messagingOverride, null, {
+      orderId: String(order._id),
+      role: "vendor",
+      userId: vendorId,
+    });
     const sent = result ? result.successCount : 0;
     const failed = result ? result.failureCount : 0;
     console.log(
@@ -142,6 +146,10 @@ export async function dispatchOrderReadyNotification(order, messagingOverride = 
     // requireInteraction: false → single WhatsApp-style ping, auto-dismiss.
     const result = await sendWithRetry(registrationTokens, notification, data, 0, messagingOverride, {
       requireInteraction: false,
+    }, {
+      orderId: String(order._id),
+      role: "student",
+      userId: String(order.customer),
     });
     const sent = result ? result.successCount : 0;
     const failed = result ? result.failureCount : 0;
@@ -157,8 +165,34 @@ export async function dispatchOrderReadyNotification(order, messagingOverride = 
   }
 }
 
+// A token is removed only after MAX_TOKEN_FAILURES consecutive permanent
+// FCM failures (invalid / not-registered) — never on a single failure, so a
+// transient outage or one bad send cannot silently unregister a device.
+export const MAX_TOKEN_FAILURES = 3;
+
+// Tokens unseen for this long AND failed 3+ times are dead weight.
+const STALE_TOKEN_MS = 60 * 24 * 60 * 60 * 1000;
+
+function tokenPrefix(token) {
+  return String(token).slice(0, 8);
+}
+
+// Delete tokens that are both long-unseen and repeatedly failed. Returns the
+// removed count. Safe to run on a schedule; a live token re-registers itself
+// on every app open and is never matched (lastSeenAt stays fresh).
+export async function pruneStaleTokens(now = new Date()) {
+  const cutoff = new Date(now.getTime() - STALE_TOKEN_MS);
+  const res = await FcmToken.deleteMany({
+    failCount: { $gte: MAX_TOKEN_FAILURES },
+    $or: [{ lastSeenAt: { $lt: cutoff } }, { lastSeenAt: null }],
+  });
+  const removed = res.deletedCount || 0;
+  if (removed > 0) console.log(`[FCM] pruned ${removed} stale token(s)`);
+  return removed;
+}
+
 // FCM error codes that mean the token can never succeed again (as opposed to a
-// transient/network failure). These tokens are pruned from the database.
+// transient/network failure). These tokens collect strikes (see below).
 const PERMANENT_FCM_ERROR_CODES = new Set([
   "messaging/invalid-registration-token",
   "messaging/registration-token-not-registered",
@@ -187,6 +221,7 @@ export async function sendWithRetry(
   attempt = 0,
   messagingOverride = null,
   webpushOverrides = null,
+  context = null,
 ) {
   const messaging = messagingOverride || getMessaging();
   // Returned so callers can log per-order delivery counts. Existing callers
@@ -198,7 +233,7 @@ export async function sendWithRetry(
   // never enters the branch below but still logs this value. Declaring it
   // inside that branch caused a ReferenceError on every successful send, which
   // was swallowed by the catch and triggered pointless retries.
-  let invalidTokens = [];
+  let deadTokensRemoved = 0;
 
   try {
     const response = await messaging.sendEachForMulticast({
@@ -227,27 +262,68 @@ export async function sendWithRetry(
     });
 
     if (response.failureCount > 0) {
-      invalidTokens = extractInvalidTokens(response, registrationTokens);
+      const permanent = extractInvalidTokens(response, registrationTokens);
 
       summary.successCount = response.successCount;
       summary.failureCount = response.failureCount;
-      summary.invalidTokens = invalidTokens;
 
-      if (invalidTokens.length > 0) {
-        await FcmToken.deleteMany({ token: { $in: invalidTokens } });
-        console.log("[FCM] removed", invalidTokens.length, "invalid token(s)");
+      // Strike counting: a permanent failure increments failCount; only
+      // tokens at MAX_TOKEN_FAILURES strikes are removed. A single bad send
+      // (outage, rotation mid-flight) never unregisters a device.
+      const struck = [];
+      for (const t of permanent) {
+        struck.push(t);
+        try {
+          await FcmToken.findOneAndUpdate(
+            { token: t },
+            { $inc: { failCount: 1 }, $set: { lastFailureAt: new Date() } },
+          );
+        } catch (strikeErr) {
+          console.error("[FCM] strike update failed:", strikeErr.message);
+        }
+      }
+      const dead = [];
+      if (struck.length > 0) {
+        const doomed = await FcmToken.find({
+          token: { $in: struck },
+          failCount: { $gte: MAX_TOKEN_FAILURES },
+        })
+          .select("token")
+          .lean();
+        for (const d of doomed) dead.push(d.token);
+      }
+      if (dead.length > 0) {
+        await FcmToken.deleteMany({ token: { $in: dead } });
+        console.log("[FCM] removed", dead.length, "invalid token(s)");
+      }
+      deadTokensRemoved = dead.length;
+      summary.invalidTokens = dead;
+
+      if (context) {
+        registrationTokens.forEach((t, idx) => {
+          const ok = !!response.responses?.[idx]?.success;
+          // "dead" = permanently failed this send (removed only at 3 strikes,
+          // see deletion above); "retry" = transient, scheduled for retry.
+          const result = ok ? "ok" : permanent.includes(t) ? "dead" : "retry";
+          console.log(
+            `[FCM] send order=${context.orderId} role=${context.role} user=${context.userId} token=${tokenPrefix(t)} result=${result}`,
+          );
+        });
       }
 
+      // Permanent failures are never retried (deterministic): strikes
+      // accumulate across separate sends instead, so live devices never get
+      // duplicate deliveries from a retry loop.
       const remainingTokens = registrationTokens.filter(
-        (t) => !invalidTokens.includes(t),
+        (t) => !permanent.includes(t),
       );
 
       if (
         remainingTokens.length > 0 &&
         attempt < MAX_RETRIES &&
-        response.failureCount > invalidTokens.length
+        response.failureCount > permanent.length
       ) {
-        const transientErrors = response.failureCount - invalidTokens.length;
+        const transientErrors = response.failureCount - permanent.length;
         if (transientErrors > 0) {
           console.log(
             "[FCM] retrying",
@@ -264,6 +340,7 @@ export async function sendWithRetry(
             attempt + 1,
             messagingOverride,
             webpushOverrides,
+            context,
           );
         }
       }
@@ -275,13 +352,28 @@ export async function sendWithRetry(
       "success,",
       response.failureCount,
       "failure(s),",
-      invalidTokens.length,
+      deadTokensRemoved,
       "invalid token(s) removed",
     );
 
     if (response.failureCount === 0) {
       summary.successCount = response.successCount;
       summary.failureCount = 0;
+    }
+    // Proof of life: successes clear strikes and refresh lastSeenAt so a
+    // live token is never mistaken for an abandoned one.
+    try {
+      const succeeded = registrationTokens.filter(
+        (_, idx) => !!response.responses?.[idx]?.success,
+      );
+      if (succeeded.length > 0) {
+        await FcmToken.updateMany(
+          { token: { $in: succeeded } },
+          { $set: { failCount: 0, lastFailureAt: null, lastSeenAt: new Date() } },
+        );
+      }
+    } catch (okErr) {
+      console.error("[FCM] strike-clear failed:", okErr.message);
     }
     return summary;
   } catch (err) {

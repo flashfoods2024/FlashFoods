@@ -287,3 +287,13 @@ const server = app.listen(port, "0.0.0.0", () => {
 });
 
 initSocket(server);
+
+// FCM hygiene: drop tokens that are both long-unseen and repeatedly failed.
+// Live bindings re-register on every app open (lastSeenAt stays fresh), so
+// this only ever removes abandoned rows. Runs at boot and daily after that.
+import("./utils/notification-dispatch.js").then(({ pruneStaleTokens }) => {
+  pruneStaleTokens().catch((err) => console.error("[FCM] startup prune failed:", err.message));
+  setInterval(() => {
+    pruneStaleTokens().catch((err) => console.error("[FCM] scheduled prune failed:", err.message));
+  }, 24 * 60 * 60 * 1000).unref();
+});

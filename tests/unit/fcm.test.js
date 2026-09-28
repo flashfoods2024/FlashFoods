@@ -164,6 +164,44 @@ test("re-registering refreshes the same token without duplicating it", async () 
   assert.equal(tokens[0].deviceInfo, "new-agent");
 });
 
+test("re-registering refreshes lastSeenAt and clears strikes (self-heal)", async () => {
+  const old = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+  await FcmToken.create({
+    vendorId: vendorA._id,
+    token: "stale-but-alive",
+    lastSeenAt: old,
+    failCount: 2,
+    lastFailureAt: old,
+  });
+  const res = await fcmRequest("/api/fcm/register", {
+    as: vendorA,
+    body: { token: "stale-but-alive", deviceInfo: "Chrome" },
+  });
+  assert.equal(res.status, 200);
+
+  const tokens = await FcmToken.find({ token: "stale-but-alive" }).lean();
+  assert.equal(tokens.length, 1, "idempotent upsert keyed on token");
+  assert.equal(tokens[0].failCount, 0, "fresh registration proves aliveness");
+  assert.equal(tokens[0].lastFailureAt, null);
+  assert.ok(
+    new Date(tokens[0].lastSeenAt).getTime() > old.getTime(),
+    "lastSeenAt refreshed on every app open",
+  );
+});
+
+test("pruneStaleTokens removes only long-unseen 3+ strike tokens", async () => {
+  const ancient = new Date(Date.now() - 61 * 24 * 60 * 60 * 1000);
+  await FcmToken.create({ vendorId: vendorA._id, token: "dead", failCount: 3, lastSeenAt: ancient });
+  await FcmToken.create({ vendorId: vendorA._id, token: "old-but-clean", failCount: 0, lastSeenAt: ancient });
+  await FcmToken.create({ vendorId: vendorA._id, token: "recent-strikes", failCount: 5, lastSeenAt: new Date() });
+
+  const { pruneStaleTokens } = await import("../../utils/notification-dispatch.js");
+  assert.equal(await pruneStaleTokens(), 1);
+  assert.equal(await FcmToken.countDocuments({ token: "dead" }), 0);
+  assert.equal(await FcmToken.countDocuments({ token: "old-but-clean" }), 1);
+  assert.equal(await FcmToken.countDocuments({ token: "recent-strikes" }), 1);
+});
+
 test("a token registered to another vendor cannot be hijacked", async () => {
   await fcmRequest("/api/fcm/register", { as: vendorA, body: { token: "shared" } });
   const res = await fcmRequest("/api/fcm/register", { as: vendorB, body: { token: "shared" } });
@@ -197,7 +235,7 @@ test("register rejects missing tokens and unauthenticated users", async () => {
   assert.equal(asStudent.status, 302);
 });
 
-test("sending prunes permanently invalid tokens", async () => {
+test("a single permanent failure does NOT delete the token (strike 1 of 3)", async () => {
   await FcmToken.create({ vendorId: vendorA._id, token: "good" });
   await FcmToken.create({ vendorId: vendorA._id, token: "gone" });
 
@@ -224,9 +262,69 @@ test("sending prunes permanently invalid tokens", async () => {
     messaging,
   );
 
-  assert.equal(calls, 1, "an invalid-token-only failure must not be retried");
-  assert.equal(await FcmToken.countDocuments({ token: "gone" }), 0);
+  assert.equal(calls, 1, "a strike-only failure must not be retried");
+  assert.equal(await FcmToken.countDocuments({ token: "gone" }), 1, "kept after 1 strike");
   assert.equal(await FcmToken.countDocuments({ token: "good" }), 1);
+  const struck = await FcmToken.findOne({ token: "gone" }).lean();
+  assert.equal(struck.failCount, 1);
+  assert.ok(struck.lastFailureAt);
+});
+
+test("three permanent failures delete the token (strike 3 of 3)", async () => {
+  await FcmToken.create({ vendorId: vendorA._id, token: "doomed", failCount: 2 });
+
+  const messaging = {
+    async sendEachForMulticast() {
+      return {
+        successCount: 0,
+        failureCount: 1,
+        responses: [
+          { success: false, error: { code: "messaging/registration-token-not-registered" } },
+        ],
+      };
+    },
+  };
+
+  await sendWithRetry(
+    ["doomed"],
+    { title: "New Order", body: "₹100 — 1 item(s)", icon: "/icons/i.png" },
+    { tag: "t", click_action: "/vendor/orders/pending" },
+    0,
+    messaging,
+  );
+
+  assert.equal(await FcmToken.countDocuments({ token: "doomed" }), 0, "removed on 3rd strike");
+});
+
+test("a successful send clears strikes and refreshes lastSeenAt", async () => {
+  const old = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  await FcmToken.create({
+    vendorId: vendorA._id,
+    token: "healed",
+    failCount: 2,
+    lastFailureAt: old,
+    lastSeenAt: old,
+  });
+
+  const messaging = {
+    async sendEachForMulticast() {
+      return { successCount: 1, failureCount: 0, responses: [{ success: true }] };
+    },
+  };
+
+  await sendWithRetry(
+    ["healed"],
+    { title: "New Order", body: "₹100 — 1 item(s)", icon: "/icons/i.png" },
+    { tag: "t", click_action: "/vendor/orders/pending" },
+    0,
+    messaging,
+  );
+
+  const after = await FcmToken.findOne({ token: "healed" }).lean();
+  assert.ok(after, "live token is kept");
+  assert.equal(after.failCount, 0);
+  assert.equal(after.lastFailureAt, null);
+  assert.ok(new Date(after.lastSeenAt).getTime() > old.getTime(), "lastSeenAt refreshed");
 });
 
 // ---------------------------------------------------------------------------

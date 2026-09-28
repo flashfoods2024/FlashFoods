@@ -28,16 +28,22 @@ fcmRouter.post("/register", requireVendor, async (req, res) => {
         .json({ error: "Token is already registered to another account." });
     }
 
+    const existed = await FcmToken.exists({ token });
     await FcmToken.findOneAndUpdate(
       { token, vendorId: req.user._id },
       {
-        $set: { deviceInfo: typeof deviceInfo === "string" ? deviceInfo : "" },
+        $set: {
+          deviceInfo: typeof deviceInfo === "string" ? deviceInfo : "",
+          lastSeenAt: new Date(),
+          failCount: 0,
+          lastFailureAt: null,
+        },
         $setOnInsert: { token, vendorId: req.user._id },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
-    console.log(`[FCM] register role=vendor user=${req.user._id} token=${tokenPrefix(token)}`);
+    console.log(`[FCM] register role=vendor user=${req.user._id} token=${tokenPrefix(token)} idempotent=${!!existed}`);
     res.json({ success: true });
   } catch (err) {
     console.error("FCM register error:", err);
@@ -83,16 +89,22 @@ fcmRouter.post("/student/register", requireStudent, async (req, res) => {
         .json({ error: "Token is already registered to another account." });
     }
 
+    const existed = await FcmToken.exists({ token });
     await FcmToken.findOneAndUpdate(
       { token, customerId: req.user._id },
       {
-        $set: { deviceInfo: typeof deviceInfo === "string" ? deviceInfo : "" },
+        $set: {
+          deviceInfo: typeof deviceInfo === "string" ? deviceInfo : "",
+          lastSeenAt: new Date(),
+          failCount: 0,
+          lastFailureAt: null,
+        },
         $setOnInsert: { token, customerId: req.user._id },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
-    console.log(`[FCM] register role=student user=${req.user._id} token=${tokenPrefix(token)}`);
+    console.log(`[FCM] register role=student user=${req.user._id} token=${tokenPrefix(token)} idempotent=${!!existed}`);
     res.json({ success: true });
   } catch (err) {
     console.error("FCM student register error:", err);

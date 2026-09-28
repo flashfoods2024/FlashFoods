@@ -29,6 +29,23 @@ const fcmTokenSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // Last time this token (re-)registered. Refreshed on every app open so
+    // the server can tell a live binding from an abandoned one.
+    lastSeenAt: {
+      type: Date,
+      default: Date.now,
+    },
+    // Consecutive permanent FCM failures (invalid / not-registered). Reset
+    // on every successful send or fresh registration; the token is removed
+    // only after MAX_TOKEN_FAILURES strikes — never on a single failure.
+    failCount: {
+      type: Number,
+      default: 0,
+    },
+    lastFailureAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

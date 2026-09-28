@@ -19,6 +19,10 @@
   var REGISTER_URL = window.__FCM_REGISTER_URL__ || "/api/fcm/register";
   var UNREGISTER_URL = window.__FCM_UNREGISTER_URL__ || "/api/fcm/unregister";
   var DEFAULT_DASHBOARD = window.__FCM_DEFAULT_PAGE__ || "/vendor/orders/pending";
+  var role = REGISTER_URL.indexOf("/student/") !== -1 ? "student" : "vendor";
+  // Set when the user taps the banner but permission is still denied, so the
+  // banner stops nagging. Cleared on the next successful registration.
+  var DISMISS_KEY = "fcm_off_dismissed";
 
   if (firebase.apps.length === 0) {
     try {
@@ -48,9 +52,23 @@
   }
   localStorage.setItem(VENDOR_KEY, userId);
 
+  // Retry delay for a failed register POST (test override, else 10s).
+  var REGISTER_RETRY_MS =
+    typeof window !== "undefined" && window.__FCM_REGISTER_RETRY_MS__ != null
+      ? window.__FCM_REGISTER_RETRY_MS__
+      : 10000;
+
+  function tokenPrefix(value) {
+    return String(value || "").slice(0, 8);
+  }
+
   // Persist a (possibly refreshed) token, releasing the previous one first.
-  function registerToken(token) {
+  // Registration POSTs on EVERY app open (idempotent server upsert that
+  // refreshes lastSeenAt), so a rotated token heals itself without the user
+  // tapping anything. A failed POST retries once, then surfaces the banner.
+  function registerToken(token, attempt) {
     if (!token) return Promise.resolve();
+    attempt = attempt || 0;
     var previous = localStorage.getItem(TOKEN_KEY);
     var chain = Promise.resolve();
     if (previous && previous !== token) {
@@ -66,9 +84,32 @@
       .then(function (response) {
         if (response && response.ok) {
           localStorage.setItem(TOKEN_KEY, token);
-          console.log("[FCM] token registered");
+          try {
+            localStorage.removeItem(DISMISS_KEY);
+          } catch (e) {}
+          console.log(
+            "[FCM] auto-register role=" + role + " token=" + tokenPrefix(token),
+          );
           hideOffBanner();
+        } else if (attempt < 1) {
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              resolve(registerToken(token, attempt + 1));
+            }, REGISTER_RETRY_MS);
+          });
+        } else {
+          showOffBanner();
         }
+      })
+      .catch(function () {
+        if (attempt < 1) {
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              resolve(registerToken(token, attempt + 1));
+            }, REGISTER_RETRY_MS);
+          });
+        }
+        showOffBanner();
       });
   }
 
@@ -139,21 +180,22 @@
       })
       .then(function (permission) {
         if (permission !== "granted") {
-          showOffBanner();
+          setDismissed();
+          hideOffBanner();
           return null;
         }
         return getTokenWithSW();
       })
       .then(function (token) {
         if (!token) {
-          showOffBanner();
+          showOffBanner(true);
           return null;
         }
         return registerToken(token);
       })
       .then(hideOffBanner)
       .catch(function () {
-        showOffBanner();
+        showOffBanner(true);
       });
   }
 
@@ -171,8 +213,23 @@
     if (el && el.parentNode) el.parentNode.removeChild(el);
   }
 
-  function showOffBanner() {
+  function isDismissed() {
+    try {
+      return localStorage.getItem(DISMISS_KEY) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setDismissed() {
+    try {
+      localStorage.setItem(DISMISS_KEY, "1");
+    } catch (e) {}
+  }
+
+  function showOffBanner(force) {
     if (typeof document === "undefined") return;
+    if (!force && isDismissed()) return;
     if (document.getElementById("fcm-off-banner")) return;
     var el = document.createElement("button");
     el.id = "fcm-off-banner";
@@ -183,7 +240,28 @@
       hideOffBanner();
       retryRegistration();
     });
-    if (document.body) document.body.appendChild(el);
+    // firebase-client.js loads in <head>: body may not exist yet. Mount now
+    // if possible, otherwise on DOMContentLoaded (never silently dropped).
+    mountBanner(el);
+  }
+
+  function mountBanner(el) {
+    if (typeof document === "undefined") return;
+    if (document.body) {
+      document.body.appendChild(el);
+      return;
+    }
+    var onReady = function () {
+      if (typeof document.removeEventListener === "function") {
+        document.removeEventListener("DOMContentLoaded", onReady);
+      }
+      if (!document.getElementById("fcm-off-banner") && document.body) {
+        document.body.appendChild(el);
+      }
+    };
+    if (typeof document.addEventListener === "function") {
+      document.addEventListener("DOMContentLoaded", onReady);
+    }
   }
 
   // Foreground delivery: the browser does not auto-display FCM messages while
@@ -217,35 +295,23 @@
   // every fresh registration re-registers the live value. Calling the
   // removed method throws and would abort registration entirely.
 
-  // Initial registration. Skip the permission prompt when this user already
-  // has a registered token and permission is still granted.
-  var existing = localStorage.getItem(TOKEN_KEY);
-  if (existing && Notification.permission === "granted") return;
-
-  navigator.serviceWorker.ready
-    .then(function () {
-      return ensureServiceWorker();
-    })
-    .then(function (registration) {
-      console.log("[FCM] SW scope:", registration && registration.scope);
-      return Notification.requestPermission().then(function (permission) {
-        if (permission !== "granted") {
-          showOffBanner();
-          return null;
-        }
-        console.log("[FCM] getToken called");
-        return messaging.getToken({
-          vapidKey: vapidKey,
-          serviceWorkerRegistration: registration,
-        });
+  // Auto-register on every app open while permission is granted: silent and
+  // idempotent (the server upsert refreshes lastSeenAt), so a rotated or
+  // server-pruned token heals itself with zero taps. Permission is never
+  // requested unasked here — the banner and opt-in cards own the ask, and
+  // the banner only appears when permission is not granted and the user
+  // has not dismissed it.
+  if (Notification.permission === "granted") {
+    getTokenWithSW()
+      .then(function (token) {
+        if (!token) return null;
+        return registerToken(token);
+      })
+      .catch(function (err) {
+        console.error("[FCM] Token registration failed:", err && err.message);
+        showOffBanner(true);
       });
-    })
-    .then(function (token) {
-      if (!token) return null;
-      return registerToken(token);
-    })
-    .catch(function (err) {
-      console.error("[FCM] Token registration failed:", err.message);
-      showOffBanner();
-    });
+  } else {
+    showOffBanner();
+  }
 })();
