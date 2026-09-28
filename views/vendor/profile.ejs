@@ -421,4 +421,93 @@
   })();
 </script>
 
+<section class="card vendor-profile-card" id="notification-card">
+  <h2 class="card__title">Notifications</h2>
+  <p class="muted small">Order alerts arrive as push notifications on this device. If they stopped, tap below to re-enable them without contacting support.</p>
+  <p>
+    <button class="btn" type="button" id="re-enable-notifications-btn">Re-enable notifications</button>
+  </p>
+  <p class="muted small" id="re-enable-notifications-status" role="status"></p>
+</section>
+
+<script>
+  (function () {
+    var btn = document.getElementById("re-enable-notifications-btn");
+    var statusEl = document.getElementById("re-enable-notifications-status");
+    if (!btn || !statusEl) return;
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+    }
+
+    btn.addEventListener("click", function () {
+      btn.disabled = true;
+      setStatus("Working… keep this page open.");
+
+      function fail(msg) {
+        btn.disabled = false;
+        setStatus(msg);
+      }
+
+      if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+        return fail("This browser does not support push notifications.");
+      }
+      if (typeof firebase === "undefined" || !window.__FIREBASE_CONFIG__) {
+        return fail("Notification service is unavailable right now. Try again later.");
+      }
+
+      // Drop stale registrations first so a corrupt worker/push state cannot
+      // linger, then register the single app worker (/sw.js) explicitly to
+      // preserve the one-service-worker invariant.
+      var vapidKey = window.__FIREBASE_CONFIG__.vapidKey || null;
+      navigator.serviceWorker
+        .getRegistrations()
+        .then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        })
+        .then(function () {
+          return Notification.requestPermission();
+        })
+        .then(function (permission) {
+          if (permission !== "granted") {
+            throw new Error("denied");
+          }
+          return navigator.serviceWorker.register("/sw.js");
+        })
+        .then(function (registration) {
+          if (firebase.apps.length === 0) firebase.initializeApp(window.__FIREBASE_CONFIG__);
+          return firebase.messaging().getToken({
+            vapidKey: vapidKey,
+            serviceWorkerRegistration: registration,
+          });
+        })
+        .then(function (token) {
+          if (!token) throw new Error("no-token");
+          return fetch("/api/fcm/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: token, deviceInfo: navigator.userAgent }),
+          }).then(function (res) {
+            if (!res.ok) throw new Error("register-failed");
+            return token;
+          });
+        })
+        .then(function (token) {
+          try {
+            var userId = String(window.__FCM_USER_ID__ || window.__FCM_VENDOR_ID__ || "unknown");
+            localStorage.setItem("fcm_token:" + userId, token);
+          } catch (e) {}
+          btn.disabled = false;
+          setStatus("Notifications re-enabled on this device.");
+        })
+        .catch(function (err) {
+          if (err && err.message === "denied") {
+            return fail("Permission was denied. Allow notifications for this site in your browser settings, then tap again.");
+          }
+          return fail("Could not enable notifications (" + ((err && err.message) || "push service error") + "). Check your connection and try again.");
+        });
+    });
+  })();
+</script>
+
 <%- include("../partials/footer") %>

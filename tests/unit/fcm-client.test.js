@@ -27,10 +27,41 @@ function memoryStorage() {
   };
 }
 
-async function runClient({ permission = "granted", storedToken = null, messagingExtra = {} } = {}) {
+async function runClient({ permission = "granted", storedToken = null, messagingExtra = {}, getTokenImpl = null } = {}) {
   const fetchCalls = [];
   const localStorage = memoryStorage();
   if (storedToken) localStorage.setItem("fcm_token:vendor-1", storedToken);
+
+  // Minimal document stub for the offline banner path.
+  const elements = {};
+  function makeEl() {
+    const handlers = {};
+    const el = {
+      id: "",
+      textContent: "",
+      style: {},
+      parentNode: null,
+      setAttribute: () => {},
+      addEventListener: (ev, fn) => void (handlers[ev] = fn),
+      click: () => handlers.click && handlers.click(),
+    };
+    return el;
+  }
+  const documentStub = {
+    getElementById: (id) => elements[id] || null,
+    createElement: () => makeEl(),
+    body: {
+      appendChild: (el) => {
+        if (el.id) elements[el.id] = el;
+        el.parentNode = documentStub.body;
+      },
+      removeChild: (el) => {
+        if (el.id && elements[el.id] === el) delete elements[el.id];
+        el.parentNode = null;
+        return el;
+      },
+    },
+  };
 
   let onMessageHandler = null;
   let getTokenCalls = 0;
@@ -39,7 +70,7 @@ async function runClient({ permission = "granted", storedToken = null, messaging
     onMessage: (fn) => void (onMessageHandler = fn),
     getToken: () => {
       getTokenCalls += 1;
-      return Promise.resolve("fresh-fcm-token");
+      return getTokenImpl ? getTokenImpl() : Promise.resolve("fresh-fcm-token");
     },
     ...messagingExtra,
   };
@@ -47,6 +78,7 @@ async function runClient({ permission = "granted", storedToken = null, messaging
   const sandbox = {
     console: { error: () => {}, log: () => {}, warn: () => {} },
     localStorage,
+    document: documentStub,
     fetch: (url, init) => {
       fetchCalls.push({ url, body: init?.body });
       return Promise.resolve({ ok: true });
@@ -78,11 +110,12 @@ async function runClient({ permission = "granted", storedToken = null, messaging
   let thrown = null;
   try {
     vm.runInContext(CLIENT_SRC, sandbox, { filename: "firebase-client.js" });
-    for (let i = 0; i < 10; i++) await new Promise((r) => setImmediate(r));
+    for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
   } catch (err) {
     thrown = err;
   }
-  return { thrown, fetchCalls, localStorage, getTokenCalls, onMessageHandler };
+  const banner = sandbox.document.getElementById("fcm-off-banner");
+  return { thrown, fetchCalls, localStorage, getTokenCalls, onMessageHandler, banner };
 }
 
 test("init completes without TypeError on SDKs lacking onTokenRefresh", async () => {
@@ -111,4 +144,32 @@ test("cached token + granted permission still skips re-registration", async () =
   assert.equal(thrown, null);
   assert.equal(getTokenCalls, 0);
   assert.equal(fetchCalls.length, 0);
+});
+
+test("getToken failure shows the offline banner instead of failing silently", async () => {
+  const failure = new Error("Registration failed - push service error");
+  const ctx = await runClient({ getTokenImpl: () => Promise.reject(failure) });
+  assert.equal(ctx.thrown, null);
+  assert.ok(ctx.banner, "expected #fcm-off-banner to be shown");
+  assert.match(ctx.banner.textContent, /Notifications off/);
+  assert.equal(
+    ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length,
+    0,
+    "no registration POST on failure",
+  );
+});
+
+test("tapping the banner retries permission + getToken and registers", async () => {
+  let attempts = 0;
+  const ctx = await runClient({
+    getTokenImpl: () => (++attempts === 1
+      ? Promise.reject(new Error("Registration failed - push service error"))
+      : Promise.resolve("recovered-token")),
+  });
+  assert.ok(ctx.banner, "expected banner after first failure");
+  ctx.banner.click();
+  for (let i = 0; i < 30; i++) await new Promise((r) => setImmediate(r));
+  const regs = ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register");
+  assert.equal(regs.length, 1, "banner tap must retry registration exactly once");
+  assert.equal(JSON.parse(regs[0].body).token, "recovered-token");
 });

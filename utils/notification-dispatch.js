@@ -33,8 +33,8 @@ export function buildNewOrderNotification(order, vendorId) {
   };
 }
 
-export async function dispatchNewOrderNotification(order) {
-  if (!isFcmConfigured()) {
+export async function dispatchNewOrderNotification(order, messagingOverride = null) {
+  if (!messagingOverride && !isFcmConfigured()) {
     console.log("[FCM] dispatch skipped — Firebase not configured");
     return;
   }
@@ -46,6 +46,7 @@ export async function dispatchNewOrderNotification(order) {
       return;
     }
 
+    // Targeted send: only tokens owned by THIS order's vendor. Never broadcast.
     const vendorId = String(shop.vendor);
     const tokens = await FcmToken.find({ vendorId }).lean();
 
@@ -57,7 +58,15 @@ export async function dispatchNewOrderNotification(order) {
     const registrationTokens = tokens.map((t) => t.token);
     const { notification, data } = buildNewOrderNotification(order, vendorId);
 
-    await sendWithRetry(registrationTokens, notification, data);
+    const result = await sendWithRetry(registrationTokens, notification, data, 0, messagingOverride);
+    const sent = result ? result.successCount : 0;
+    const failed = result ? result.failureCount : 0;
+    console.log(
+      `[FCM] order=${order._id} vendor=${vendorId} tokens=${registrationTokens.length} sent=${sent} failed=${failed}`,
+    );
+    if (result && result.invalidTokens && result.invalidTokens.length > 0) {
+      console.log(`[FCM] removed stale token vendor=${vendorId} count=${result.invalidTokens.length}`);
+    }
   } catch (err) {
     console.error("[FCM] dispatch error:", err.message);
   }
@@ -170,7 +179,10 @@ export async function sendWithRetry(
   webpushOverrides = null,
 ) {
   const messaging = messagingOverride || getMessaging();
-  if (!messaging) return;
+  // Returned so callers can log per-order delivery counts. Existing callers
+  // that ignore the return value are unaffected.
+  const summary = { successCount: 0, failureCount: 0, invalidTokens: [] };
+  if (!messaging) return summary;
 
   // Declared for the whole function: the success path (failureCount === 0)
   // never enters the branch below but still logs this value. Declaring it
@@ -206,6 +218,10 @@ export async function sendWithRetry(
 
     if (response.failureCount > 0) {
       invalidTokens = extractInvalidTokens(response, registrationTokens);
+
+      summary.successCount = response.successCount;
+      summary.failureCount = response.failureCount;
+      summary.invalidTokens = invalidTokens;
 
       if (invalidTokens.length > 0) {
         await FcmToken.deleteMany({ token: { $in: invalidTokens } });
@@ -252,6 +268,12 @@ export async function sendWithRetry(
       invalidTokens.length,
       "invalid token(s) removed",
     );
+
+    if (response.failureCount === 0) {
+      summary.successCount = response.successCount;
+      summary.failureCount = 0;
+    }
+    return summary;
   } catch (err) {
     if (attempt < MAX_RETRIES) {
       console.log(
@@ -272,5 +294,6 @@ export async function sendWithRetry(
       );
     }
     console.error("[FCM] send failed after", MAX_RETRIES + 1, "attempts:", err.message);
+    return summary;
   }
 }

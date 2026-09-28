@@ -66,11 +66,60 @@
       .then(function (response) {
         if (response && response.ok) {
           localStorage.setItem(TOKEN_KEY, token);
+          hideOffBanner();
         }
       });
   }
 
   var messaging = firebase.messaging();
+
+  // Visible fallback: if push registration fails on this device (e.g. the
+  // browser's push service rejects subscribe), show a small banner instead
+  // of failing silently. Tapping it re-requests permission and retries, so
+  // the vendor can self-serve without DevTools.
+  function hideOffBanner() {
+    if (typeof document === "undefined") return;
+    var el = document.getElementById("fcm-off-banner");
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  function showOffBanner() {
+    if (typeof document === "undefined") return;
+    if (document.getElementById("fcm-off-banner")) return;
+    var el = document.createElement("button");
+    el.id = "fcm-off-banner";
+    el.type = "button";
+    el.textContent = "Notifications off — tap to enable";
+    el.setAttribute("style", "position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;padding:12px;border:0;border-radius:10px;background:#ff7a00;color:#fff;font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.25);");
+    el.addEventListener("click", function () {
+      hideOffBanner();
+      Notification.requestPermission()
+        .then(function (permission) {
+          if (permission !== "granted") {
+            showOffBanner();
+            return null;
+          }
+          return navigator.serviceWorker.ready.then(function (registration) {
+            return messaging.getToken({
+              vapidKey: vapidKey,
+              serviceWorkerRegistration: registration,
+            });
+          });
+        })
+        .then(function (token) {
+          if (!token) {
+            showOffBanner();
+            return null;
+          }
+          return registerToken(token);
+        })
+        .then(hideOffBanner)
+        .catch(function () {
+          showOffBanner();
+        });
+    });
+    if (document.body) document.body.appendChild(el);
+  }
 
   // Foreground delivery: the browser does not auto-display FCM messages while
   // the tab is focused. Show the same notification the background worker would,
@@ -110,8 +159,12 @@
 
   navigator.serviceWorker.ready
     .then(function (registration) {
+      console.log("[FCM] SW scope:", registration && registration.scope);
       return Notification.requestPermission().then(function (permission) {
-        if (permission !== "granted") return null;
+        if (permission !== "granted") {
+          showOffBanner();
+          return null;
+        }
         return messaging.getToken({
           vapidKey: vapidKey,
           serviceWorkerRegistration: registration,
@@ -124,5 +177,6 @@
     })
     .catch(function (err) {
       console.error("[FCM] Token registration failed:", err.message);
+      showOffBanner();
     });
 })();
