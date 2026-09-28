@@ -664,20 +664,26 @@
     var globalQrVideo = document.getElementById("global-qr-video");
     var qrClearTimer = null;
 
-    // Early UX guard only: checks the FlashFoods token SHAPE
-    // (v1.<24hexOrderId>.<24hexShopId>.<signature>) so a Google Pay QR,
-    // random QR, copied fragment, or arbitrary text fails locally with a
-    // clear message. Never repairs/transforms input; signature/shop
-    // decisions stay server-side in verifyPickupQr. Pickup credentials never
-    // expire by time — validity is the order's `ready_for_pickup` status.
-    // Covers both paste and camera paths because the camera handler assigns
-    // rawValue verbatim then calls submitQr().
+    // Early UX guard only: checks the FlashFoods token SHAPE — canonical
+    // 4-part (v1.<24hexOrderId>.<24hexShopId>.<signature>) plus legacy
+    // 5-part (v1.<orderId>.<shopId>.<exp>.<signature>) during the migration
+    // window — so a Google Pay QR, random QR, copied fragment, or arbitrary
+    // text fails locally with a clear message. Never repairs/transforms
+    // input; signature/shop decisions stay server-side in verifyPickupQr.
+    // Pickup credentials never expire by time — validity is the order's
+    // `ready_for_pickup` status. Covers both paste and camera paths because
+    // the camera handler assigns rawValue verbatim then calls submitQr().
     var QR_SHAPE_ERROR = "Invalid FlashFoods pickup QR. Please scan the student's FlashFoods QR or paste its complete QR contents. A Google Pay QR, random QR, copied fragment, or typed code is not valid here.";
     function isFlashFoodsQrShape(value) {
       var parts = String(value).trim().split(".");
-      if (parts.length !== 4 || parts[0] !== "v1") return false;
+      if (parts[0] !== "v1" || (parts.length !== 4 && parts.length !== 5)) return false;
       if (!/^[a-f0-9]{24}$/i.test(parts[1])) return false;
       if (!/^[a-f0-9]{24}$/i.test(parts[2])) return false;
+      if (parts.length === 5) {
+        if (!/^[0-9]+$/.test(parts[3])) return false;
+        if (!parts[4]) return false;
+        return true;
+      }
       if (!parts[3]) return false;
       return true;
     }

@@ -1,5 +1,6 @@
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { once } from "node:events";
 import path from "node:path";
 import fs from "node:fs";
@@ -159,8 +160,34 @@ test("guard: incomplete token blocked locally", async () => {
   assert.equal(isFlashFoodsQrShape(parts.slice(0, 3).join(".")), false);
   assert.equal(isFlashFoodsQrShape(`${parts[0]}.${parts[1]}.${parts[2]}.`), false);
   assert.equal(isFlashFoodsQrShape("v1.zzz.zzz.sig"), false);
-  // Legacy expiry-bearing 5-part format is not a current token.
-  assert.equal(isFlashFoodsQrShape(`${token.split(".").slice(0, 3).join(".")}.1234567890123.sig`), false);
+  assert.equal(isFlashFoodsQrShape("v1.zzz.zzz.123.sig"), false);
+  assert.equal(isFlashFoodsQrShape("v1.aaa.bbb.ccc.ddd.eee"), false);
+});
+
+test("guard: legacy 5-part token passes and completes end-to-end (migration window)", async () => {
+  const order = await makeReadyOrder();
+  const orderId = String(order._id);
+  const shop = String(order.shop);
+  const exp = "1000000000000";
+  const payload = `v1.${orderId}.${shop}.${exp}`;
+  const sig = crypto
+    .createHmac("sha256", SECRET)
+    .update(payload)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "")
+    .slice(0, 32);
+  const legacy = `${payload}.${sig}`;
+  assert.equal(isFlashFoodsQrShape(legacy), true);
+  const res = await request("/vendor/verify-qr", {
+    method: "POST",
+    user: vendorA,
+    body: { qr: legacy },
+  });
+  assert.equal(res.status, 200);
+  const after = await Order.findById(order._id).lean();
+  assert.equal(after.status, "completed");
 });
 
 test("guard: structurally-valid-but-forged token still submits (server rejects, zero mutation)", async () => {

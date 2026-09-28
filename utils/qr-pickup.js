@@ -8,10 +8,15 @@
 // Pickup credentials never expire by time: a token stays valid while its
 // order is `ready_for_pickup` and becomes unusable once verification moves
 // the order to `completed` (the verifier requires `ready_for_pickup`, so a
-// replayed credential finds no eligible order). Format:
+// replayed credential finds no eligible order). Canonical format:
 //
 //   v1.<orderId>.<shopId>.<signature>
 //
+// Migration window: tokens minted by the previous generator carry an extra
+// expiry segment (`v1.<orderId>.<shopId>.<exp>.<signature>`). The verifier
+// still authenticates those (signature covers the received payload, shop
+// binding applies) but NEVER rejects on the timestamp — the expiry segment
+// is opaque data. New tokens are always minted without it.
 // The signature secret prefers QR_SECRET, then SESSION_SECRET, then a dev
 // fallback so local development still works. Production should set QR_SECRET.
 
@@ -63,7 +68,9 @@ export function createPickupQr(order, { secret } = {}) {
 }
 
 /**
- * Verify a QR token.
+ * Verify a QR token. Accepts the canonical 4-part format and the legacy
+ * 5-part format (migration window); the legacy expiry segment is validated
+ * structurally but never enforced by time.
  *
  * @returns {{ ok: true, orderId: string, shop: string } | { ok: false, reason: string }}
  *   reason ∈ malformed | forged | wrong_shop
@@ -72,14 +79,23 @@ export function verifyPickupQr(token, { shopId, secret } = {}) {
   if (typeof token !== "string") return { ok: false, reason: "malformed" };
 
   const parts = token.trim().split(".");
-  if (parts.length !== 4 || parts[0] !== VERSION) {
+  if (parts[0] !== VERSION || (parts.length !== 4 && parts.length !== 5)) {
     return { ok: false, reason: "malformed" };
   }
 
-  const [, orderId, shop, signature] = parts;
+  const orderId = parts[1];
+  const shop = parts[2];
+  // Canonical: v1.<orderId>.<shopId>.<signature>.
+  // Legacy:    v1.<orderId>.<shopId>.<exp>.<signature> (exp never enforced).
+  const signature = parts.length === 5 ? parts[4] : parts[3];
+  if (parts.length === 5 && !/^[0-9]+$/.test(parts[3])) {
+    return { ok: false, reason: "malformed" };
+  }
   if (!/^[a-f0-9]{24}$/i.test(orderId)) return { ok: false, reason: "malformed" };
 
-  const payload = `${VERSION}.${orderId}.${shop}`;
+  const payload = parts.length === 5
+    ? `${VERSION}.${orderId}.${shop}.${parts[3]}`
+    : `${VERSION}.${orderId}.${shop}`;
   const expected = sign(payload, getSecret(secret));
   if (!signaturesMatch(expected, signature)) return { ok: false, reason: "forged" };
 

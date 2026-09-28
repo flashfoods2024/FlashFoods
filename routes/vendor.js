@@ -986,8 +986,14 @@ vendorRouter.post(
 
     // Server-authoritative validation: signature and shop binding. Pickup
     // credentials never expire by time; a completed order rejects the replay
-    // below via the `ready_for_pickup` precondition.
+    // below via the `ready_for_pickup` precondition. The verifier accepts
+    // both the canonical 4-part format and legacy 5-part tokens minted
+    // before the expiry segment was dropped (migration window).
     const verdict = verifyPickupQr(raw, { shopId: req.vendorShopIdStr });
+    console.log("[QR] verify format:", raw.trim().split(".").length === 5 ? "v1-legacy-exp" : "v1", {
+      ok: verdict.ok,
+      reason: verdict.ok ? undefined : verdict.reason,
+    });
     if (!verdict.ok) {
       if (verdict.reason === "wrong_shop") {
         if (wantsJson) {

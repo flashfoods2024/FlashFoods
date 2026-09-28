@@ -1,5 +1,6 @@
 import test, { before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { once } from "node:events";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +23,24 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VIEWS_DIR = path.join(__dirname, "..", "..", "views");
 const SECRET = "qr-test-secret";
+
+// Replicates the previous (pre-expiry-removal) generator, test-only: HMAC
+// over the full 5-part payload with the same 32-char base64url signature.
+function legacySign(payload, secret = SECRET) {
+  return crypto
+    .createHmac("sha256", secret)
+    .update(payload)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "")
+    .slice(0, 32);
+}
+
+function legacyToken(orderId, shop, exp) {
+  const payload = `v1.${orderId}.${shop}.${exp}`;
+  return `${payload}.${legacySign(payload)}`;
+}
 
 // ---------------------------------------------------------------------------
 // Token sign/verify (pure). Pickup credentials never expire by time: validity
@@ -70,7 +89,7 @@ test("a QR stays valid regardless of elapsed time (no time-based expiry)", () =>
 });
 
 test("malformed tokens are rejected", () => {
-  for (const bad of ["", "garbage", "v1.abc.def", "v2.6a4944f2f889bb405d929b15.6a4944f2f889bb405d929b16.sig", "v1.6a4944f2f889bb405d929b15.6a4944f2f889bb405d929b16.123.sig"]) {
+  for (const bad of ["", "garbage", "v1.abc.def", "v1.abc.def.ghi", "v2.6a4944f2f889bb405d929b15.6a4944f2f889bb405d929b16.sig", "v1.6a4944f2f889bb405d929b15.6a4944f2f889bb405d929b16.sig.extra"]) {
     const verdict = verifyPickupQr(bad, { secret: SECRET });
     assert.equal(verdict.ok, false, `expected reject for ${JSON.stringify(bad)}`);
     assert.equal(verdict.reason, "malformed");
@@ -98,14 +117,22 @@ test("a populated shop object still yields a valid QR token (no [object Object])
   assert.equal(verdict.shop, "6a4944f2f889bb405d929b16");
 });
 
-test("the legacy expiry-bearing token format is rejected as malformed", () => {
-  const legacy = "v1.6a4944f2f889bb405d929b15.6a4944f2f889bb405d929b16.1790515693174.uvMF5Du-9fybIpNVMtnUsyrKDy0MFqJ4";
-  const verdict = verifyPickupQr(legacy, {
-    secret: SECRET,
-    shopId: "6a4944f2f889bb405d929b16",
-  });
-  assert.equal(verdict.ok, false);
-  assert.equal(verdict.reason, "malformed");
+test("legacy 5-part tokens are accepted during the migration window (expiry never enforced)", () => {
+  const orderId = "6a4944f2f889bb405d929b15";
+  const shop = "6a4944f2f889bb405d929b16";
+  // Long-past expiry: must still verify — time is never a validity factor.
+  const legacy = legacyToken(orderId, shop, "1000000000000");
+  const verdict = verifyPickupQr(legacy, { secret: SECRET, shopId: shop });
+  assert.equal(verdict.ok, true);
+  assert.equal(verdict.orderId, orderId);
+  assert.equal(verdict.shop, shop);
+
+  // Tampered legacy payload still fails as forged.
+  const forgedLegacy = legacy.replace(orderId, "6a4944f2f889bb405d929b99");
+  assert.equal(
+    verifyPickupQr(forgedLegacy, { secret: SECRET, shopId: shop }).reason,
+    "forged",
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -294,6 +321,16 @@ test("forged and malformed QR values are rejected", async () => {
 
   const order = await Order.findById(orderReadyA._id).lean();
   assert.equal(order.status, "ready_for_pickup");
+});
+
+test("a legacy 5-part QR completes pickup during the migration window", async () => {
+  const legacy = legacyToken(String(orderReadyA._id), String(shopA._id), "1000000000000");
+  const res = await request("/vendor/verify-qr", { method: "POST", user: vendorA, body: { qr: legacy }, accept: "application/json" });
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).success, true);
+
+  const order = await Order.findById(orderReadyA._id).lean();
+  assert.equal(order.status, "completed");
 });
 
 test("a QR stays valid regardless of elapsed time (no expiry rejection)", async () => {
