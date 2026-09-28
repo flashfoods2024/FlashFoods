@@ -456,15 +456,91 @@
         return fail("Notification service is unavailable right now. Try again later.");
       }
 
-      // Drop stale registrations first so a corrupt worker/push state cannot
-      // linger, then register the single app worker (/sw.js) explicitly to
-      // preserve the one-service-worker invariant.
+      // Never unregister first: subscribing without an ACTIVE worker is
+      // exactly what fails with "no active Service Worker". Reuse the
+      // single app worker (/sw.js), wait for activation, then refresh the
+      // token. Unregister-all is a last resort, only if subscribing fails.
       var vapidKey = window.__FIREBASE_CONFIG__.vapidKey || null;
-      navigator.serviceWorker
-        .getRegistrations()
-        .then(function (regs) {
-          return Promise.all(regs.map(function (r) { return r.unregister(); }));
-        })
+
+      function ensureSW() {
+        var container = navigator.serviceWorker;
+        function withReg(reg) {
+          if (!reg) {
+            return container.register("/sw.js", { scope: "/" }).then(withReg);
+          }
+          console.log("[FCM] SW registered scope=" + reg.scope);
+          var pending = reg.active ? null : reg.installing || reg.waiting;
+          if (!pending) {
+            console.log("[FCM] SW active");
+            return Promise.resolve(reg);
+          }
+          return new Promise(function (resolve) {
+            pending.addEventListener("statechange", function (e) {
+              if (e.target.state === "activated") {
+                console.log("[FCM] SW active");
+                resolve(reg);
+              }
+            });
+          });
+        }
+        var lookup = typeof container.getRegistration === "function"
+          ? container.getRegistration("/")
+          : Promise.resolve(null);
+        return Promise.resolve(lookup).then(withReg).then(function (reg) {
+          return container.ready.then(function () {
+            return reg;
+          });
+        });
+      }
+
+      function freshToken() {
+        if (firebase.apps.length === 0) firebase.initializeApp(window.__FIREBASE_CONFIG__);
+        var messaging = firebase.messaging();
+        var chain = Promise.resolve();
+        // Best effort: drop a rotated server-side token so the new one is
+        // the only live binding. Absence of deleteToken is never fatal.
+        if (messaging && typeof messaging.deleteToken === "function") {
+          chain = chain.then(function () {
+            return messaging.deleteToken().catch(function () {});
+          });
+        }
+        return chain.then(function () {
+          return ensureSW().then(function (registration) {
+            console.log("[FCM] getToken called");
+            return messaging.getToken({
+              vapidKey: vapidKey,
+              serviceWorkerRegistration: registration,
+            });
+          });
+        });
+      }
+
+      function postToken(token) {
+        if (!token) throw new Error("no-token");
+        return fetch("/api/fcm/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: token, deviceInfo: navigator.userAgent }),
+        }).then(function (res) {
+          if (!res.ok) throw new Error("register-failed");
+          return token;
+        });
+      }
+
+      function lastResort(err) {
+        // Only here — after a real subscribe failure — do we clear workers
+        // and retry once against a brand-new registration.
+        console.log("[FCM] last-resort SW reset after:", (err && err.message) || err);
+        return navigator.serviceWorker
+          .getRegistrations()
+          .then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          })
+          .then(freshToken)
+          .then(postToken);
+      }
+
+      ensureSW()
         .then(function () {
           return Notification.requestPermission();
         })
@@ -472,31 +548,20 @@
           if (permission !== "granted") {
             throw new Error("denied");
           }
-          return navigator.serviceWorker.register("/sw.js");
+          return freshToken();
         })
-        .then(function (registration) {
-          if (firebase.apps.length === 0) firebase.initializeApp(window.__FIREBASE_CONFIG__);
-          return firebase.messaging().getToken({
-            vapidKey: vapidKey,
-            serviceWorkerRegistration: registration,
-          });
-        })
-        .then(function (token) {
-          if (!token) throw new Error("no-token");
-          return fetch("/api/fcm/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: token, deviceInfo: navigator.userAgent }),
-          }).then(function (res) {
-            if (!res.ok) throw new Error("register-failed");
-            return token;
-          });
+        .then(postToken)
+        .catch(function (err) {
+          var msg = (err && err.message) || "";
+          if (/no active Service Worker|no-sw/i.test(msg)) return lastResort(err);
+          throw err;
         })
         .then(function (token) {
           try {
             var userId = String(window.__FCM_USER_ID__ || window.__FCM_VENDOR_ID__ || "unknown");
             localStorage.setItem("fcm_token:" + userId, token);
           } catch (e) {}
+          console.log("[FCM] token registered");
           btn.disabled = false;
           setStatus("Notifications re-enabled on this device.");
         })

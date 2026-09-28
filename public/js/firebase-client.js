@@ -66,12 +66,68 @@
       .then(function (response) {
         if (response && response.ok) {
           localStorage.setItem(TOKEN_KEY, token);
+          console.log("[FCM] token registered");
           hideOffBanner();
         }
       });
   }
 
   var messaging = firebase.messaging();
+
+  // Push subscribe fails with "no active Service Worker" when getToken()
+  // runs before a worker has activated (fresh profile, worker still
+  // installing/waiting, or registrations just cleared). Every subscribe path
+  // below goes through here first. The app's single worker is /sw.js
+  // (registered by update-manager.js); no second worker is introduced so
+  // update/version management keeps working.
+  function ensureServiceWorker() {
+    if (!("serviceWorker" in navigator)) {
+      return Promise.reject(new Error("no-sw"));
+    }
+    var container = navigator.serviceWorker;
+    function withRegistration(reg) {
+      if (!reg) {
+        return container.register("/sw.js", { scope: "/" }).then(withRegistration);
+      }
+      console.log("[FCM] SW registered scope=" + reg.scope);
+      var pending = reg.active ? null : reg.installing || reg.waiting;
+      if (!pending) {
+        console.log("[FCM] SW active");
+        return Promise.resolve(reg);
+      }
+      return new Promise(function (resolve) {
+        pending.addEventListener("statechange", function (e) {
+          if (e.target.state === "activated") {
+            console.log("[FCM] SW active");
+            resolve(reg);
+          }
+        });
+      });
+    }
+    try {
+      var lookup = typeof container.getRegistration === "function"
+        ? container.getRegistration("/")
+        : Promise.resolve(null);
+      return Promise.resolve(lookup).then(withRegistration).then(function (reg) {
+        // Belt-and-braces: ready only fulfills with an active worker.
+        return container.ready.then(function () {
+          return reg;
+        });
+      });
+    } catch (err) {
+      return container.ready;
+    }
+  }
+
+  function getTokenWithSW() {
+    return ensureServiceWorker().then(function (registration) {
+      console.log("[FCM] getToken called");
+      return messaging.getToken({
+        vapidKey: vapidKey,
+        serviceWorkerRegistration: registration,
+      });
+    });
+  }
 
   // Visible fallback: if push registration fails on this device (e.g. the
   // browser's push service rejects subscribe), show a small banner instead
@@ -99,12 +155,7 @@
             showOffBanner();
             return null;
           }
-          return navigator.serviceWorker.ready.then(function (registration) {
-            return messaging.getToken({
-              vapidKey: vapidKey,
-              serviceWorkerRegistration: registration,
-            });
-          });
+          return getTokenWithSW();
         })
         .then(function (token) {
           if (!token) {
@@ -158,6 +209,9 @@
   if (existing && Notification.permission === "granted") return;
 
   navigator.serviceWorker.ready
+    .then(function () {
+      return ensureServiceWorker();
+    })
     .then(function (registration) {
       console.log("[FCM] SW scope:", registration && registration.scope);
       return Notification.requestPermission().then(function (permission) {
@@ -165,6 +219,7 @@
           showOffBanner();
           return null;
         }
+        console.log("[FCM] getToken called");
         return messaging.getToken({
           vapidKey: vapidKey,
           serviceWorkerRegistration: registration,

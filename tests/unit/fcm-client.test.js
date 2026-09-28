@@ -27,7 +27,7 @@ function memoryStorage() {
   };
 }
 
-async function runClient({ permission = "granted", storedToken = null, messagingExtra = {}, getTokenImpl = null } = {}) {
+async function runClient({ permission = "granted", storedToken = null, messagingExtra = {}, getTokenImpl = null, serviceWorkerImpl = null } = {}) {
   const fetchCalls = [];
   const localStorage = memoryStorage();
   if (storedToken) localStorage.setItem("fcm_token:vendor-1", storedToken);
@@ -89,7 +89,11 @@ async function runClient({ permission = "granted", storedToken = null, messaging
     },
     navigator: {
       userAgent: "test-agent",
-      serviceWorker: { ready: Promise.resolve({}) },
+      serviceWorker: serviceWorkerImpl || {
+        ready: Promise.resolve({ scope: "https://x.test/" }),
+        getRegistration: () => Promise.resolve({ scope: "https://x.test/", active: {}, installing: null, waiting: null }),
+        register: () => Promise.resolve({ scope: "https://x.test/", active: {}, installing: null, waiting: null }),
+      },
     },
     firebase: {
       apps: [],
@@ -172,4 +176,42 @@ test("tapping the banner retries permission + getToken and registers", async () 
   const regs = ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register");
   assert.equal(regs.length, 1, "banner tap must retry registration exactly once");
   assert.equal(JSON.parse(regs[0].body).token, "recovered-token");
+});
+
+test("subscribe waits for SW activation: getToken runs only after activated", async () => {
+  // Simulates the proven laptop failure: a registration exists but no
+  // worker is active yet (installing). getToken/subscribe must not run
+  // until the worker fires activated — otherwise the browser throws
+  // "Subscription failed - no active Service Worker".
+  const listeners = {};
+  const worker = {
+    state: "installing",
+    addEventListener: (ev, fn) => void (listeners[ev] = fn),
+  };
+  const reg = { scope: "https://x.test/", active: null, installing: worker, waiting: null };
+  let getTokenCalls = 0;
+  const ctx = await runClient({
+    permission: "granted",
+    getTokenImpl: () => {
+      getTokenCalls += 1;
+      assert.equal(worker.state, "activated", "getToken must not run before activation");
+      return Promise.resolve("post-activation-token");
+    },
+    serviceWorkerImpl: {
+      ready: Promise.resolve(reg),
+      getRegistration: () => Promise.resolve(reg),
+      register: () => Promise.resolve(reg),
+    },
+  });
+  assert.equal(ctx.thrown, null);
+  assert.equal(getTokenCalls, 0, "getToken must wait while worker is installing");
+  // Flip the worker live and flush: registration must now proceed.
+  worker.state = "activated";
+  reg.active = {};
+  listeners.statechange({ target: worker });
+  for (let i = 0; i < 30; i++) await new Promise((r) => setImmediate(r));
+  assert.equal(getTokenCalls, 1, "getToken runs exactly once after activation");
+  const regs = ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register");
+  assert.equal(regs.length, 1);
+  assert.equal(JSON.parse(regs[0].body).token, "post-activation-token");
 });
