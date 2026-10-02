@@ -52,25 +52,10 @@ export async function stageImport(file, vendorId, shopId) {
 }
 
 /**
- * Returns the current state of a staged import.
- *
- * @param {string} importId
- * @returns {object|null}
- */
-export function getImport(importId) {
-  return getSession(importId);
-}
-
-/**
  * Updates the status of a staged import.
  */
 export function markProcessing(importId) {
   updateSession(importId, { status: "processing" });
-}
-
-export function markReady(importId, parsedItems) {
-  const preview = buildPreview(parsedItems);
-  updateSession(importId, { status: "ready", parsed: parsedItems, preview });
 }
 
 export function markError(importId, errorMessage) {

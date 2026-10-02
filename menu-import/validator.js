@@ -31,30 +31,3 @@ export function validateImportFile(file) {
 
   return { valid: errors.length === 0, errors };
 }
-
-/**
- * Placeholder for parsed-item validation.
- * Called after a parser extracts items from the raw file.
- *
- * @param {Array} items – Array of { name, description, price }
- * @returns {{ valid: boolean, errors: string[] }}
- */
-export function validateParsedItems(items) {
-  const errors = [];
-
-  if (!Array.isArray(items) || items.length === 0) {
-    errors.push("No items were found in the file.");
-    return { valid: false, errors };
-  }
-
-  items.forEach((item, i) => {
-    if (!item.name || String(item.name).trim().length === 0) {
-      errors.push(`Item #${i + 1}: Name is required.`);
-    }
-    if (item.price == null || Number(item.price) <= 0) {
-      errors.push(`Item #${i + 1}: Price must be greater than 0.`);
-    }
-  });
-
-  return { valid: errors.length === 0, errors };
-}

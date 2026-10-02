@@ -43,7 +43,3 @@ export function updateSession(id, patch) {
 export function removeSession(id) {
   sessions.delete(id);
 }
-
-export function hasSession(id) {
-  return sessions.has(id);
-}
