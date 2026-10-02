@@ -20,6 +20,9 @@ items.forEach(function(it) {
   sumConf += it.confidence || 0;
 });
 stats.avgConf = items.length > 0 ? (sumConf / items.length * 100) : 0;
+// Unique duplicate groups (one per identity key with 2+ members, empty
+// names excluded to match updateStats(): unnamed rows never group).
+stats.duplicateUnique = Object.keys(nameCounts).filter(function(k) { return k && nameCounts[k] > 1; }).length;
 
 // compute row status and attach to items
 function computeRowStatus(it) {
@@ -34,6 +37,17 @@ function computeRowStatus(it) {
 items.forEach(function(it) {
   it.rowStatus = computeRowStatus(it);
 });
+
+// unique identity-key groups among non-ready rows: the collapsed
+// Review Issues count (one per duplicate group, every other reason intact)
+var reviewKeys = {};
+items.forEach(function(it, idx) {
+  if (it.rowStatus !== 'ready') {
+    var k = String(it.name || '').toLowerCase().trim() || ('row-' + idx);
+    reviewKeys[k] = true;
+  }
+});
+stats.reviewUnique = Object.keys(reviewKeys).length;
 %>
 
 <style>
@@ -259,27 +273,27 @@ items.forEach(function(it) {
 <!-- ── DASHBOARD STATS ── -->
 <div class="import-stats">
   <div class="import-stat import-stat--accent">
-    <span class="import-stat__value"><%= stats.total %></span>
+    <span class="import-stat__value" id="stat-total"><%= stats.total %></span>
     <span class="import-stat__label">Total Items</span>
   </div>
   <div class="import-stat import-stat--success">
-    <span class="import-stat__value"><%= stats.ready %></span>
+    <span class="import-stat__value" id="stat-ready"><%= stats.ready %></span>
     <span class="import-stat__label">Ready to Import</span>
   </div>
   <div class="import-stat import-stat--warn">
-    <span class="import-stat__value"><%= stats.review %></span>
+    <span class="import-stat__value" id="stat-review"><%= stats.review %></span>
     <span class="import-stat__label">Need Review</span>
   </div>
   <div class="import-stat import-stat--danger">
-    <span class="import-stat__value"><%= stats.noprice %></span>
+    <span class="import-stat__value" id="stat-noprice"><%= stats.noprice %></span>
     <span class="import-stat__label">Missing Price</span>
   </div>
   <div class="import-stat import-stat--warn">
-    <span class="import-stat__value"><%= stats.duplicate %></span>
+    <span class="import-stat__value" id="stat-duplicate"><%= typeof stats.duplicateUnique !== 'undefined' ? stats.duplicateUnique : stats.duplicate %></span>
     <span class="import-stat__label">Duplicates</span>
   </div>
   <div class="import-stat">
-    <span class="import-stat__value"><%= stats.avgConf.toFixed(0) %>%</span>
+    <span class="import-stat__value" id="stat-avgconf"><%= stats.avgConf.toFixed(0) %>%</span>
     <span class="import-stat__label">Avg Confidence</span>
   </div>
 </div>
@@ -459,7 +473,7 @@ items.forEach(function(it) {
     rows.forEach(function(row) {
       if (row.classList.contains('row--deleted')) return;
       row.setAttribute('data-index', newIdx);
-      var numCell = row.querySelector('td.cell--center');
+      var numCell = row.querySelector('td.cell--index');
       if (numCell) numCell.textContent = newIdx + 1;
       row.querySelectorAll('input').forEach(function(inp) {
         var name = inp.getAttribute('name');
@@ -483,6 +497,7 @@ items.forEach(function(it) {
         el.removeAttribute('name');
       });
       reindexItems();
+      document.querySelectorAll('#import-table tbody tr').forEach(function(r) { updateRowStatus(r); });
       updateStats();
     });
   });
@@ -540,6 +555,7 @@ items.forEach(function(it) {
         row.querySelectorAll('input').forEach(function(el) { el.removeAttribute('name'); });
       });
       reindexItems();
+      document.querySelectorAll('#import-table tbody tr').forEach(function(r) { updateRowStatus(r); });
       updateStats();
     } else {
       updateStats();
@@ -556,17 +572,58 @@ items.forEach(function(it) {
   });
 
   // ── DISCARD ──
+  // Duplicate-group aware: checking any member of a duplicate group
+  // resolves the whole group (first member survives, the rest are
+  // removed). Non-duplicate rows behave exactly as before.
   document.getElementById('discard-btn').addEventListener('click', function() {
     var checked = document.querySelectorAll('.row-select:checked');
     if (checked.length === 0) return;
-    if (!confirm('Discard ' + checked.length + ' selected item(s)? This cannot be undone.')) return;
+    // Resolve identity-key groups from live name inputs (same key as the
+    // collapse pass and the counters; empty names stay unique).
+    var rows = document.querySelectorAll('#import-table tbody tr');
+    var keyOf = function(row, ri) {
+      var nm = row.querySelector('input[name$="[name]"]');
+      var k = String((nm && nm.value) || '').toLowerCase().trim();
+      if (!k) k = 'row-' + row.getAttribute('data-index') + '-' + ri;
+      return k;
+    };
+    var groupMembers = {};
+    rows.forEach(function(r, ri) {
+      if (r.classList.contains('row--deleted')) return;
+      var k = keyOf(r, ri);
+      (groupMembers[k] = groupMembers[k] || []).push(r);
+    });
+    var toDelete = [];
+    var touchedGroups = {};
+    var groupCount = 0;
     checked.forEach(function(cb) {
       var row = cb.closest('tr');
       if (!row || row.classList.contains('row--deleted')) return;
+      var ri = Array.prototype.indexOf.call(rows, row);
+      var k = keyOf(row, ri);
+      if (touchedGroups[k]) return;
+      touchedGroups[k] = true;
+      var members = groupMembers[k] || [row];
+      if (members.length > 1) {
+        groupCount++;
+        for (var i = 1; i < members.length; i++) toDelete.push(members[i]);
+      } else {
+        toDelete.push(row);
+      }
+    });
+    if (toDelete.length === 0) return;
+    if (groupCount > 0) {
+      if (!confirm('Resolve ' + groupCount + ' duplicate group(s)? 1 copy of each will be kept; ' + toDelete.length + ' row(s) will be removed. This cannot be undone.')) return;
+    } else {
+      if (!confirm('Discard ' + checked.length + ' selected item(s)? This cannot be undone.')) return;
+    }
+    toDelete.forEach(function(row) {
+      if (row.classList.contains('row--deleted')) return;
       row.classList.add('row--deleted');
       row.querySelectorAll('input').forEach(function(el) { el.removeAttribute('name'); });
     });
     reindexItems();
+    document.querySelectorAll('#import-table tbody tr').forEach(function(r) { updateRowStatus(r); });
     updateStats();
     document.querySelectorAll('.row-select').forEach(function(cb) { cb.checked = false; });
     document.getElementById('select-all').checked = false;
@@ -575,7 +632,7 @@ items.forEach(function(it) {
 
   // ── UPDATE STATS ──
   function updateStats() {
-    var total = 0, ready = 0, review = 0, noprice = 0, duplicate = 0, confSum = 0;
+    var total = 0, ready = 0, review = 0, noprice = 0, duplicate = 0, lowconf = 0, confSum = 0;
     document.querySelectorAll('#import-table tbody tr').forEach(function(row) {
       if (row.classList.contains('row--deleted')) return;
       total++;
@@ -586,6 +643,7 @@ items.forEach(function(it) {
       else if (status === 'review') review++;
       else if (status === 'duplicate') duplicate++;
       else if (status === 'noprice') noprice++;
+      if (conf < 0.7) lowconf++;
     });
     var importCount = document.getElementById('import-count');
     if (importCount) importCount.textContent = ready;
@@ -596,11 +654,52 @@ items.forEach(function(it) {
     var reviewTab = document.querySelector('.filter-btn[data-filter="review"] .filter-btn--count');
     if (reviewTab) reviewTab.textContent = review;
     var dupTab = document.querySelector('.filter-btn[data-filter="duplicate"] .filter-btn--count');
-    if (dupTab) dupTab.textContent = duplicate;
+    // Unique duplicate groups, recounted directly from live names (not
+    // from stored data-status flags, which can lag behind edits). Same
+    // formula as the EJS stats.duplicateUnique preamble computation.
+    var dupNameCounts = {};
+    document.querySelectorAll('#import-table tbody tr').forEach(function(r, ri) {
+      if (r.classList.contains('row--deleted')) return;
+      var nm = r.querySelector('input[name$="[name]"]');
+      var identityKey = String((nm && nm.value) || '').toLowerCase().trim();
+      if (!identityKey) identityKey = 'row-' + r.getAttribute('data-index') + '-' + ri;
+      dupNameCounts[identityKey] = (dupNameCounts[identityKey] || 0) + 1;
+    });
+    var dupGroups = Object.keys(dupNameCounts).filter(function(k) { return k && dupNameCounts[k] > 1; }).length;
+    if (dupTab) dupTab.textContent = dupGroups;
     var npTab = document.querySelector('.filter-btn[data-filter="noprice"] .filter-btn--count');
     if (npTab) npTab.textContent = noprice;
+    var lowTab = document.querySelector('.filter-btn[data-filter="lowconf"] .filter-btn--count');
+    if (lowTab) lowTab.textContent = lowconf;
+    // Top stat cards + Import button share this same single computation —
+    // no second counting path. Need Review = total - ready, matching the
+    // EJS stats.review semantics (every non-ready row).
+    var cardTotal = document.getElementById('stat-total');
+    if (cardTotal) cardTotal.textContent = total;
+    var cardReady = document.getElementById('stat-ready');
+    if (cardReady) cardReady.textContent = ready;
+    var cardReview = document.getElementById('stat-review');
+    if (cardReview) cardReview.textContent = total - ready;
+    var cardNoprice = document.getElementById('stat-noprice');
+    if (cardNoprice) cardNoprice.textContent = noprice;
+    var cardDup = document.getElementById('stat-duplicate');
+    if (cardDup) cardDup.textContent = dupGroups;
+    var cardConf = document.getElementById('stat-avgconf');
+    if (cardConf) cardConf.textContent = (total > 0 ? (confSum / total * 100).toFixed(0) : '0') + '%';
     var reviewBtn = document.getElementById('review-btn');
-    if (reviewBtn) reviewBtn.textContent = 'Review Issues (' + (review + noprice + duplicate) + ')';
+    // Collapsed Review Issues count: one per identity-key group among
+    // non-ready rows (mirrors the EJS stats.reviewUnique computation,
+    // but over live input values so renames stay accurate).
+    var seenReviewKeys = {};
+    document.querySelectorAll('#import-table tbody tr').forEach(function(r, ri) {
+      if (r.classList.contains('row--deleted')) return;
+      if (r.getAttribute('data-status') === 'ready') return;
+      var nm = r.querySelector('input[name$="[name]"]');
+      var identityKey = String((nm && nm.value) || '').toLowerCase().trim();
+      if (!identityKey) identityKey = 'row-' + r.getAttribute('data-index') + '-' + ri;
+      seenReviewKeys[identityKey] = true;
+    });
+    if (reviewBtn) reviewBtn.textContent = 'Review Issues (' + Object.keys(seenReviewKeys).length + ')';
   }
 
   // ── REVIEW ISSUES BUTTON ──

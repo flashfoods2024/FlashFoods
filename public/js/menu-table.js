@@ -60,6 +60,32 @@
 
       row.classList.toggle('is-hidden', !show);
     });
+
+    // ── REVIEW ISSUES dedup (client-side only) ──
+    // Runs in Review Issues mode (rMode on, not on the Ready tab) and on
+    // the Duplicates filter tab. Collapses identity-key groups so each
+    // duplicated dish shows once:
+    // the first visible member stays, later members are hidden and
+    // unchecked (unchecked keeps them out of further batch/discard
+    // selection while hidden). DOM order untouched, no rows removed,
+    // nothing marked deleted — switching tabs restores every row.
+    if ((rMode && filter !== 'ready') || filter === 'duplicate') {
+      var seenKeys = {};
+      rows.forEach(function(row, ri) {
+        if (row.classList.contains('row--deleted')) return;
+        if (row.classList.contains('is-hidden')) return;
+        var nameInput = row.querySelector('input[name$="[name]"]');
+        var identityKey = String((nameInput && nameInput.value) || '').toLowerCase().trim();
+        if (!identityKey) identityKey = 'row-' + row.getAttribute('data-index') + '-' + ri;
+        if (seenKeys[identityKey]) {
+          row.classList.add('is-hidden');
+          var cb = row.querySelector('.row-select');
+          if (cb) cb.checked = false;
+        } else {
+          seenKeys[identityKey] = true;
+        }
+      });
+    }
   };
 
   var applyFilters = window.__menuTable.applyFilters;

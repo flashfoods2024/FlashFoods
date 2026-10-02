@@ -526,7 +526,7 @@ categories.sort();
       Import <span id="import-count"><%= typeof stats !== 'undefined' ? stats.ready : 0 %></span> Items
     </button>
     <button class="btn btn--small btn--outline" type="button" id="review-btn" style="min-height:36px;font-size:13px;">
-      Review Issues (<%= typeof stats !== 'undefined' ? (stats.review + stats.noprice + stats.duplicate) : 0 %>)
+      Review Issues (<%= typeof stats !== 'undefined' ? (typeof stats.reviewUnique !== 'undefined' ? stats.reviewUnique : (stats.review + stats.noprice + stats.duplicate)) : 0 %>)
     </button>
     <button type="button" class="btn btn--small btn--ghost" id="discard-btn" style="min-height:36px;font-size:13px;">
       Discard
@@ -551,7 +551,7 @@ categories.sort();
     Need Review <span class="filter-btn--count"><%= stats.review %></span>
   </button>
   <button type="button" class="filter-btn" data-filter="duplicate">
-    Duplicates <span class="filter-btn--count"><%= stats.duplicate %></span>
+    Duplicates <span class="filter-btn--count"><%= typeof stats.duplicateUnique !== 'undefined' ? stats.duplicateUnique : stats.duplicate %></span>
   </button>
   <button type="button" class="filter-btn" data-filter="noprice">
     Missing Price <span class="filter-btn--count"><%= stats.noprice %></span>
@@ -623,7 +623,7 @@ categories.sort();
     >
       <% if (isVendor) { %>
       <td class="cell--center"><input type="checkbox" class="row-select" data-index="<%= i %>" /></td>
-      <td class="cell--center" style="color:var(--muted);font-size:11px;"><%= i+1 %></td>
+      <td class="cell--center cell--index" style="color:var(--muted);font-size:11px;"><%= i+1 %></td>
       <td>
         <input name="items[<%= i %>][name]" type="text" value="<%= item.name %>" required />
       </td>
