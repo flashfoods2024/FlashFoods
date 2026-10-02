@@ -1,234 +1,198 @@
-# FlashFoods V2 — Stage 1 Test Protocol
+# FlashFoods — Test Protocol (.ai/test.md)
 
 ## Purpose
 
-Testing is a sequence of quality gates. Passing one feature is required before starting the next.
+Testing is a sequence of quality gates. This file is the source of truth for what may
+be tested, what must never be run against production, and the order gates must be
+executed in.
 
-## 1. Feature-Level Testing
+Autonomous agents MUST read this file before running ANY test.
 
-For each feature from `goal.md`:
+## Core Safety Rules (Non-Negotiable)
 
-BUILD
-↓
-RUN FEATURE TESTS
-↓
-FAILED?
-↓ yes
-FOLLOW bug_fix.md
-↓
-FIX
-↓
-RUN FAILED TEST AGAIN
-↓
-RUN RELEVANT REGRESSION TESTS
-↓
-VERIFY
-↓
-PASS
-↓
-NEXT FEATURE
+The following are NEVER allowed during any test run:
 
-Do not proceed while the current feature has failing required tests.
+1. Connect to the production MongoDB (Atlas). Any script or config that resolves
+   MONGO_URI from .env must be considered production-connected unless proven otherwise.
+2. Call a live payment API (Razorpay, Easebuzz, PhonePe). Sandbox/test-mode keys only,
+   and only in a dedicated sandbox environment.
+3. Send a real FCM push notification.
+4. Upload to real Cloudinary.
+5. Call real Gemini Vision.
+6. Run `npm run seed` (deliberate deleteMany against the configured DB).
+7. Run `npm run test:e2e` with the default Playwright config (real-DB global hooks).
+8. Print, log, or commit any value from .env.
 
-## 2. Minimum Feature Test Requirements
+When uncertain whether a test is safe: STOP, mark UNCERTAIN, and report.
 
-### F01 Student Profile
+## Safe Test Surfaces (Run These)
 
-Verify:
-- authenticated student access,
-- correct student data,
-- approved editing only,
-- unauthorized access blocked,
-- existing profile behaviour preserved.
+- `npm test` / `npm run test:unit`
+  Node test runner. All files under tests/unit/**.
+  Verified: no MONGO_URI usage; uses mongodb-memory-server-core; localhost-only HTTP.
 
-### F02 Vendor Profile
+- `npm run test:e2e:vendor-profile`
+  Isolated Playwright harness (playwright.vendor-profile.config.js).
+  Boots an in-memory Mongo via scripts/qa-vendor-profile-server.mjs on port 3123.
+  No external DB, no external network.
 
-Verify:
-- authenticated vendor access,
-- vendor account data,
-- name/phone editing,
-- email read-only,
-- Today/Week/Month/Custom analytics,
-- correct orders/revenue/items/AOV,
-- best sellers,
-- empty states,
-- IST boundaries,
-- shop isolation,
-- vendor IDOR attempts,
-- shop IDOR attempts,
-- restricted-field protection,
-- student profile regression.
+- Any new test written following the isolated-harness pattern (in-memory Mongo +
+  ephemeral port + stubbed external services).
 
-### F03 Shop Open / Close
+## Blocked Test Surfaces (Do NOT Run Today)
 
-Verify:
-- opening/closing configuration,
-- valid/invalid values,
-- shop availability,
-- boundary times,
-- missing configuration,
-- student/vendor behaviour.
+- `npm run test:e2e` (default playwright.config.js)
+  tests/global-setup.mjs and tests/global-teardown.mjs connect to MONGO_URI and
+  mutate shops/users. Unblocking requires rewriting those hooks to use the
+  isolated-harness pattern.
 
-### F04 Pickup Slots
+- `npm run seed`
+  Destructive by design.
 
-Verify:
-- slot creation/configuration,
-- slot visibility,
-- capacity,
-- full slots,
-- invalid slots,
-- outside-hours slots,
-- overbooking attempts,
-- concurrent booking behaviour,
-- authorization.
+- Any spec under tests/ that boots a real server pointed at .env.
 
-### F05 Discounts
+## Test Taxonomy
 
-Verify:
-- enable/disable,
-- valid percentage,
-- invalid percentage,
-- boundary values,
-- correct server-side total,
-- correct payment amount,
-- rounding,
-- cancellation/refund interactions where applicable,
-- vendor isolation.
+1. Unit — pure logic, no I/O. Always safe.
+2. Integration — route + middleware + in-memory DB. Safe with harness pattern.
+3. Contract/API — request/response shape, status codes, auth boundaries. Safe.
+4. End-to-end — full user flows. Safe ONLY via isolated harness.
+5. Payment sandbox — gateway test mode. RISKY; separate environment only.
+6. Webhook signature + replay — HMAC, raw body, idempotency. Safe on in-memory DB.
+7. Notification dispatch — mocked FCM. Safe.
+8. PWA/service-worker — headless browser + local server. Safe.
+9. Security — CSRF allowlist, IDOR, injection, secret redaction. Safe on in-memory DB.
+10. Concurrency/races — double-accept, double-pay, double-QR. Safe on in-memory DB.
+11. Data integrity — illegal-transition matrix, atomic checks. Safe.
+12. Migration/backfill — idempotency on fixtures. Safe on in-memory DB.
+13. Load/stress — disposable local env only. RISKY.
+14. Accessibility — axe-core on isolated harness. Safe.
+15. Visual regression — Playwright snapshots on isolated harness. Safe.
+16. Failure/recovery — DB down, gateway down, FCM down. RISKY.
+17. Cold-start/smoke — boots cleanly, env validation. Safe.
 
-### F06.5 Student Order Ready Notification — COMPLETE
+## Feature Test Requirements
 
-Verify:
-- vendor marking ready triggers exactly one student notification,
-- correct student targeting (no cross-student leak),
-- single notification sound (no alarm, no continuous ringing),
-- background/closed-PWA delivery,
-- tap opens the correct order page,
-- existing vendor notifications unchanged.
+F01 Student Profile
+- authenticated access, correct data, approved-only edits, unauthorized blocked,
+  prior profile behaviour preserved.
 
-### F07 QR Pickup — READY (trigger: `Execute F07.`)
+F02 Vendor Profile
+- authenticated access, account data, name/phone editable, email read-only,
+  Today/Week/Month/Custom analytics, correct orders/revenue/items/AOV,
+  best sellers, empty states, IST boundaries, shop isolation, vendor IDOR,
+  shop IDOR, restricted-field protection, student profile regression.
 
-Verify:
-- student QR generated per order,
-- vendor scanner shows name, phone, order number, items, quantity, amount,
-- valid QR closes order immediately (completed),
-- invalid/failed QR does NOT close order (stays ready_for_pickup),
-- malformed QR,
-- wrong vendor,
-- wrong shop,
-- wrong order,
-- reused QR,
-- replay attempt,
-- concurrent verification (single close),
-- server-authoritative pickup completion,
-- OTP fallback works when QR fails,
-- existing OTP flow still functional,
-- no vendor pickup-confirm button exists in the flow,
-- no partial-close state and no order reopening.
+F03 Shop Open / Close
+- configuration, valid/invalid values, availability, boundary times, missing config,
+  student/vendor behaviour.
 
-## 3. New-Feature Comprehensive Test
+F04 Pickup Slots
+- creation, visibility, capacity, full slots, invalid slots, outside-hours slots,
+  overbooking attempts, concurrent booking, authorization.
 
-After F01–F05 + F06.5 + F07 all individually pass:
+F05 Discounts
+- enable/disable, valid/invalid percentage, boundary values, server-side total,
+  payment amount, rounding, cancellation/refund interactions, vendor isolation.
 
-Run the complete feature set together.
+F06.5 Student Order-Ready Notification
+- vendor ready → exactly one student notification, correct targeting,
+  single sound, background/closed-PWA delivery, tap opens correct order page,
+  existing vendor notifications unchanged.
 
-Test interactions such as:
-- shop hours + pickup slots,
-- discounts + payment totals,
-- pickup slots + orders,
-- QR pickup + order status,
-- F06.5 ready-notification + F07 QR pickup,
-- profiles + role authorization.
+F07 QR Pickup
+- QR generated per order, scanner shows name/phone/order/items/qty/amount,
+  valid QR closes immediately (completed), invalid does NOT close
+  (stays ready_for_pickup), malformed, wrong vendor, wrong shop, wrong order,
+  reused QR, replay, concurrent verification (single close),
+  server-authoritative completion, OTP fallback works, existing OTP intact,
+  no vendor confirm button, no partial-close, no reopening.
 
-## 4. Risk-Based Testing
+## Order Lifecycle Pipeline Test — Testing Shop
 
-After comprehensive feature testing, inspect modules affected by Stage 1 from highest to lowest risk.
+Purpose: prove the end-to-end pipeline works, using a dedicated shop rather than
+production vendor data.
 
-Highest-risk areas should generally include:
+Test shop slug: `testing-shop`
 
-1. payment/order total logic,
-2. pickup verification and order status transitions,
-3. authorization/ownership boundaries,
-4. notification delivery,
-5. slot capacity/concurrency,
-6. shop timing logic,
-7. analytics queries,
-8. profile/UI-only changes.
+Full path to verify:
 
-This ordering is a risk-testing preference, not a claim that a specific module currently contains a defect.
+1. Student browses `testing-shop` menu (at least one item available).
+2. Student adds an item to cart.
+3. Student proceeds to checkout.
+4. Order is created in state `pending_payment`.
+5. Payment is stubbed (no live gateway).
+6. Order transitions to `paid`.
+7. Vendor (owner of `testing-shop`) sees the order in pending list.
+8. Vendor accepts → state `accepted`.
+9. Vendor marks ready → state `ready_for_pickup`.
+10. Order-ready FCM notification is dispatched (mocked) exactly once
+    to the correct student.
+11. Student displays QR for the order.
+12. Vendor scans QR → order transitions to `completed`.
+13. OTP fallback path verified separately for a second order.
 
-## 5. Regression Testing
+At each step, verify:
+- The transition is atomic.
+- Illegal transitions are rejected (e.g., `pending_payment` → `completed`).
+- Only the correct role can perform the transition.
+- Concurrent requests do not create duplicate side effects.
+
+Never use production data for this test. Use in-memory Mongo and seed
+`testing-shop` as a fixture.
+
+## Regression Suite
 
 Verify existing behaviour for:
+- authentication, student profile, student ordering
+- vendor dashboard, pending orders, pickup verification, menu, payment settings
+- completed orders, admin panel, admin analytics
+- payment flows, webhooks, existing notifications
 
-- authentication,
-- student profile,
-- student ordering,
-- vendor dashboard,
-- vendor pending orders,
-- vendor pickup verification,
-- vendor menu,
-- vendor payment settings,
-- completed orders,
-- admin panel,
-- admin analytics,
-- payment flows,
-- webhooks,
-- existing notifications.
+## Smoke Test
 
-## 6. Smoke Testing
+Verify the app can:
+- start successfully
+- connect to configured DB (isolated)
+- authenticate users
+- load student, vendor, admin panels
+- create and view an order
+- transition through the expected flow
+- verify pickup through supported mechanisms
 
-Verify the application can:
+## Risk-Ordered Testing
 
-- start successfully,
-- connect to the configured database,
-- authenticate users,
-- load student panel,
-- load vendor panel,
-- load admin panel,
-- create/view an order,
-- transition an order through its expected flow,
-- verify pickup through supported mechanisms.
+After feature tests pass, test affected modules from highest to lowest risk:
 
-## 7. Stress / Load Testing
+1. payment/order total logic
+2. pickup verification and order state transitions
+3. authorization / ownership boundaries
+4. notification delivery
+5. slot capacity / concurrency
+6. shop timing logic
+7. analytics queries
+8. profile/UI-only changes
 
-Use the repository's existing load-testing tooling where available.
+## Evidence Rule
 
-Test realistic high-load paths, especially:
-- order creation,
-- order status changes,
-- analytics endpoints,
-- pickup verification,
-- notification-triggering events.
+Never mark a test PASS unless it was actually executed and observed.
 
-Record observed failures rather than declaring success based only on average latency.
+Record for every run:
+- command
+- scope
+- result
+- failures
+- fixes
+- rerun result
 
-## 8. Global Test
+## Reporting Format
 
-After all previous gates pass, test the entire website/module surface.
+Every test session must produce:
 
-Roles:
-- Student
-- Vendor
-- Admin
-
-Test categories:
-- smoke,
-- regression,
-- integration,
-- authorization/security,
-- stress/load where applicable,
-- critical business-flow verification.
-
-The Global Test is the final Stage 1 quality gate.
-
-## 9. Evidence Rule
-
-Never mark a test as PASS unless it was actually executed or otherwise verified from concrete evidence.
-
-Record:
-- test command,
-- scope,
-- result,
-- failures,
-- fixes,
-- rerun result.
+1. Commands actually run.
+2. Tests passed / failed / skipped, with names.
+3. Blocked tests and why.
+4. Any regression discovered.
+5. Any test that could not be safely run, with the exact reason.
+6. Explicit statement: no production database was modified.
+7. Explicit statement: no .env value was read, printed, or modified.
