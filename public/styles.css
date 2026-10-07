@@ -2243,23 +2243,6 @@ fieldset.fieldset legend {
   -webkit-tap-highlight-color: transparent;
 }
 .btn-orange-grad:active { transform: scale(0.98); }
-.ticket-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.82);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(229, 231, 235, 0.7);
-  border-radius: 14px;
-  color: #111827;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-}
 .ticket-strip__label { display: inline-flex; align-items: center; gap: 8px; }
 .pass-pill {
   display: inline-flex;
@@ -2333,88 +2316,9 @@ fieldset.fieldset legend {
   white-space: nowrap;
 }
 .pill-status--ok { background: rgba(16, 185, 129, 0.12); color: #10b981; }
-.bottom-nav {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  z-index: 100;
-  display: flex;
-  background: rgba(255, 255, 255, 0.82);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(229, 231, 235, 0.7);
-  border-radius: 1rem;
-  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.16);
-  padding: 8px;
-}
-.bottom-nav__link {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 4px;
-  border-radius: 8px;
-  color: #6b7280;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-decoration: none;
-  min-height: 48px;
-}
-.bottom-nav__link.is-active { background: #ff6b00; color: #ffffff; }
 .bottom-nav-spacer { height: 88px; }
 @media (min-width: 768px) {
   .bottom-nav, .bottom-nav-spacer { display: none; }
-}
-
-/* ── Student home mesh gradient + bottom-nav clearance (append-only) ── */
-.student-home {
-  position: relative;
-  isolation: isolate;
-  /* bottom-nav height (64px) + gap above it (16px) + bottom offset (16px) + safe-area */
-  padding-bottom: calc(64px + 16px + 16px + env(safe-area-inset-bottom, 0px));
-}
-.student-home::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-color: #FFF5EC;
-  background-image:
-    radial-gradient(720px 620px at -8% -6%, rgba(255, 138, 43, 0.30), transparent 70%),
-    radial-gradient(640px 560px at 108% 108%, rgba(255, 138, 43, 0.30), transparent 70%),
-    radial-gradient(560px 520px at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%),
-    radial-gradient(900px 420px at 50% 0%, rgba(255, 253, 249, 0.95), transparent 72%);
-}
-
-/* ── Student home polish: warm mesh + glass depth (append-only overrides) ── */
-.student-home::before {
-  background-color: #FFF6ED;
-  background-image:
-    radial-gradient(60vmax 60vmax at 0% 0%, rgba(255, 138, 43, 0.45), transparent 70%),
-    radial-gradient(50vmax 50vmax at 100% 0%, rgba(255, 176, 122, 0.35), transparent 70%),
-    radial-gradient(70vmax 70vmax at 50% 100%, rgba(255, 122, 77, 0.30), transparent 70%),
-    radial-gradient(40vmax 40vmax at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%);
-}
-.student-home .home-dish-card,
-.student-home .ticket-strip,
-.student-home .home-empty {
-  background: rgba(255, 255, 255, 0.72);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 20px;
-  box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
-  padding: 16px;
-}
-.student-home .bottom-nav {
-  background: rgba(255, 250, 244, 0.78);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 -4px 20px rgba(255, 122, 77, 0.08);
 }
 .student-home .home-dish-media {
   background: linear-gradient(135deg, #FFE8D6 0%, #FFD4B8 100%);
@@ -2424,33 +2328,6 @@ fieldset.fieldset legend {
 .student-home .btn-orange-grad {
   border-radius: 14px;
   box-shadow: 0 8px 24px rgba(255, 107, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-/* ── Student home top bar: transparent over mesh (append-only overrides) ── */
-/* Scoped via :has() — only pages rendering .student-home (logged-in student
-   home) match; vendor/admin/guest top bars keep their existing background. */
-body:has(.student-home) .topbar {
-  background: transparent;
-  border-bottom: none;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* ── Student home top bar: scroll with page, no pinning (append-only) ── */
-body:has(.student-home) .topbar {
-  position: static;
-  top: auto;
-  z-index: auto;
-}
-
-/* ── Student home top bar: stay above mesh gradient (append-only fix) ── */
-/* The ::before mesh is a viewport-sized opaque layer; a non-positioned header
-   paints below it. relative (no offsets) keeps it in normal flow so it still
-   scrolls away, while z-index: 1 lifts it above the gradient. */
-body:has(.student-home) .topbar {
-  position: relative;
-  z-index: 1;
 }
 
 /* ── Student top-bar avatar + bottom-nav cart tab (append-only) ── */
@@ -2469,46 +2346,11 @@ body:has(.student-home) .topbar {
   text-decoration: none;
   box-shadow: 0 8px 24px rgba(255, 107, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.student-home .bottom-nav__link {
-  position: relative;
-  gap: 4px;
-}
-.bottom-nav__link .bottom-nav__icon {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
-}
-.bottom-nav__link .bottom-nav__badge {
-  position: absolute;
-  top: 2px;
-  right: calc(50% - 26px);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: #ff6b00;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-}
 
 /* ── Student home "Why FlashFoods?" cards (append-only) ── */
 .student-home .why-grid {
   display: grid;
   gap: 12px;
-}
-.student-home .why-card {
-  background: rgba(255, 255, 255, 0.72);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
-  padding: 16px;
 }
 .student-home .why-card h3 {
   margin: 10px 0 4px;
@@ -2561,6 +2403,202 @@ body:has(.student-home) .topbar {
     height: 60%;
   }
 }
+/* Primary CTAs: premium orange gradient per brand direction. */
+.student-home .btn-orange-grad {
+  background-image: linear-gradient(135deg, #FF6B00, #FF8A2B);
+}
+/* 3. Primary buttons: diagonal orange gradient + warm glow + top highlight. */
+.student-home .btn-orange-grad {
+  background-image: linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(255, 107, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  font-weight: 800;
+  text-align: center;
+}
+/* 7. Typography: warm near-black headings, warm grey body, orange prices. */
+.student-home .hero-title,
+.student-home .express-title,
+.student-home .home-dish-card .dish-name {
+  color: #1A0F08;
+  letter-spacing: -0.02em;
+}
+.student-home .hero-sub,
+.student-home .home-dish-card .dish-cat,
+.student-home .why-card p {
+  color: #5C4033;
+}
+.student-home .dish-price {
+  color: #FF6B00;
+}
+html.reduced-effects {
+  --bg-image-blur: 0px;
+  --bg-image-opacity: 1;
+}
+
+/* ── Retired FCM banner safety net ── */
+/* The #fcm-off-banner prompt was removed from firebase-client.js; hide it in
+   case an older cached script re-injects the element. */
+#fcm-off-banner {
+  display: none !important;
+}
+
+/* ── Student Home mobile-only treatment (≤767px) ── */
+/* Frosted peach-glass material applies only on mobile viewports. */
+@media (max-width: 767px) {
+.bottom-nav__link.is-active { background: #ff6b00; color: #ffffff; }
+.ticket-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(229, 231, 235, 0.7);
+  border-radius: 14px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.bottom-nav {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+  display: flex;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(229, 231, 235, 0.7);
+  border-radius: 1rem;
+  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.16);
+  padding: 8px;
+}
+.bottom-nav__link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border-radius: 8px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  min-height: 48px;
+}
+
+/* ── Student home mesh gradient + bottom-nav clearance (append-only) ── */
+.student-home {
+  position: relative;
+  isolation: isolate;
+  /* bottom-nav height (64px) + gap above it (16px) + bottom offset (16px) + safe-area */
+  padding-bottom: calc(64px + 16px + 16px + env(safe-area-inset-bottom, 0px));
+}
+.student-home::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: #FFF5EC;
+  background-image:
+    radial-gradient(720px 620px at -8% -6%, rgba(255, 138, 43, 0.30), transparent 70%),
+    radial-gradient(640px 560px at 108% 108%, rgba(255, 138, 43, 0.30), transparent 70%),
+    radial-gradient(560px 520px at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%),
+    radial-gradient(900px 420px at 50% 0%, rgba(255, 253, 249, 0.95), transparent 72%);
+}
+
+/* ── Student home polish: warm mesh + glass depth (append-only overrides) ── */
+.student-home::before {
+  background-color: #FFF6ED;
+  background-image:
+    radial-gradient(60vmax 60vmax at 0% 0%, rgba(255, 138, 43, 0.45), transparent 70%),
+    radial-gradient(50vmax 50vmax at 100% 0%, rgba(255, 176, 122, 0.35), transparent 70%),
+    radial-gradient(70vmax 70vmax at 50% 100%, rgba(255, 122, 77, 0.30), transparent 70%),
+    radial-gradient(40vmax 40vmax at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%);
+}
+.student-home .home-dish-card,
+.student-home .ticket-strip,
+.student-home .home-empty {
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
+  padding: 16px;
+}
+.student-home .bottom-nav {
+  background: rgba(255, 250, 244, 0.78);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 -4px 20px rgba(255, 122, 77, 0.08);
+}
+
+/* ── Student home top bar: transparent over mesh (append-only overrides) ── */
+/* Scoped via :has() — only pages rendering .student-home (logged-in student
+   home) match; vendor/admin/guest top bars keep their existing background. */
+body:has(.student-home) .topbar {
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* ── Student home top bar: scroll with page, no pinning (append-only) ── */
+body:has(.student-home) .topbar {
+  position: static;
+  top: auto;
+  z-index: auto;
+}
+body:has(.student-home) .topbar {
+  position: relative;
+  z-index: 1;
+}
+.student-home .bottom-nav__link {
+  position: relative;
+  gap: 4px;
+}
+.bottom-nav__link .bottom-nav__icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+.bottom-nav__link .bottom-nav__badge {
+  position: absolute;
+  top: 2px;
+  right: calc(50% - 26px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ff6b00;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+.student-home .why-card {
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
+  padding: 16px;
+}
 
 /* ── Student home liquid-glass material pass (append-only, page-scoped) ── */
 /* Background: same warm mesh + one faint coral wisp (CSS gradients only). */
@@ -2579,10 +2617,6 @@ body:has(.student-home) .topbar {
   backdrop-filter: blur(16px) saturate(150%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-/* Primary CTAs: premium orange gradient per brand direction. */
-.student-home .btn-orange-grad {
-  background-image: linear-gradient(135deg, #FF6B00, #FF8A2B);
 }
 
 /* ── Student home reference-material pass (append-only, page-scoped) ── */
@@ -2608,15 +2642,6 @@ body:has(.student-home) .topbar {
   border-bottom-color: rgba(255, 180, 120, 0.55);
   border-radius: 16px;
   box-shadow: 0 8px 24px rgba(255, 107, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
-/* 3. Primary buttons: diagonal orange gradient + warm glow + top highlight. */
-.student-home .btn-orange-grad {
-  background-image: linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%);
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(255, 107, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  color: #ffffff;
-  font-weight: 800;
-  text-align: center;
 }
 /* 4. Ticket strip stays glass (no fill); pass badge = orange-tinted glass. */
 .student-home .pass-pill {
@@ -2655,21 +2680,6 @@ body:has(.student-home) .topbar {
 }
 .student-home .bottom-nav__link.is-active {
   background: rgba(255, 107, 0, 0.12);
-  color: #FF6B00;
-}
-/* 7. Typography: warm near-black headings, warm grey body, orange prices. */
-.student-home .hero-title,
-.student-home .express-title,
-.student-home .home-dish-card .dish-name {
-  color: #1A0F08;
-  letter-spacing: -0.02em;
-}
-.student-home .hero-sub,
-.student-home .home-dish-card .dish-cat,
-.student-home .why-card p {
-  color: #5C4033;
-}
-.student-home .dish-price {
   color: #FF6B00;
 }
 /* 8. Frosted tray behind food images: same liquid-glass material. */
@@ -2732,14 +2742,46 @@ body:has(.student-home)::before {
     filter: none;
   }
 }
-html.reduced-effects {
-  --bg-image-blur: 0px;
-  --bg-image-opacity: 1;
 }
 
-/* ── Retired FCM banner safety net ── */
-/* The #fcm-off-banner prompt was removed from firebase-client.js; hide it in
-   case an older cached script re-injects the element. */
-#fcm-off-banner {
-  display: none !important;
+/* ── Student Home desktop restores: solid pre-redesign material (≥768px) ── */
+@media (min-width: 768px) {
+  body:has(.student-home) { background: var(--bg); }
+  body:has(.student-home)::before { display: none; }
+  body:has(.student-home) .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: #fbf1e6;
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    box-shadow: none;
+  }
+  .student-home .ticket-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+  }
+  .student-home .home-dish-card,
+  .student-home .home-empty,
+  .student-home .why-card {
+    background: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
 }
