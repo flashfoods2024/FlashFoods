@@ -21,7 +21,7 @@
 ## Current Feature / Phase / Blockers
 
 - Current feature: F08 Student Portal UI Standardization (Mobile-Only)
-- Current phase: F08.2 DONE (bottomnav partial extracted, home.ejs reuses it; EJS-render identical modulo portal classes; unit 301/301) → next F08.3 shops
+- Current phase: F08.3 DONE (shops converted; mobile verified 393px, no errors) → next F08.4 menu
 - Blockers: none (locked decisions: orange→red CTA, 35% card fill,
   Student Home desktop as-is, auth in scope; baseline committed at HEAD)
 

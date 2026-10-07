@@ -1,35 +1,39 @@
 <%- include("../partials/header", { pageTitle }) %>
 
+<div class="portal-root">
 <section class="hero">
-  <h1>Canteens</h1>
-  <p class="muted">Choose a spot and browse the menu.</p>
+  <h1 class="portal-ink">Canteens</h1>
+  <p class="muted portal-soft">Choose a spot and browse the menu.</p>
 </section>
 
 <% if (!shops.length) { %>
-  <div class="card">
+  <div class="card portal-card">
     <p>No canteens are listed yet. Run <code class="code">npm run seed</code> for sample data.</p>
   </div>
 <% } else { %>
   <div class="grid grid--shops">
     <% shops.forEach((s) => { %>
-      <a class="card card--link" href="/shops/<%= s.slug %>">
-        <h2 class="card__title"><%= s.name %></h2>
+      <a class="card card--link portal-card" href="/shops/<%= s.slug %>">
+        <h2 class="card__title portal-ink"><%= s.name %></h2>
         <% var availability = s.availability || { available: s.isOpen && s.isActive !== false, label: s.isOpen && s.isActive !== false ? "Open" : "Closed", hoursLabel: "Hours not set" }; %>
         <p>
-          <span class="tag <%= availability.available ? "tag--ok" : "tag--warn" %>">
+          <span class="tag <%= availability.available ? "tag--ok" : "tag--warn" %> portal-pill<%= availability.available ? " portal-pill--ok" : "" %>">
             <%= availability.label %>
           </span>
         </p>
         <% if (s.description) { %>
-          <p class="muted card__desc"><%= s.description %></p>
+          <p class="muted card__desc portal-soft"><%= s.description %></p>
         <% } %>
-        <p class="muted small">
+        <p class="muted small portal-soft">
           <%= availability.configured ? availability.hoursLabel : "Hours not set" %>
         </p>
-        <span class="btn btn--small">View menu</span>
+        <span class="btn btn--small portal-btn">View menu</span>
       </a>
     <% }) %>
   </div>
 <% } %>
+
+<%- include("../partials/student-bottomnav") %>
+</div>
 
 <%- include("../partials/footer") %>
