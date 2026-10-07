@@ -4,7 +4,7 @@
 
 **Version:** 1.0.1
 **Last Updated:** 2026-10-07
-**Status:** F08 IN PROGRESS — Phase 4 docs complete, awaiting Phase 5 approval
+**Status:** F08 COMPLETE — all 8 screens converted, desktop frozen verified, unit 301/301
 
 ---
 
@@ -20,8 +20,9 @@
 
 ## Current Feature / Phase / Blockers
 
-- Current feature: F08 Student Portal UI Standardization (Mobile-Only)
-- Current phase: F08.8+F08.9 DONE (login+signup converted, mobile verified, desktop pixel-identical; no bottom nav pre-auth by design) → next F08.11 regression pass
+- Current feature: F08 Student Portal UI Standardization — COMPLETE
+- Current phase: F08.12 DONE (STATUS/HISTORY/roadmap/goal staged; commits a28739b→901f571 + stage commit)
+- Blockers: none
 - Blockers: none (locked decisions: orange→red CTA, 35% card fill,
   Student Home desktop as-is, auth in scope; baseline committed at HEAD)
 

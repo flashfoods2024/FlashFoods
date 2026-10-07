@@ -1,17 +1,13 @@
 # FlashFoods Feature Goal (control-plane slot)
 
-## Current Goal: F08
-Title: Student Portal UI Standardization (Mobile-Only)
-Locked contract: see `.ai/UI_STANDARD.md` and `.ai/F08_ANALYSIS.md`.
-Human decisions locked: CTA gradient orange→red (#ff7225 → #ff3d3d);
-card fill 35% white + blur(20px) saturate(160%); Student Home desktop
-accepted as-is; auth (login/signup) screens IN scope.
-Acceptance criteria: every remaining student-portal screen (shops, menu,
-cart, orders, order detail, profile, login, signup) renders with the F08
-mobile UI standard on 393x852, and desktop rendering is byte-for-byte
-unchanged from the F08 baseline commit on every screen except Student Home.
-Forbidden: modifying desktop styles, changing any business logic,
-introducing new dependencies, altering vendor or admin UI.
+## Current Goal:
+NONE
+
+Stage 1 (F01–F07) plus F08 (Student Portal UI Standardization) are complete
+— see `.ai/HISTORY.md`. There is no active feature. When a future goal
+starts, replace this section with the new goal's objective, locked
+contract, and acceptance criteria; completed goals move to
+`.ai/HISTORY.md`, never accumulate here.
 
 ## How a goal is executed
 

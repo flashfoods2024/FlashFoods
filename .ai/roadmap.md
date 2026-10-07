@@ -23,17 +23,13 @@ BUILD → FEATURE TEST → FIX → RETEST → VERIFY → PASS
 
 Only after the current feature passes may the next feature begin.
 
-## Active
-
-### F08 — Student Portal UI Standardization (Mobile-Only) — PHASE 4 DOCS DONE, awaiting execution approval
-- Locked contract: `.ai/UI_STANDARD.md` + `.ai/F08_ANALYSIS.md`.
-- Scope: shops, menu, cart, orders, order detail, profile, login, signup
-  (mobile ≤767px only; desktop frozen except Student Home as-is).
-- Execution graph: `.ai/F08_ANALYSIS.md` §6 (F08.0–F08.10).
-
 ## Completed
 
 Stage 1 (F01–F05, F06/F06.5, F07) is COMPLETE — details in `.ai/HISTORY.md`.
+
+### F08 — Student Portal UI Standardization (Mobile-Only) — COMPLETED 2026-10-07
+- Converted shops, menu, cart, orders, order detail, profile, login, signup.
+- Desktop frozen verified (Student Home exempt per F08-D3); unit 301/301.
 
 ## Candidate Future Work (unplanned, unordered)
 

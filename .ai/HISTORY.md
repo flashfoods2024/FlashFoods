@@ -83,3 +83,34 @@ Lesson: no test harness may write to a non-isolated database; environment split 
 2. Slot-reservation expiry sweep for abandoned `pending_payment` orders.
 3. Login rate limiting; Socket.IO auth; MemoryStore replacement; CSRF; Easebuzz completion-or-disable; analytics-cache perf.
 4. Playwright fixture seeding (missing `test.vendor@flashfoods.test` blocks the shared suite).
+
+---
+
+# F08 — Student Portal UI Standardization, Mobile-Only (2026-10-07, COMPLETE)
+
+What: all remaining student-portal screens adopted the Student Home visual
+language (locked tokens: CTA gradient orange→red #ff7225→#ff3d3d, card fill
+35% white + blur(20px) saturate(160%)). Mobile viewports (≤767px) only;
+desktop frozen everywhere except Student Home (accepted as-is, F08-D3).
+
+Screens converted (classes + bottom-nav reuse, zero logic changes): shops,
+menu (student-only cells in shared menu-table; vendor-mode render proven
+byte-identical), cart, orders list, order detail, profile, login, signup.
+New: `.portal-*` component classes (mobile-scoped), `partials/
+student-bottomnav.ejs`. Deleted superseded mesh/gradient dead rules (R2).
+No bottom nav on pre-auth login/signup (deliberate).
+
+Evidence: desktop 1440×900 pixel-identical (/, /login, /shops, before/after
+PNG bytes + computed styles); hook sets (ids/actions/names/forms/inputs)
+identical on all 10 touched views; unit suite 301/301; mobile 393×852
+screenshots eyeballed for home/shops/menu/login/signup with zero console
+errors. Authenticated screens verified via EJS-render equivalence (dev DB
+is remote — no login/seeding performed against it).
+
+Commits: a28739b (F08.0 docs) → d5a7ecb (F08.1) → 6957534 (F08.2) →
+724cdf6 (F08.3) → 460304c (F08.4) → b709410 (F08.5) → 2c7b76b (F08.6) →
+b7ff562 (F08.7) → c697646 (F08.8) → 901f571 (F08.9).
+
+Lesson: nodemon watches temp/*.cjs — keep throwaway browser scripts in
+/tmp/opencode with NODE_PATH pointed at the repo, or restarts will collide
+with verification runs.
