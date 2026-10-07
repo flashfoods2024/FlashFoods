@@ -1,32 +1,36 @@
 <%- include("../partials/header", { pageTitle }) %>
 
+<div class="portal-root">
 <section class="hero hero--compact">
-  <h1>My orders</h1>
+  <h1 class="portal-ink">My orders</h1>
 </section>
 
 <% if (!orders.length) { %>
-  <div class="card"><p class="muted">No orders yet.</p></div>
+  <div class="card portal-card"><p class="muted portal-soft">No orders yet.</p></div>
 <% } else { %>
   <ul class="order-list">
     <% orders.forEach((o) => { %>
       <% const isAdjusted = !!(o.adjustedAt); %>
       <% const label = o.status === "completed" ? "Completed" : o.status === "cancelled" ? "Cancelled" : isAdjusted ? "Order Updated" : o.status === "pending_payment" ? "Payment pending" : o.status === "paid" ? "Paid — waiting for canteen" : o.status === "accepted" ? "Order Accepted" : o.status === "ready_for_pickup" ? "Ready for pickup" : o.status; %>
       <% const tagClass = o.status === "completed" ? "ok" : o.status === "cancelled" ? "warn" : isAdjusted ? "warn" : o.status === "ready_for_pickup" || o.status === "accepted" || o.status === "paid" ? "pending" : "muted"; %>
-      <li class="card order-list__item">
+      <li class="card order-list__item portal-card">
         <div class="order-list__meta">
-          <a href="/orders/<%= o._id %>">Order …<%= String(o._id).slice(-6) %></a>
-          <span class="tag tag--<%= tagClass %>"><%= label %></span>
+          <a class="portal-ink" href="/orders/<%= o._id %>">Order …<%= String(o._id).slice(-6) %></a>
+          <span class="tag tag--<%= tagClass %> portal-pill<%= tagClass === "ok" ? " portal-pill--ok" : "" %>"><%= label %></span>
         </div>
-        <p class="muted small"><%= o.shop?.name || "Canteen" %> · <%= (o.orderType || "dinein") === "parcel" ? "Parcel" : "Dine In" %><%= o.parcelCharge ? " · Parcel: ₹" + Number(o.parcelCharge).toFixed(2) : "" %> · ₹<%= (o.updatedTotal || o.total).toFixed(2) %> · <%= new Date(o.createdAt).toLocaleString("en-IN", {
+        <p class="muted small portal-soft"><%= o.shop?.name || "Canteen" %> · <%= (o.orderType || "dinein") === "parcel" ? "Parcel" : "Dine In" %><%= o.parcelCharge ? " · Parcel: ₹" + Number(o.parcelCharge).toFixed(2) : "" %> · ₹<%= (o.updatedTotal || o.total).toFixed(2) %> · <%= new Date(o.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
         <% if (isAdjusted) { %>
-          <p class="muted small">Refund: ₹<%= (o.refundAmount || 0).toFixed(2) %></p>
+          <p class="muted small portal-soft">Refund: ₹<%= (o.refundAmount || 0).toFixed(2) %></p>
         <% } %>
         <p class="pickup-meta pickup-meta--compact"><strong>Pickup:</strong> <%= formatPickupTime(o.pickupTime) %></p>
       </li>
     <% }) %>
   </ul>
 <% } %>
+
+<%- include("../partials/student-bottomnav") %>
+</div>
 
 <%- include("../partials/footer") %>

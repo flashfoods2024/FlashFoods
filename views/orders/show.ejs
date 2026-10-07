@@ -1,5 +1,6 @@
 <%- include("../partials/header", { pageTitle }) %>
 
+<div class="portal-root">
 <div class="breadcrumb">
   <a href="/orders">My orders</a>
   <span class="muted"> / </span>
@@ -16,15 +17,15 @@
 <% displayLabelAdj = (isAdjusted && order.status !== "completed" && order.status !== "cancelled") ? "Order Updated" : displayLabel; %>
 <% displayTagClassAdj = (isAdjusted && order.status !== "completed" && order.status !== "cancelled") ? "warn" : displayTagClass; %>
 
-<div class="card order-detail">
+<div class="card order-detail portal-card">
   <div class="order-detail__head">
     <div>
       <p class="eyebrow">Order ...<%= String(order._id).slice(-6) %></p>
-      <h1>Order details</h1>
+      <h1 class="portal-ink">Order details</h1>
     </div>
-    <span class="tag tag--<%= displayTagClassAdj %>"><%= displayLabelAdj %></span>
+    <span class="tag tag--<%= displayTagClassAdj %> portal-pill<%= displayTagClassAdj === "ok" ? " portal-pill--ok" : "" %>"><%= displayLabelAdj %></span>
   </div>
-  <p class="muted"><%= order.shop?.name || "Canteen" %> &middot; <%= new Date(order.createdAt).toLocaleString("en-IN", {
+  <p class="muted portal-soft"><%= order.shop?.name || "Canteen" %> &middot; <%= new Date(order.createdAt).toLocaleString("en-IN", {
   timeZone: "Asia/Kolkata"
 }) %></p>
   <p class="pickup-meta"><strong><%= (order.orderType || "dinein") === "parcel" ? "Parcel" : "Dine In" %></strong> &middot; <strong>Pickup time:</strong> <%= formatPickupTime(order.pickupTime) %></p>
@@ -90,7 +91,7 @@
     <p class="muted">Complete payment when checkout supports it.</p>
   <% } %>
 
-  <h2 class="h2">Items</h2>
+  <h2 class="h2 portal-ink">Items</h2>
   <ul class="plain-list">
     <% order.items.forEach((line) => { %>
       <li class="<%= line.status === 'removed' ? 'item-removed' : '' %>">
@@ -102,9 +103,12 @@
     <% }) %>
   </ul>
   <% if (order.parcelCharge) { %>
-    <p class="cart-total"><strong>Parcel Charge:</strong> &#8377;<%= Number(order.parcelCharge).toFixed(2) %></p>
+    <p class="cart-total portal-ink"><strong>Parcel Charge:</strong> &#8377;<%= Number(order.parcelCharge).toFixed(2) %></p>
   <% } %>
-  <p class="cart-total"><strong>Total:</strong> &#8377;<%= (order.updatedTotal || order.total).toFixed(2) %></p>
+  <p class="cart-total portal-ink"><strong>Total:</strong> &#8377;<%= (order.updatedTotal || order.total).toFixed(2) %></p>
+</div>
+
+<%- include("../partials/student-bottomnav") %>
 </div>
 
 <script>
