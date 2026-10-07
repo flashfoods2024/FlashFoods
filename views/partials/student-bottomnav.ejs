@@ -12,9 +12,10 @@
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
     <span>Orders</span>
   </a>
-  <a class="bottom-nav__link portal-nav__link<%= (typeof currentPath !== "undefined" && currentPath.indexOf("/profile") === 0) ? " is-active" : "" %>" href="/profile">
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
-    <span>Profile</span>
+  <a class="bottom-nav__link portal-nav__link<%= (typeof currentPath !== "undefined" && currentPath === "/cart") ? " is-active" : "" %>" href="/cart">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h15l-1.5 9h-12z"/><path d="M6 7l-1-4H2"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>
+    <span>Cart</span>
+    <% if (typeof cartCount === "number" && cartCount > 0) { %><span class="portal-nav__badge"><%= cartCount %></span><% } %>
   </a>
 </nav>
 <div class="bottom-nav-spacer" aria-hidden="true"></div>

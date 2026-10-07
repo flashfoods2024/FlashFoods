@@ -2832,6 +2832,23 @@ body:has(.student-home)::before {
     background: rgba(255, 107, 0, 0.12);
     color: #FF6B00;
   }
+  .portal-nav__badge {
+    position: absolute;
+    top: 4px;
+    right: calc(50% - 18px);
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--cta-gradient, linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%));
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 16px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(255, 107, 0, 0.4);
+    pointer-events: none;
+  }
   .portal-ink { color: #1A0F08; letter-spacing: -0.02em; }
   .portal-soft { color: #5C4033; }
   .portal-price { color: #FF6B00; font-weight: 800; }
