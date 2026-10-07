@@ -21,7 +21,7 @@
 ## Current Feature / Phase / Blockers
 
 - Current feature: F08 Student Portal UI Standardization (Mobile-Only)
-- Current phase: PHASE 4 DOCS DONE — awaiting human approval for Phase 5 execution
+- Current phase: F08.1 DONE (portal tokens/classes + dead-rule cleanup; desktop pixel-identical /, /login, /shops @1440px; unit 301/301) → next F08.2 bottomnav partial
 - Blockers: none (locked decisions: orange→red CTA, 35% card fill,
   Student Home desktop as-is, auth in scope; baseline committed at HEAD)
 

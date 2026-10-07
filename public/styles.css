@@ -2325,10 +2325,6 @@ fieldset.fieldset legend {
   border-radius: 14px;
   box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6);
 }
-.student-home .btn-orange-grad {
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(255, 107, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
 
 /* ── Student top-bar avatar + bottom-nav cart tab (append-only) ── */
 .profile-avatar-btn {
@@ -2402,10 +2398,6 @@ fieldset.fieldset legend {
     width: 65%;
     height: 60%;
   }
-}
-/* Primary CTAs: premium orange gradient per brand direction. */
-.student-home .btn-orange-grad {
-  background-image: linear-gradient(135deg, #FF6B00, #FF8A2B);
 }
 /* 3. Primary buttons: diagonal orange gradient + warm glow + top highlight. */
 .student-home .btn-orange-grad {
@@ -2501,29 +2493,9 @@ html.reduced-effects {
   /* bottom-nav height (64px) + gap above it (16px) + bottom offset (16px) + safe-area */
   padding-bottom: calc(64px + 16px + 16px + env(safe-area-inset-bottom, 0px));
 }
-.student-home::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-color: #FFF5EC;
-  background-image:
-    radial-gradient(720px 620px at -8% -6%, rgba(255, 138, 43, 0.30), transparent 70%),
-    radial-gradient(640px 560px at 108% 108%, rgba(255, 138, 43, 0.30), transparent 70%),
-    radial-gradient(560px 520px at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%),
-    radial-gradient(900px 420px at 50% 0%, rgba(255, 253, 249, 0.95), transparent 72%);
-}
-
-/* ── Student home polish: warm mesh + glass depth (append-only overrides) ── */
-.student-home::before {
-  background-color: #FFF6ED;
-  background-image:
-    radial-gradient(60vmax 60vmax at 0% 0%, rgba(255, 138, 43, 0.45), transparent 70%),
-    radial-gradient(50vmax 50vmax at 100% 0%, rgba(255, 176, 122, 0.35), transparent 70%),
-    radial-gradient(70vmax 70vmax at 50% 100%, rgba(255, 122, 77, 0.30), transparent 70%),
-    radial-gradient(40vmax 40vmax at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%);
-}
+/* NOTE (F08.1): the photographic backdrop now lives on
+   body:has(.student-home)::before; the mesh stacks below were superseded
+   and removed. */
 .student-home .home-dish-card,
 .student-home .ticket-strip,
 .student-home .home-empty {
@@ -2600,16 +2572,6 @@ body:has(.student-home) .topbar {
   padding: 16px;
 }
 
-/* ── Student home liquid-glass material pass (append-only, page-scoped) ── */
-/* Background: same warm mesh + one faint coral wisp (CSS gradients only). */
-.student-home::before {
-  background-image:
-    radial-gradient(60vmax 60vmax at 0% 0%, rgba(255, 138, 43, 0.45), transparent 70%),
-    radial-gradient(50vmax 50vmax at 100% 0%, rgba(255, 176, 122, 0.35), transparent 70%),
-    radial-gradient(70vmax 70vmax at 50% 100%, rgba(255, 122, 77, 0.30), transparent 70%),
-    radial-gradient(40vmax 40vmax at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%),
-    radial-gradient(36vmax 36vmax at 12% 88%, rgba(255, 143, 149, 0.14), transparent 70%);
-}
 /* Header: frosted-glass material only — position/scroll behavior unchanged. */
 body:has(.student-home) .topbar {
   background: rgba(255, 250, 244, 0.72);
@@ -2620,16 +2582,6 @@ body:has(.student-home) .topbar {
 }
 
 /* ── Student home reference-material pass (append-only, page-scoped) ── */
-/* 1. Page background: peach-to-coral mesh + blurred blobs (CSS only). */
-.student-home::before {
-  background-color: #FFEFE2;
-  background-image:
-    radial-gradient(55vmax 55vmax at 88% -5%, rgba(255, 122, 77, 0.35), transparent 70%),
-    radial-gradient(45vmax 45vmax at -10% 25%, rgba(255, 154, 61, 0.28), transparent 70%),
-    radial-gradient(60vmax 60vmax at 110% 60%, rgba(255, 143, 149, 0.20), transparent 70%),
-    radial-gradient(70vmax 70vmax at 50% 110%, rgba(255, 122, 77, 0.25), transparent 70%),
-    radial-gradient(50vmax 50vmax at 10% 95%, rgba(255, 200, 150, 0.30), transparent 70%);
-}
 /* 2. Cards: liquid glass (65-72% white, blur 20px, split borders, 16px). */
 .student-home .home-dish-card,
 .student-home .ticket-strip,
@@ -2784,4 +2736,120 @@ body:has(.student-home)::before {
     border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
   }
+}
+
+/* ── F08 student portal component classes (mobile-only, ≤767px) ── */
+/* Locked tokens: CTA orange→red (F08-D1), card 35% fill (F08-D2).
+   Every rule below matches ONLY mobile viewports; desktop is untouched. */
+@media (max-width: 767px) {
+  .portal-card {
+    background: rgb(255 255 255 / 35%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-bottom-color: rgba(255, 180, 120, 0.55);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(255, 107, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  .portal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 52px;
+    padding: 0 24px;
+    background-image: linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(255, 107, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    -webkit-tap-highlight-color: transparent;
+    text-align: center;
+  }
+  .portal-btn:active { transform: scale(0.98); }
+  .portal-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 122, 0, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: #FF6B00;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .portal-pill--ok {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+  }
+  .portal-nav {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 100;
+    display: flex;
+    background: rgba(255, 255, 255, 0.65);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 28px;
+    box-shadow: 0 12px 32px rgba(255, 107, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    padding: 8px;
+  }
+  .portal-nav__link {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border-radius: 8px;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    min-height: 48px;
+  }
+  .portal-nav__link.is-active {
+    background: rgba(255, 107, 0, 0.12);
+    color: #FF6B00;
+  }
+  .portal-ink { color: #1A0F08; letter-spacing: -0.02em; }
+  .portal-soft { color: #5C4033; }
+  .portal-price { color: #FF6B00; font-weight: 800; }
+  body:has(.portal-root)::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-image: url("/images/student_home_background.png");
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    filter: blur(var(--bg-image-blur));
+    transform: scale(var(--bg-image-scale));
+    transform-origin: center;
+    opacity: var(--bg-image-opacity);
+    pointer-events: none;
+  }
+  .portal-root { position: relative; isolation: isolate; }
+  .portal-root > * { position: relative; z-index: 1; }
+}
+@media (min-width: 768px) {
+  body:has(.portal-root)::before { display: none; }
+  .portal-nav { display: none; }
 }
