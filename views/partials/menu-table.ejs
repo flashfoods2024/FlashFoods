@@ -679,8 +679,8 @@ categories.sort();
       <td>
         <img class="menu-item-img" src="<%= item.image || '/food-placeholder.svg' %>" alt="<%= item.name %>" loading="lazy" />
       </td>
-      <td class="cell--text"><%= item.name %></td>
-      <td><span class="cell--muted"><%= item.category || '—' %></span></td>
+      <td class="cell--text portal-ink"><%= item.name %></td>
+      <td><span class="cell--muted portal-soft"><%= item.category || '—' %></span></td>
       <td>
         <span class="ft-badge ft-badge--<%= item.foodType %>">
           <%= {veg:'Veg', 'non-veg':'Non-Veg', egg:'Egg', unknown:'?'}[item.foodType] %>
@@ -691,17 +691,17 @@ categories.sort();
           <div class="variant-group">
             <% item.variants.forEach(function(v) { %>
               <div class="variant-row">
-                <span class="variant-label"><%= v.label %>:</span>
-                <span class="variant-price">₹<%= Number(v.price).toFixed(2) %></span>
+                <span class="variant-label portal-soft"><%= v.label %>:</span>
+                <span class="variant-price portal-price">₹<%= Number(v.price).toFixed(2) %></span>
               </div>
             <% }); %>
           </div>
         <% } else { %>
-          <span class="variant-price">₹<%= Number(item.variants && item.variants[0] ? item.variants[0].price : (item.price || 0)).toFixed(2) %></span>
+          <span class="variant-price portal-price">₹<%= Number(item.variants && item.variants[0] ? item.variants[0].price : (item.price || 0)).toFixed(2) %></span>
         <% } %>
       </td>
       <td class="cell--center">
-        <span class="avail-badge avail-badge--<%= item.available !== false ? 'yes' : 'no' %>">
+        <span class="avail-badge avail-badge--<%= item.available !== false ? 'yes' : 'no' %> portal-pill<%= item.available !== false ? ' portal-pill--ok' : '' %>">
           <%= item.available !== false ? 'Available' : 'Sold Out' %>
         </span>
       </td>
@@ -713,7 +713,7 @@ categories.sort();
               <input type="hidden" name="menuItemId" value="<%= item._id %>" />
               <input type="hidden" name="redirect" value="<%= '/shops/' + (typeof shop !== 'undefined' ? shop.slug : '') %>" />
               <input type="hidden" name="quantity" value="1" />
-              <button type="submit" class="action-btn action-btn--primary">Add to Cart</button>
+              <button type="submit" class="action-btn action-btn--primary portal-btn">Add to Cart</button>
             </form>
           <% } else if (item.available === false) { %>
             <span class="action-btn action-btn--ghost" style="cursor:default;">Sold Out</span>

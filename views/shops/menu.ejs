@@ -1,5 +1,6 @@
 <%- include("../partials/header", { pageTitle }) %>
 
+<div class="portal-root">
 <div class="breadcrumb">
   <a href="/shops">Canteens</a>
   <span class="muted"> / </span>
@@ -7,30 +8,33 @@
 </div>
 
 <section class="hero hero--compact">
-  <h1><%= shop.name %></h1>
+  <h1 class="portal-ink"><%= shop.name %></h1>
   <% var availability = locals.availability || { available: shop.isOpen && shop.isActive !== false, label: shop.isOpen && shop.isActive !== false ? "Open" : "Closed", configured: false, hoursLabel: "Hours not set" }; %>
   <p>
-    <span class="tag <%= availability.available ? "tag--ok" : "tag--warn" %>">
+    <span class="tag <%= availability.available ? "tag--ok" : "tag--warn" %> portal-pill<%= availability.available ? " portal-pill--ok" : "" %>">
       <%= availability.label %>
     </span>
     <% if (availability.configured) { %>
-      <span class="muted small"> &middot; <%= availability.hoursLabel %></span>
+      <span class="muted small portal-soft"> &middot; <%= availability.hoursLabel %></span>
     <% } %>
   </p>
   <% if (shop.description) { %>
-    <p class="muted"><%= shop.description %></p>
+    <p class="muted portal-soft"><%= shop.description %></p>
   <% } %>
 </section>
 
 <% if (!menuItems.length) { %>
-  <div class="card" style="text-align:center;padding:48px 24px;">
+  <div class="card portal-card" style="text-align:center;padding:48px 24px;">
     <div style="font-size:48px;margin-bottom:16px;">&#128269;</div>
-    <h2 style="margin:0 0 8px;">No menu items yet</h2>
-    <p class="muted">This canteen hasn't added any menu items yet. Check back later!</p>
+    <h2 class="portal-ink" style="margin:0 0 8px;">No menu items yet</h2>
+    <p class="muted portal-soft">This canteen hasn't added any menu items yet. Check back later!</p>
   </div>
 <% } else { %>
   <% shop.orderingOpen = availability.available; %>
 <%- include("../partials/menu-table", { mode: "student", items: menuItems, shop: shop }) %>
 <% } %>
+
+<%- include("../partials/student-bottomnav") %>
+</div>
 
 <%- include("../partials/footer") %>

@@ -2849,6 +2849,17 @@ body:has(.student-home)::before {
   }
   .portal-root { position: relative; isolation: isolate; }
   .portal-root > * { position: relative; z-index: 1; }
+  /* Student menu rows become glass cards. Scoped to portal pages so the
+     shared table's vendor/admin rows keep their existing styling. */
+  body:has(.portal-root) .import-table tbody tr[data-available] {
+    background: rgb(255 255 255 / 35%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(255, 107, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
 }
 @media (min-width: 768px) {
   body:has(.portal-root)::before { display: none; }
