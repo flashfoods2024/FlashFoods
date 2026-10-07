@@ -14,6 +14,9 @@
   --shadow: 0 16px 40px rgba(31, 31, 31, 0.08);
   --shadow-sm: 0 8px 24px rgba(31, 31, 31, 0.06);
   --radius: 8px;
+  --bg-image-blur: 14px;
+  --bg-image-opacity: 1;
+  --bg-image-scale: 1.1;
 }
 
 @font-face {
@@ -1207,7 +1210,7 @@ fieldset.fieldset legend {
 
 @media (max-width: 480px) {
   .brand {
-    font-size: 30px;
+    font-size: 33px;
   }
 
   .hero h1 {
@@ -2190,4 +2193,553 @@ fieldset.fieldset legend {
   .vendor-profile-card .profile-row__control {
     max-width: 100%;
   }
+}
+
+/* ── Student home (Liquid Glass Express; append-only) ── */
+.glass-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  box-shadow: 0 4px 16px -2px rgba(17, 24, 39, 0.04), 0 1px 2px rgba(17, 24, 39, 0.02);
+}
+.home-hero { padding: 8px 0 4px; }
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 62%);
+  color: #ff6b00;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.hero-title {
+  margin: 10px 0 6px;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 44px;
+  color: #111827;
+}
+.hero-sub { margin: 0 0 14px; color: #6b7280; font-size: 14px; line-height: 20px; }
+.btn-orange-grad {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 24px;
+  background: linear-gradient(135deg, #ff8a00, #ff6b00);
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.16), 0 4px 12px -2px rgba(249, 115, 22, 0.2);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-orange-grad:active { transform: scale(0.98); }
+.ticket-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(229, 231, 235, 0.7);
+  border-radius: 14px;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.ticket-strip__label { display: inline-flex; align-items: center; gap: 8px; }
+.pass-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 107, 0, 0.12);
+  color: #ff6b00;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 20px 0 12px;
+}
+.express-title { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; color: #111827; }
+.ready-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dish-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.home-dish-card { padding: 10px; }
+.home-dish-media { position: relative; }
+.home-dish-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+  background: #fff7ed;
+}
+.home-dish-open { position: absolute; top: 8px; left: 8px; }
+.home-dish-card .dish-cat { margin: 8px 0 0; color: #6b7280; font-size: 12px; }
+.home-dish-card .dish-name { margin: 2px 0 0; font-weight: 700; font-size: 15px; color: #111827; }
+.dish-price {
+  margin: 4px 0 10px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #ff6b00;
+  font-variant-numeric: tabular-nums;
+}
+.dish-add { width: 100%; min-height: 44px; font-size: 14px; }
+.home-empty { padding: 20px 16px; text-align: center; }
+.home-empty .muted { color: #6b7280; }
+.pill-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.pill-status--ok { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.bottom-nav {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+  display: flex;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(229, 231, 235, 0.7);
+  border-radius: 1rem;
+  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.16);
+  padding: 8px;
+}
+.bottom-nav__link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border-radius: 8px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  min-height: 48px;
+}
+.bottom-nav__link.is-active { background: #ff6b00; color: #ffffff; }
+.bottom-nav-spacer { height: 88px; }
+@media (min-width: 768px) {
+  .bottom-nav, .bottom-nav-spacer { display: none; }
+}
+
+/* ── Student home mesh gradient + bottom-nav clearance (append-only) ── */
+.student-home {
+  position: relative;
+  isolation: isolate;
+  /* bottom-nav height (64px) + gap above it (16px) + bottom offset (16px) + safe-area */
+  padding-bottom: calc(64px + 16px + 16px + env(safe-area-inset-bottom, 0px));
+}
+.student-home::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: #FFF5EC;
+  background-image:
+    radial-gradient(720px 620px at -8% -6%, rgba(255, 138, 43, 0.30), transparent 70%),
+    radial-gradient(640px 560px at 108% 108%, rgba(255, 138, 43, 0.30), transparent 70%),
+    radial-gradient(560px 520px at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%),
+    radial-gradient(900px 420px at 50% 0%, rgba(255, 253, 249, 0.95), transparent 72%);
+}
+
+/* ── Student home polish: warm mesh + glass depth (append-only overrides) ── */
+.student-home::before {
+  background-color: #FFF6ED;
+  background-image:
+    radial-gradient(60vmax 60vmax at 0% 0%, rgba(255, 138, 43, 0.45), transparent 70%),
+    radial-gradient(50vmax 50vmax at 100% 0%, rgba(255, 176, 122, 0.35), transparent 70%),
+    radial-gradient(70vmax 70vmax at 50% 100%, rgba(255, 122, 77, 0.30), transparent 70%),
+    radial-gradient(40vmax 40vmax at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%);
+}
+.student-home .home-dish-card,
+.student-home .ticket-strip,
+.student-home .home-empty {
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
+  padding: 16px;
+}
+.student-home .bottom-nav {
+  background: rgba(255, 250, 244, 0.78);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 -4px 20px rgba(255, 122, 77, 0.08);
+}
+.student-home .home-dish-media {
+  background: linear-gradient(135deg, #FFE8D6 0%, #FFD4B8 100%);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+.student-home .btn-orange-grad {
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(255, 107, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* ── Student home top bar: transparent over mesh (append-only overrides) ── */
+/* Scoped via :has() — only pages rendering .student-home (logged-in student
+   home) match; vendor/admin/guest top bars keep their existing background. */
+body:has(.student-home) .topbar {
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* ── Student home top bar: scroll with page, no pinning (append-only) ── */
+body:has(.student-home) .topbar {
+  position: static;
+  top: auto;
+  z-index: auto;
+}
+
+/* ── Student home top bar: stay above mesh gradient (append-only fix) ── */
+/* The ::before mesh is a viewport-sized opaque layer; a non-positioned header
+   paints below it. relative (no offsets) keeps it in normal flow so it still
+   scrolls away, while z-index: 1 lifts it above the gradient. */
+body:has(.student-home) .topbar {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Student top-bar avatar + bottom-nav cart tab (append-only) ── */
+.profile-avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff8a00, #ff6b00);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(255, 107, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.student-home .bottom-nav__link {
+  position: relative;
+  gap: 4px;
+}
+.bottom-nav__link .bottom-nav__icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+.bottom-nav__link .bottom-nav__badge {
+  position: absolute;
+  top: 2px;
+  right: calc(50% - 26px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ff6b00;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ── Student home "Why FlashFoods?" cards (append-only) ── */
+.student-home .why-grid {
+  display: grid;
+  gap: 12px;
+}
+.student-home .why-card {
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
+  padding: 16px;
+}
+.student-home .why-card h3 {
+  margin: 10px 0 4px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+}
+.student-home .why-card p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* ── Student home copyright line (append-only) ── */
+.student-home .home-copyright {
+  margin: 0;
+  padding: 16px 0 24px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* ── Student home hero illustration layer (append-only) ── */
+.student-home .home-hero {
+  position: relative;
+  overflow: hidden;
+}
+.student-home .home-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60%;
+  height: 70%;
+  z-index: 0;
+  opacity: 0.75;
+  -webkit-mask-image: linear-gradient(to left, black 40%, transparent 100%);
+  mask-image: linear-gradient(to left, black 40%, transparent 100%);
+  pointer-events: none;
+}
+.student-home .home-hero > * {
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 480px) {
+  .student-home .home-hero::before {
+    width: 65%;
+    height: 60%;
+  }
+}
+
+/* ── Student home liquid-glass material pass (append-only, page-scoped) ── */
+/* Background: same warm mesh + one faint coral wisp (CSS gradients only). */
+.student-home::before {
+  background-image:
+    radial-gradient(60vmax 60vmax at 0% 0%, rgba(255, 138, 43, 0.45), transparent 70%),
+    radial-gradient(50vmax 50vmax at 100% 0%, rgba(255, 176, 122, 0.35), transparent 70%),
+    radial-gradient(70vmax 70vmax at 50% 100%, rgba(255, 122, 77, 0.30), transparent 70%),
+    radial-gradient(40vmax 40vmax at 96% 42%, rgba(255, 158, 122, 0.25), transparent 70%),
+    radial-gradient(36vmax 36vmax at 12% 88%, rgba(255, 143, 149, 0.14), transparent 70%);
+}
+/* Header: frosted-glass material only — position/scroll behavior unchanged. */
+body:has(.student-home) .topbar {
+  background: rgba(255, 250, 244, 0.72);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+/* Primary CTAs: premium orange gradient per brand direction. */
+.student-home .btn-orange-grad {
+  background-image: linear-gradient(135deg, #FF6B00, #FF8A2B);
+}
+
+/* ── Student home reference-material pass (append-only, page-scoped) ── */
+/* 1. Page background: peach-to-coral mesh + blurred blobs (CSS only). */
+.student-home::before {
+  background-color: #FFEFE2;
+  background-image:
+    radial-gradient(55vmax 55vmax at 88% -5%, rgba(255, 122, 77, 0.35), transparent 70%),
+    radial-gradient(45vmax 45vmax at -10% 25%, rgba(255, 154, 61, 0.28), transparent 70%),
+    radial-gradient(60vmax 60vmax at 110% 60%, rgba(255, 143, 149, 0.20), transparent 70%),
+    radial-gradient(70vmax 70vmax at 50% 110%, rgba(255, 122, 77, 0.25), transparent 70%),
+    radial-gradient(50vmax 50vmax at 10% 95%, rgba(255, 200, 150, 0.30), transparent 70%);
+}
+/* 2. Cards: liquid glass (65-72% white, blur 20px, split borders, 16px). */
+.student-home .home-dish-card,
+.student-home .ticket-strip,
+.student-home .home-empty,
+.student-home .why-card {
+  background: rgb(255 255 255 / 35%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-bottom-color: rgba(255, 180, 120, 0.55);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(255, 107, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* 3. Primary buttons: diagonal orange gradient + warm glow + top highlight. */
+.student-home .btn-orange-grad {
+  background-image: linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(255, 107, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  font-weight: 800;
+  text-align: center;
+}
+/* 4. Ticket strip stays glass (no fill); pass badge = orange-tinted glass. */
+.student-home .pass-pill {
+  background: rgba(255, 122, 0, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #FF6B00;
+}
+/* 5. Pills & badges: tinted glass, text colors unchanged. */
+.student-home .hero-pill {
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.student-home .ready-pill {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+.student-home .pill-status--ok {
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+/* 6. Bottom nav: floating frosted pill, 12px gap, safe-area respected. */
+.student-home .bottom-nav {
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.65);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 28px;
+  box-shadow: 0 12px 32px rgba(255, 107, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.student-home .bottom-nav__link.is-active {
+  background: rgba(255, 107, 0, 0.12);
+  color: #FF6B00;
+}
+/* 7. Typography: warm near-black headings, warm grey body, orange prices. */
+.student-home .hero-title,
+.student-home .express-title,
+.student-home .home-dish-card .dish-name {
+  color: #1A0F08;
+  letter-spacing: -0.02em;
+}
+.student-home .hero-sub,
+.student-home .home-dish-card .dish-cat,
+.student-home .why-card p {
+  color: #5C4033;
+}
+.student-home .dish-price {
+  color: #FF6B00;
+}
+/* 8. Frosted tray behind food images: same liquid-glass material. */
+.student-home .home-dish-media {
+  background: rgba(255, 255, 255, 0.5);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* ── STEP 2: Student home photographic base layer (append-only, page-scoped) ── */
+/* Replaces the peach mesh on this route only; the ::before stays position:fixed
+   (stationary while cards scroll) with its existing z-index/pointer-events. */
+.student-home::before {
+  background-color: transparent;
+  background-image: url("/images/student_home_background.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-attachment: fixed;
+}
+
+/* ── STEP 1: Student home header transparent (append-only, page-scoped) ── */
+/* No card chrome; height/padding untouched so no layout shift. Position and
+   z-index from earlier rules are preserved (above background, scrolls away). */
+body:has(.student-home) .topbar {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* ── Adjustable student-home background blur (append-only, page-scoped) ── */
+/* Image moved off the route wrapper onto a dedicated fixed layer so only the
+   background blurs. Scoped with :has() so no other route is affected. */
+.student-home::before {
+  background-image: none;
+  background-color: transparent;
+}
+body:has(.student-home)::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url("/images/student_home_background.png");
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  filter: blur(var(--bg-image-blur));
+  transform: scale(var(--bg-image-scale));
+  transform-origin: center;
+  opacity: var(--bg-image-opacity);
+  pointer-events: none;
+}
+@supports not (backdrop-filter: blur(1px)) {
+  body:has(.student-home)::before {
+    filter: none;
+  }
+}
+html.reduced-effects {
+  --bg-image-blur: 0px;
+  --bg-image-opacity: 1;
+}
+
+/* ── Retired FCM banner safety net ── */
+/* The #fcm-off-banner prompt was removed from firebase-client.js; hide it in
+   case an older cached script re-injects the element. */
+#fcm-off-banner {
+  display: none !important;
 }

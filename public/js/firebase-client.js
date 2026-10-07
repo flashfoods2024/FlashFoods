@@ -20,9 +20,6 @@
   var UNREGISTER_URL = window.__FCM_UNREGISTER_URL__ || "/api/fcm/unregister";
   var DEFAULT_DASHBOARD = window.__FCM_DEFAULT_PAGE__ || "/vendor/orders/pending";
   var role = REGISTER_URL.indexOf("/student/") !== -1 ? "student" : "vendor";
-  // Set when the user taps the banner but permission is still denied, so the
-  // banner stops nagging. Cleared on the next successful registration.
-  var DISMISS_KEY = "fcm_off_dismissed";
 
   if (firebase.apps.length === 0) {
     try {
@@ -84,9 +81,6 @@
       .then(function (response) {
         if (response && response.ok) {
           localStorage.setItem(TOKEN_KEY, token);
-          try {
-            localStorage.removeItem(DISMISS_KEY);
-          } catch (e) {}
           console.log(
             "[FCM] auto-register role=" + role + " token=" + tokenPrefix(token),
           );
@@ -180,7 +174,6 @@
       })
       .then(function (permission) {
         if (permission !== "granted") {
-          setDismissed();
           hideOffBanner();
           return null;
         }
@@ -203,65 +196,20 @@
     window.__FCM_RETRY__ = retryRegistration;
   }
 
-  // Visible fallback: if push registration fails on this device (e.g. the
-  // browser's push service rejects subscribe), show a small banner instead
-  // of failing silently. Tapping it re-requests permission and retries, so
-  // the vendor can self-serve without DevTools.
+  // Removes a previously mounted banner, if any (e.g. rendered by an older
+  // cached copy of this script). The banner itself is permanently retired.
   function hideOffBanner() {
     if (typeof document === "undefined") return;
     var el = document.getElementById("fcm-off-banner");
     if (el && el.parentNode) el.parentNode.removeChild(el);
   }
 
-  function isDismissed() {
-    try {
-      return localStorage.getItem(DISMISS_KEY) === "1";
-    } catch (e) {
-      return false;
-    }
-  }
-
-  function setDismissed() {
-    try {
-      localStorage.setItem(DISMISS_KEY, "1");
-    } catch (e) {}
-  }
-
-  function showOffBanner(force) {
-    if (typeof document === "undefined") return;
-    if (!force && isDismissed()) return;
-    if (document.getElementById("fcm-off-banner")) return;
-    var el = document.createElement("button");
-    el.id = "fcm-off-banner";
-    el.type = "button";
-    el.textContent = "Notifications off — tap to enable";
-    el.setAttribute("style", "position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;padding:12px;border:0;border-radius:10px;background:#ff7a00;color:#fff;font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.25);");
-    el.addEventListener("click", function () {
-      hideOffBanner();
-      retryRegistration();
-    });
-    // firebase-client.js loads in <head>: body may not exist yet. Mount now
-    // if possible, otherwise on DOMContentLoaded (never silently dropped).
-    mountBanner(el);
-  }
-
-  function mountBanner(el) {
-    if (typeof document === "undefined") return;
-    if (document.body) {
-      document.body.appendChild(el);
-      return;
-    }
-    var onReady = function () {
-      if (typeof document.removeEventListener === "function") {
-        document.removeEventListener("DOMContentLoaded", onReady);
-      }
-      if (!document.getElementById("fcm-off-banner") && document.body) {
-        document.body.appendChild(el);
-      }
-    };
-    if (typeof document.addEventListener === "function") {
-      document.addEventListener("DOMContentLoaded", onReady);
-    }
+  // The in-app "Notifications off" banner was permanently removed — it
+  // overlapped the bottom navigation. This is a no-op kept so the existing
+  // call sites stay valid; permission is requested via native flows
+  // (in-page opt-in cards through window.__FCM_RETRY__).
+  function showOffBanner() {
+    return;
   }
 
   // Foreground delivery: the browser does not auto-display FCM messages while
@@ -298,9 +246,7 @@
   // Auto-register on every app open while permission is granted: silent and
   // idempotent (the server upsert refreshes lastSeenAt), so a rotated or
   // server-pruned token heals itself with zero taps. Permission is never
-  // requested unasked here — the banner and opt-in cards own the ask, and
-  // the banner only appears when permission is not granted and the user
-  // has not dismissed it.
+  // requested unasked here — the in-page opt-in cards own the ask.
   if (Notification.permission === "granted") {
     getTokenWithSW()
       .then(function (token) {

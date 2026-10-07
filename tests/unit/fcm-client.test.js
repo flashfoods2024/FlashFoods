@@ -197,12 +197,11 @@ test("window.__FCM_RETRY__ re-runs registration on demand (opt-in card hook)", a
   assert.equal(after, before + 1, "manual retry must register exactly once more");
 });
 
-test("getToken failure shows the offline banner instead of failing silently", async () => {
+test("getToken failure registers nothing and shows no banner", async () => {
   const failure = new Error("Registration failed - push service error");
   const ctx = await runClient({ getTokenImpl: () => Promise.reject(failure) });
   assert.equal(ctx.thrown, null);
-  assert.ok(ctx.banner, "expected #fcm-off-banner to be shown");
-  assert.match(ctx.banner.textContent, /Notifications off/);
+  assert.equal(ctx.banner, null, "retired banner must never mount");
   assert.equal(
     ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length,
     0,
@@ -210,18 +209,18 @@ test("getToken failure shows the offline banner instead of failing silently", as
   );
 });
 
-test("tapping the banner retries permission + getToken and registers", async () => {
+test("manual retry via __FCM_RETRY__ recovers after a getToken failure", async () => {
   let attempts = 0;
   const ctx = await runClient({
     getTokenImpl: () => (++attempts === 1
       ? Promise.reject(new Error("Registration failed - push service error"))
       : Promise.resolve("recovered-token")),
   });
-  assert.ok(ctx.banner, "expected banner after first failure");
-  ctx.banner.click();
+  assert.equal(ctx.banner, null, "retired banner must never mount");
+  await ctx.windowRef.__FCM_RETRY__();
   for (let i = 0; i < 30; i++) await new Promise((r) => setImmediate(r));
   const regs = ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register");
-  assert.equal(regs.length, 1, "banner tap must retry registration exactly once");
+  assert.equal(regs.length, 1, "manual retry must register exactly once");
   assert.equal(JSON.parse(regs[0].body).token, "recovered-token");
 });
 
@@ -263,33 +262,25 @@ test("subscribe waits for SW activation: getToken runs only after activated", as
   assert.equal(JSON.parse(regs[0].body).token, "post-activation-token");
 });
 
-test("banner mounts on DOMContentLoaded when the script runs in <head> (no body yet)", async () => {
+test("no banner is injected when the script runs in <head> (no body yet)", async () => {
   const ctx = await runClient({ permission: "denied", noBody: true });
   assert.equal(ctx.thrown, null);
-  assert.equal(ctx.document.getElementById("fcm-off-banner"), null, "nothing to mount into yet");
+  assert.equal(ctx.document.getElementById("fcm-off-banner"), null, "nothing injected without a body");
   ctx.document.__setBody();
   ctx.document.__fire("DOMContentLoaded");
   for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
-  assert.ok(ctx.document.getElementById("fcm-off-banner"), "banner mounts once body exists");
+  assert.equal(ctx.document.getElementById("fcm-off-banner"), null, "retired banner must never mount");
 });
 
-test("denied permission shows the banner; tapping while still denied dismisses it", async () => {
+test("denied permission subscribes to nothing and shows no banner", async () => {
   const ctx = await runClient({ permission: "denied" });
   assert.equal(ctx.thrown, null);
   assert.equal(ctx.getTokenCalls, 0, "never prompts or subscribes when denied");
-  assert.ok(ctx.banner, "banner shows when permission is not granted");
-  ctx.banner.click();
+  assert.equal(ctx.banner, null, "no banner when permission is not granted");
+  await ctx.windowRef.__FCM_RETRY__();
   for (let i = 0; i < 30; i++) await new Promise((r) => setImmediate(r));
-  assert.equal(
-    ctx.localStorage.getItem("fcm_off_dismissed"),
-    "1",
-    "tap-while-denied stops the nag",
-  );
-  assert.equal(
-    ctx.banner.parentNode,
-    null,
-    "banner hides after dismissed tap",
-  );
+  assert.equal(ctx.getTokenCalls, 0, "retry while denied still never subscribes");
+  assert.equal(ctx.banner, null, "retry while denied shows no banner");
 });
 
 test("failed register POST retries once after delay, then succeeds silently", async () => {
@@ -300,15 +291,14 @@ test("failed register POST retries once after delay, then succeeds silently", as
   assert.equal(ctx.banner, null, "no banner when the retry succeeds");
 });
 
-test("register POST failing twice shows the banner", async () => {
+test("register POST failing twice retries once and shows no banner", async () => {
   const ctx = await runClient({ failPost: "always" });
   assert.equal(ctx.thrown, null);
   await waitFor(() => ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length === 2);
-  await waitFor(() => ctx.document.getElementById("fcm-off-banner") !== null);
   assert.equal(
     ctx.fetchCalls.filter((c) => c.url === "/api/fcm/register").length,
     2,
-    "exactly one retry, then give up visibly",
+    "exactly one retry, then give up silently",
   );
-  assert.ok(ctx.document.getElementById("fcm-off-banner"), "banner shows after the retry also fails");
+  assert.equal(ctx.document.getElementById("fcm-off-banner"), null, "retired banner must never mount");
 });
