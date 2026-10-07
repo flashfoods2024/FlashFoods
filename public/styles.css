@@ -2833,8 +2833,7 @@ body.student-portal::before {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 14px;
   }
-  .canteen-search,
-  .canteen-chips { display: none; }
+  .canteen-search { display: none; }
   /* Desktop keeps the pre-redesign text-card look: hide mobile-only media. */
   .canteen-card__media,
   .canteen-card__fav { display: none; }
@@ -2928,39 +2927,7 @@ body.student-portal::before {
     color: #FF6B00;
     cursor: pointer;
   }
-  .canteen-chips {
-    display: flex;
-    gap: 8px;
-    margin: 12px 0 14px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-  }
-  .canteen-chips::-webkit-scrollbar { display: none; }
-  .canteen-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 36px;
-    padding: 8px 16px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.65);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    color: #5C4033;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-  }
-  .canteen-chip.is-active {
-    background: linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%);
-    border-color: transparent;
-    color: #ffffff;
-  }
-  .canteen-list { display: grid; gap: 12px; }
+  .canteen-list { display: grid; gap: 12px; margin-top: 14px; }
   .canteen-card {
     display: flex;
     gap: 0;
