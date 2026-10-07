@@ -2811,6 +2811,7 @@ body:has(.student-home)::before {
   }
   .portal-nav__link {
     flex: 1;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;

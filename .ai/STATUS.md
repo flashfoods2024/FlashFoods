@@ -21,7 +21,7 @@
 ## Current Feature / Phase / Blockers
 
 - Current feature: F08 Student Portal UI Standardization (Mobile-Only)
-- Current phase: F08.1 DONE (portal tokens/classes + dead-rule cleanup; desktop pixel-identical /, /login, /shops @1440px; unit 301/301) → next F08.2 bottomnav partial
+- Current phase: F08.2 DONE (bottomnav partial extracted, home.ejs reuses it; EJS-render identical modulo portal classes; unit 301/301) → next F08.3 shops
 - Blockers: none (locked decisions: orange→red CTA, 35% card fill,
   Student Home desktop as-is, auth in scope; baseline committed at HEAD)
 

@@ -1,0 +1,12 @@
+<%# Student bottom nav (F08). Locals (all res.locals, optional): currentPath, cartCount. %>
+<nav class="bottom-nav portal-nav" aria-label="Primary">
+  <a class="bottom-nav__link portal-nav__link<%= (typeof currentPath === "undefined" || currentPath === "/") ? " is-active" : "" %>" href="/">Home</a>
+  <a class="bottom-nav__link portal-nav__link<%= (typeof currentPath !== "undefined" && currentPath.indexOf("/shops") === 0) ? " is-active" : "" %>" href="/shops">Browse</a>
+  <a class="bottom-nav__link portal-nav__link<%= (typeof currentPath !== "undefined" && currentPath.indexOf("/orders") === 0) ? " is-active" : "" %>" href="/orders">Orders</a>
+  <a class="bottom-nav__link portal-nav__link<%= (typeof currentPath !== "undefined" && currentPath === "/cart") ? " is-active" : "" %>" href="/cart">
+    <svg class="bottom-nav__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h15l-1.5 9h-12z"/><path d="M6 7l-1-4H2"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>
+    <span>Cart</span>
+    <% if (typeof cartCount === "number" && cartCount > 0) { %><span class="bottom-nav__badge"><%= cartCount %></span><% } %>
+  </a>
+</nav>
+<div class="bottom-nav-spacer" aria-hidden="true"></div>

@@ -131,17 +131,7 @@
   })();
 </script>
 <p class="home-copyright">© 2026 Flash Foods™ by Shubham Kotak. All rights reserved.</p>
-<nav class="bottom-nav" aria-label="Primary">
-  <a class="bottom-nav__link is-active" href="/">Home</a>
-  <a class="bottom-nav__link" href="/shops">Browse</a>
-  <a class="bottom-nav__link" href="/orders">Orders</a>
-  <a class="bottom-nav__link<%= (typeof currentPath !== "undefined" && currentPath === "/cart") ? " is-active" : "" %>" href="/cart">
-    <svg class="bottom-nav__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h15l-1.5 9h-12z"/><path d="M6 7l-1-4H2"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>
-    <span>Cart</span>
-    <% if (typeof cartCount === "number" && cartCount > 0) { %><span class="bottom-nav__badge"><%= cartCount %></span><% } %>
-  </a>
-</nav>
-<div class="bottom-nav-spacer" aria-hidden="true"></div>
+<%- include("partials/student-bottomnav") %>
 </div>
 <% } else { %>
 <section class="hero hero--home">
