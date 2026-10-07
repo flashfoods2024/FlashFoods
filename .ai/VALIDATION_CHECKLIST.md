@@ -25,6 +25,12 @@ npm start
 - [ ] Cart page loads (GET /cart) — redirects to login if not authenticated
 - [ ] All routes return 200 or expected redirect
 
+### F08 UI Standardization Checks
+- [ ] Every in-scope screen verified at mobile 393×852 (matches `.ai/UI_STANDARD.md`)
+- [ ] Every in-scope screen verified at desktop 1440×900 (unchanged from F08 baseline; Student Home exempt per F08-D3)
+- [ ] No vendor or admin screen touched
+- [ ] No business logic touched
+
 ### Regression Tests
 - [ ] User can sign up and log in
 - [ ] User can browse shops and menu items

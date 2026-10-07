@@ -8,6 +8,8 @@
 - [ ] Error handling is appropriate
 - [ ] Race conditions considered (async operations)
 - [ ] Database queries are indexed (or explain why not)
+- [ ] If this change touches CSS/views, mobile-only scoping verified
+- [ ] If this change touches CSS/views, desktop rendering unchanged
 
 ### Security
 - [ ] Input validation/sanitization

@@ -108,6 +108,17 @@ F07 QR Pickup
   server-authoritative completion, OTP fallback works, existing OTP intact,
   no vendor confirm button, no partial-close, no reopening.
 
+## F08 Student Portal UI Standardization
+For each in-scope student screen (shops, menu, cart, orders, order detail,
+profile, login, signup):
+- Mobile 393x852: renders with the F08 card, button, pill, top bar, bottom
+  nav, and typography recipes from `.ai/UI_STANDARD.md`.
+- Desktop 1440x900: renders identical to the F08 baseline commit
+  (pixel-diff under a 0.5% threshold; Student Home desktop exempt per F08-D3).
+- No business logic touched (routes, forms, submits still work).
+- No console errors.
+- Unit suite green (`npm test`); new classes reused, never redefined globally.
+
 ## Order Lifecycle Pipeline Test — Testing Shop
 
 Purpose: prove the end-to-end pipeline works, using a dedicated shop rather than

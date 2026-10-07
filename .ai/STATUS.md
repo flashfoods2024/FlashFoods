@@ -3,8 +3,8 @@
 ## FlashFoods — Smart College Canteen Pre-ordering System
 
 **Version:** 1.0.1
-**Last Updated:** 2026-09-24
-**Status:** Stage 1 COMPLETE — no active goal (`goal.md`: NONE)
+**Last Updated:** 2026-10-07
+**Status:** F08 IN PROGRESS — Phase 4 docs complete, awaiting Phase 5 approval
 
 ---
 
@@ -20,9 +20,10 @@
 
 ## Current Feature / Phase / Blockers
 
-- Current feature: NONE
-- Current phase: N/A
-- Blockers: none (future work tracked as candidates in `roadmap.md`)
+- Current feature: F08 Student Portal UI Standardization (Mobile-Only)
+- Current phase: PHASE 4 DOCS DONE — awaiting human approval for Phase 5 execution
+- Blockers: none (locked decisions: orange→red CTA, 35% card fill,
+  Student Home desktop as-is, auth in scope; baseline committed at HEAD)
 
 ## Last Milestone
 

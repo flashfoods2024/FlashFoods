@@ -211,3 +211,22 @@ Do not stop at task, phase, file-change, test-pass, commit, or report
 boundaries — stop only at FEATURE COMPLETE, GENUINELY BLOCKED, or HUMAN
 DECISION REQUIRED as defined in `.ai/ORCHESTRATOR.md` §§4–7. Never ask the
 human to choose the next ordinary coding task.
+
+## 17. Student Portal UI Standardization (F08+)
+
+All UI changes to the FlashFoods student portal fall under this rule:
+
+- UI changes apply ONLY to mobile viewports (max-width: 767px, reference
+  canvas 393x852).
+- Desktop rendering (min-width: 768px) on every student, vendor, and admin
+  screen is FROZEN. Any change that alters desktop rendering is a
+  regression and must be reverted.
+- Documented exception: the Student Home (`/`, `.student-home`) desktop
+  state is accepted as-is (human decision F08-D3); no desktop restores are
+  added for its buttons, typography, grid, or hero illustration. Every
+  OTHER screen's desktop remains frozen.
+- The current design tokens, component classes, and reusable partials
+  defined in `.ai/UI_STANDARD.md` are the single source of truth for all
+  student portal UI work.
+- No student screen may deviate from the standard without an explicit,
+  documented exception.
