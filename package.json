@@ -11,6 +11,7 @@
     "prestart": "npm run build:version",
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "predev": "npm run build:version",
     "seed": "node seed.js",
     "test": "node --test \"tests/unit/**/*.test.js\"",
     "test:unit": "node --test \"tests/unit/**/*.test.js\"",

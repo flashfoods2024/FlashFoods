@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#ff7a00" />
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
     <link rel="icon" type="image/png" href="/icon.png" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=<%= typeof assetVersion !== "undefined" ? assetVersion : "dev" %>" />
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/notification-manager.js"></script>
     <script src="/js/update-manager.js"></script>
@@ -40,11 +40,11 @@
 
             <div class="topbar__actions">
               <% if (currentUser && currentUser.role === "student") { %>
-                <a class="btn btn--ghost cart-mobile" href="/cart">
-                  Cart<% if (typeof cartCount === "number" && cartCount > 0) { %> (<%= cartCount %>)<% } %>
-                </a>
+                <% var _nameParts = String(currentUser.name || "").trim().split(/\s+/).filter(Boolean); var _initials = ((_nameParts[0] || "")[0] || "") + (_nameParts.length > 1 ? ((_nameParts[_nameParts.length - 1] || "")[0] || "") : ""); %>
+                <a class="profile-avatar-btn" href="/profile" aria-label="Profile"><%= _initials.toUpperCase() %></a>
               <% } %>
 
+              <% if (!(currentUser && currentUser.role === "student" && typeof currentPath !== "undefined" && currentPath === "/")) { %>
               <button
                 type="button"
                 class="nav-toggle"
@@ -55,6 +55,7 @@
               >
                 &#9776;
               </button>
+              <% } %>
             </div>
           </div>
 

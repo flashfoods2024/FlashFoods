@@ -68,7 +68,6 @@ const CACHE_VERSION = "v-" + BUILD_ID;
 const STATIC_CACHE = "flashfoods-static-" + CACHE_VERSION;
 
 const PRECACHE = [
-  "/styles.css",
   "/food-placeholder.svg",
   "/background-image.png",
   "/images/canteen-bg.png",
@@ -79,7 +78,12 @@ const PRECACHE = [
 ];
 
 self.addEventListener("install", function (e) {
-  e.waitUntil(caches.open(STATIC_CACHE).then(function (c) { return c.addAll(PRECACHE); }));
+  e.waitUntil(
+    caches
+      .open(STATIC_CACHE)
+      .then(function (c) { return c.addAll(PRECACHE); })
+      .then(function () { return self.skipWaiting(); }),
+  );
 });
 
 self.addEventListener("activate", function (e) {
@@ -111,5 +115,17 @@ self.addEventListener("fetch", function (e) {
   var url = new URL(req.url);
   if (url.pathname.startsWith("/socket.io/")) return;
   if (url.pathname === "/version.json") return;
+  // Unfingerprinted CSS changes without a name change: network-first so style
+  // edits land on normal refresh. Cache the fresh copy for offline fallback.
+  if (url.pathname.endsWith(".css")) {
+    e.respondWith(
+      fetch(req, { cache: "no-store" }).then(function (res) {
+        var copy = res.clone();
+        caches.open(STATIC_CACHE).then(function (c) { return c.put(req, copy); });
+        return res;
+      }).catch(function () { return caches.match(req); }),
+    );
+    return;
+  }
   e.respondWith(caches.match(req).then(function (hit) { return hit || fetch(req); }));
 });

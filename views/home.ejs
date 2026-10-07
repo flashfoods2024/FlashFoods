@@ -1,5 +1,149 @@
 <%- include("partials/header", { pageTitle, hidePageBackground: true }) %>
 
+<% if (currentUser && currentUser.role === "student") { %>
+<div class="student-home">
+<section class="home-hero" aria-label="Order ahead">
+  <span class="hero-pill">⚡ Campus food, faster</span>
+  <h1 class="hero-title">Skip the Queue!</h1>
+  <p class="hero-sub">Order before the bell rings, pick up instantly at the counter tray. Zero lunch lines, zero cash delays.</p>
+  <a class="btn-orange-grad" href="/shops">Browse Canteens →</a>
+  <a class="ticket-strip" href="/orders">
+    <span class="ticket-strip__label">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      View Active Pickup Tickets
+    </span>
+    <% if (typeof activeOrder !== "undefined" && activeOrder) { %>
+    <span class="pass-pill">Pass #<%= String(activeOrder._id).slice(-6).toUpperCase() %></span>
+    <% } %>
+  </a>
+</section>
+
+<section aria-label="Instant Counter Express">
+  <div class="section-head">
+    <h2 class="express-title"><span aria-hidden="true">🔥</span> Instant Counter Express</h2>
+    <span class="ready-pill">● Ready in ~15M</span>
+  </div>
+  <% if (typeof featuredItems !== "undefined" && featuredItems.length) { %>
+  <div class="dish-grid">
+    <% featuredItems.forEach(function(item) { %>
+    <article class="glass-card home-dish-card">
+      <div class="home-dish-media">
+        <img class="home-dish-img" src="<%= item.image || '/food-placeholder.svg' %>" alt="<%= item.name %>" loading="lazy" />
+        <span class="pill-status pill-status--ok home-dish-open">Open</span>
+      </div>
+      <p class="dish-cat"><%= item.shopName %></p>
+      <h3 class="dish-name"><%= item.name %></h3>
+      <p class="dish-price">₹<%= Number(item.price).toFixed(2) %></p>
+      <form method="post" action="/cart/add">
+        <input type="hidden" name="menuItemId" value="<%= item._id %>" />
+        <input type="hidden" name="redirect" value="/" />
+        <input type="hidden" name="quantity" value="1" />
+        <button type="submit" class="btn-orange-grad dish-add">+ Add</button>
+      </form>
+    </article>
+    <% }); %>
+  </div>
+  <% } else { %>
+  <div class="glass-card home-empty">
+    <p><strong>No counters are serving right now.</strong></p>
+    <p class="muted">Browse canteens to see what's cooking.</p>
+    <p><a class="btn-orange-grad" href="/shops">Browse Canteens →</a></p>
+  </div>
+  <% } %>
+</section>
+
+<section class="why-section" aria-label="Why FlashFoods?">
+  <div class="section-head">
+    <h2 class="express-title">Why FlashFoods?</h2>
+    <span class="hero-pill">100% Canteen Pickup</span>
+  </div>
+  <div class="why-grid">
+    <article class="glass-card why-card">
+      <span class="feature-card__icon" aria-hidden="true">1</span>
+      <h3>Save time</h3>
+      <p class="muted">Order before the college bell rings and collect straight from the tray without waiting in packed lunch lines.</p>
+    </article>
+    <article class="glass-card why-card">
+      <span class="feature-card__icon" aria-hidden="true">2</span>
+      <h3>Live menu availability</h3>
+      <p class="muted">Real-time counter sync. What you see is warm, fresh, and ready before you walk over to the stall.</p>
+    </article>
+    <article class="glass-card why-card">
+      <span class="feature-card__icon" aria-hidden="true">3</span>
+      <h3>Secure online payment</h3>
+      <p class="muted">Instant UPI, campus meal balances, or cards. No exact-change fuss or counter cash delays.</p>
+    </article>
+    <article class="glass-card why-card">
+      <span class="feature-card__icon" aria-hidden="true">4</span>
+      <h3>Instant pickup pass</h3>
+      <p class="muted">Flash your 6-digit code (e.g. 482913) or auto-scannable QR pass to grab your fresh tray.</p>
+    </article>
+  </div>
+</section>
+
+<div class="card" id="order-updates-card" hidden style="margin-top:12px;">
+  <p><strong>Turn on order updates</strong></p>
+  <p class="muted small">Get a notification the moment your order is ready for pickup.</p>
+  <p>
+    <button class="btn" type="button" id="order-updates-btn">Turn on order updates</button>
+  </p>
+  <p class="muted small" id="order-updates-status" role="status"></p>
+</div>
+<script>
+  (function () {
+    var card = document.getElementById("order-updates-card");
+    var btn = document.getElementById("order-updates-btn");
+    var statusEl = document.getElementById("order-updates-status");
+    if (!card || !btn || !statusEl) return;
+    if (!("Notification" in window)) return;
+    function cachedToken() {
+      try {
+        var id = String((window.__FCM_USER_ID__ || window.__FCM_VENDOR_ID__) || "unknown");
+        return localStorage.getItem("fcm_token:" + id);
+      } catch (e) {
+        return null;
+      }
+    }
+    // Only ask when updates are not already working.
+    if (Notification.permission === "granted" && cachedToken()) return;
+    card.hidden = false;
+    btn.addEventListener("click", function () {
+      btn.disabled = true;
+      statusEl.textContent = "Working… keep this page open.";
+      function done(msg, ok) {
+        btn.disabled = false;
+        statusEl.textContent = msg;
+        if (ok) {
+          setTimeout(function () { card.hidden = true; }, 4000);
+        }
+      }
+      if (typeof window.__FCM_RETRY__ === "function") {
+        window.__FCM_RETRY__().then(function () {
+          done(cachedToken() ? "Done — order updates on." : "Still off. Allow notifications for this site and tap again.", !!cachedToken());
+        });
+      } else {
+        Notification.requestPermission().then(function (p) {
+          done(p === "granted" ? "Done — order updates on." : "Still off. Allow notifications for this site and tap again.", p === "granted");
+          if (p === "granted") window.location.reload();
+        });
+      }
+    });
+  })();
+</script>
+<p class="home-copyright">© 2026 Flash Foods™ by Shubham Kotak. All rights reserved.</p>
+<nav class="bottom-nav" aria-label="Primary">
+  <a class="bottom-nav__link is-active" href="/">Home</a>
+  <a class="bottom-nav__link" href="/shops">Browse</a>
+  <a class="bottom-nav__link" href="/orders">Orders</a>
+  <a class="bottom-nav__link<%= (typeof currentPath !== "undefined" && currentPath === "/cart") ? " is-active" : "" %>" href="/cart">
+    <svg class="bottom-nav__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h15l-1.5 9h-12z"/><path d="M6 7l-1-4H2"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>
+    <span>Cart</span>
+    <% if (typeof cartCount === "number" && cartCount > 0) { %><span class="bottom-nav__badge"><%= cartCount %></span><% } %>
+  </a>
+</nav>
+<div class="bottom-nav-spacer" aria-hidden="true"></div>
+</div>
+<% } else { %>
 <section class="hero hero--home">
   <div class="hero__content">
     <span class="hero__eyebrow">Campus food, faster</span>
@@ -114,5 +258,6 @@
     <p class="muted">Pickup codes help counters complete orders quickly.</p>
   </article>
 </section>
+<% } %>
 
 <%- include("partials/footer") %>

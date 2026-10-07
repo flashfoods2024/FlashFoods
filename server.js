@@ -4,10 +4,14 @@ import session from "express-session";
 import flash from "connect-flash";
 import path from "path";
 import { readFileSync } from "fs";
+import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import connectDb from "./config/db.js";
 import { Shop } from "./models/Shop.js";
+import { MenuItem } from "./models/MenuItem.js";
+import { Order } from "./models/Order.js";
+import { isShopAvailable } from "./utils/shop-hours.js";
 import { attachUser } from "./middleware/auth.js";
 import { csrfOriginProtection } from "./middleware/csrfOriginProtection.js";
 import { authRouter } from "./routes/auth.js";
@@ -92,6 +96,28 @@ try {
   appVersion = { version: "1.0.0", buildId: "dev", buildTimestamp: null };
 }
 
+// ---------------------------------------------------------------------------
+// Asset version token for CSS cache-busting (?v=). Resolved once at startup:
+// ASSET_VERSION env → BUILD_ID env → git short hash → package.json version.
+// ---------------------------------------------------------------------------
+function resolveAssetVersion() {
+  if (process.env.ASSET_VERSION) return process.env.ASSET_VERSION;
+  if (process.env.BUILD_ID) return process.env.BUILD_ID;
+  try {
+    return execSync("git rev-parse --short HEAD", { encoding: "utf-8" }).trim();
+  } catch {
+    /* not a git checkout or git unavailable — fall through */
+  }
+  try {
+    return JSON.parse(
+      readFileSync(path.join(__dirname, "package.json"), "utf-8"),
+    ).version;
+  } catch {
+    return "dev";
+  }
+}
+const assetVersion = resolveAssetVersion();
+
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
@@ -131,7 +157,14 @@ app.get("/version.json", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "version.json"));
 });
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(
+  express.static(path.join(__dirname, "public"), {
+    // Production keeps conditional caching; development revalidates everything.
+    maxAge: process.env.NODE_ENV === "production" ? "1d" : 0,
+    etag: process.env.NODE_ENV === "production",
+    lastModified: process.env.NODE_ENV === "production",
+  }),
+);
 
 // Razorpay webhooks must be mounted BEFORE express.json() so the route-level
 // express.raw() middleware receives the unparsed body for signature checks.
@@ -221,6 +254,7 @@ app.use(async (req, res, next) => {
     : null;
 
   res.locals.appVersion = appVersion;
+  res.locals.assetVersion = assetVersion;
 
   res.locals.formatPickupTime = formatPickupTime;
   res.locals.formatLocalDateTime = formatLocalDateTime;
@@ -229,13 +263,51 @@ app.use(async (req, res, next) => {
   next();
 });
 
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
   // Vendors work from Pending Orders, never the marketing home (PWA
   // start_url, bookmarks, and direct visits all land here).
   if (req.user && req.user.role === "vendor") {
     return res.redirect("/vendor/orders/pending");
   }
-  res.render("home", { pageTitle: null });
+  // Home express grid: up to 4 available items from currently-open shops,
+  // plus the student's most recent active order for the pickup-ticket strip.
+  // Guests and DB failures fall back to empty values; home never crashes.
+  let featuredItems = [];
+  let activeOrder = null;
+  if (req.user) {
+    try {
+      const shops = await Shop.find({ isActive: { $ne: false } })
+        .sort({ name: 1 })
+        .lean();
+      const openIds = shops
+        .filter((shop) => isShopAvailable(shop))
+        .map((shop) => shop._id);
+      if (openIds.length) {
+        const byId = new Map(shops.map((shop) => [String(shop._id), shop]));
+        const items = await MenuItem.find({
+          shop: { $in: openIds },
+          available: true,
+        })
+          .sort({ name: 1 })
+          .limit(4)
+          .lean();
+        featuredItems = items.map((item) => ({
+          ...item,
+          shopName: byId.get(String(item.shop))?.name || "",
+        }));
+      }
+      activeOrder = await Order.findOne({
+        customer: req.user._id,
+        status: { $in: ["pending_payment", "paid", "accepted", "ready_for_pickup"] },
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+    } catch {
+      featuredItems = [];
+      activeOrder = null;
+    }
+  }
+  res.render("home", { pageTitle: null, featuredItems, activeOrder });
 });
 
 app.use(authRouter);
