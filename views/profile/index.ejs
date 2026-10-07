@@ -1,68 +1,69 @@
 <%- include("../partials/header", { pageTitle }) %>
 
+<div class="portal-root">
 <section class="hero hero--compact">
-  <h1>Your Profile</h1>
+  <h1 class="portal-ink">Your Profile</h1>
 </section>
 
-<section class="card profile-head">
+<section class="card profile-head portal-card">
   <div class="profile-avatar"><%= firstName.charAt(0).toUpperCase() %></div>
   <div>
-    <h2 class="profile-head__greeting"><%= greeting %>, <%= firstName %> &#128075;</h2>
-    <p class="muted">Ready for your next meal?</p>
+    <h2 class="profile-head__greeting portal-ink"><%= greeting %>, <%= firstName %> &#128075;</h2>
+    <p class="muted portal-soft">Ready for your next meal?</p>
   </div>
 </section>
 
-<section class="card">
-  <h2 class="card__title">Account Information</h2>
+<section class="card portal-card">
+  <h2 class="card__title portal-ink">Account Information</h2>
 
   <div class="profile-row">
-    <span class="profile-row__label">Phone Number</span>
-    <span class="profile-row__value" id="phone-display"><%= currentUser.phone || "Not added" %></span>
+    <span class="profile-row__label portal-soft">Phone Number</span>
+    <span class="profile-row__value portal-ink" id="phone-display"><%= currentUser.phone || "Not added" %></span>
     <button type="button" class="btn btn--ghost btn--small" id="phone-edit-btn">Edit</button>
   </div>
   <div class="profile-row" id="phone-edit-row" hidden>
     <input class="input" id="phone-input" type="tel" inputmode="numeric" maxlength="10"
       placeholder="10-digit mobile number" value="<%= currentUser.phone %>" />
-    <button type="button" class="btn btn--small" id="phone-save-btn">Save</button>
+    <button type="button" class="btn btn--small portal-btn" id="phone-save-btn">Save</button>
     <button type="button" class="btn btn--ghost btn--small" id="phone-cancel-btn">Cancel</button>
   </div>
   <p class="muted small" id="phone-msg" hidden></p>
 
   <div class="profile-row">
-    <span class="profile-row__label">Email</span>
-    <span class="profile-row__value"><%= currentUser.email %></span>
+    <span class="profile-row__label portal-soft">Email</span>
+    <span class="profile-row__value portal-ink"><%= currentUser.email %></span>
   </div>
 
   <div class="profile-row">
-    <span class="profile-row__label">Member Since</span>
-    <span class="profile-row__value"><%= new Date(currentUser.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) %></span>
+    <span class="profile-row__label portal-soft">Member Since</span>
+    <span class="profile-row__value portal-ink"><%= new Date(currentUser.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) %></span>
   </div>
 </section>
 
 <section class="profile-section">
-  <h2 class="profile-section__title">Your FlashFoods Activity</h2>
+  <h2 class="profile-section__title portal-ink">Your FlashFoods Activity</h2>
   <div class="profile-stats">
-    <div class="card analytics-kpi-card">
+    <div class="card analytics-kpi-card portal-card">
       <p class="analytics-kpi-label">Completed Orders</p>
-      <p class="analytics-kpi-value"><%= stats.completedCount %></p>
+      <p class="analytics-kpi-value portal-ink"><%= stats.completedCount %></p>
     </div>
-    <div class="card analytics-kpi-card">
+    <div class="card analytics-kpi-card portal-card">
       <p class="analytics-kpi-label">Favourite Shop</p>
-      <p class="analytics-kpi-value analytics-kpi-value--sm"><%= stats.favShop || "No favourite shop yet" %></p>
+      <p class="analytics-kpi-value analytics-kpi-value--sm portal-ink"><%= stats.favShop || "No favourite shop yet" %></p>
     </div>
-    <div class="card analytics-kpi-card">
+    <div class="card analytics-kpi-card portal-card">
       <p class="analytics-kpi-label">Favourite Item</p>
-      <p class="analytics-kpi-value analytics-kpi-value--sm"><%= stats.favItem || "No favourite item yet" %></p>
+      <p class="analytics-kpi-value analytics-kpi-value--sm portal-ink"><%= stats.favItem || "No favourite item yet" %></p>
     </div>
-    <div class="card analytics-kpi-card">
+    <div class="card analytics-kpi-card portal-card">
       <p class="analytics-kpi-label">Total Money Spent</p>
-      <p class="analytics-kpi-value"><%= "₹" + Math.round(stats.totalSpent).toLocaleString("en-IN") %></p>
+      <p class="analytics-kpi-value portal-price"><%= "₹" + Math.round(stats.totalSpent).toLocaleString("en-IN") %></p>
     </div>
   </div>
 </section>
 
-<section class="card profile-actions">
-  <a class="btn" href="/forgot-password">Change Password</a>
+<section class="card profile-actions portal-card">
+  <a class="btn portal-btn" href="/forgot-password">Change Password</a>
   <form method="post" action="/logout" class="inline">
     <button class="btn btn--ghost" type="submit">Logout</button>
   </form>
@@ -124,5 +125,8 @@
     });
   })();
 </script>
+
+<%- include("../partials/student-bottomnav") %>
+</div>
 
 <%- include("../partials/footer") %>

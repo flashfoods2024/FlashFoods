@@ -21,7 +21,7 @@
 ## Current Feature / Phase / Blockers
 
 - Current feature: F08 Student Portal UI Standardization (Mobile-Only)
-- Current phase: F08.6 DONE (orders list+detail converted; render smoke incl. polling hook) → next F08.7 profile
+- Current phase: F08.7 DONE (profile converted, render smoke + div balance) → next F08.8 login
 - Blockers: none (locked decisions: orange→red CTA, 35% card fill,
   Student Home desktop as-is, auth in scope; baseline committed at HEAD)
 
