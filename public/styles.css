@@ -2371,33 +2371,18 @@ fieldset.fieldset legend {
   font-weight: 400;
 }
 
-/* ── Student home hero illustration layer (append-only) ── */
+/* ── Student home hero layer ── */
+/* NOTE: the line-art illustration block (::before + its 480px companion)
+   was removed as dead — it carried no background image. The remaining
+   background-image.png references (.page-background, .hero--home) are
+   intentionally untouched. */
 .student-home .home-hero {
   position: relative;
   overflow: hidden;
 }
-.student-home .home-hero::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 60%;
-  height: 70%;
-  z-index: 0;
-  opacity: 0.75;
-  -webkit-mask-image: linear-gradient(to left, black 40%, transparent 100%);
-  mask-image: linear-gradient(to left, black 40%, transparent 100%);
-  pointer-events: none;
-}
 .student-home .home-hero > * {
   position: relative;
   z-index: 1;
-}
-@media (max-width: 480px) {
-  .student-home .home-hero::before {
-    width: 65%;
-    height: 60%;
-  }
 }
 /* 3. Primary buttons: diagonal orange gradient + warm glow + top highlight. */
 .student-home .btn-orange-grad {
