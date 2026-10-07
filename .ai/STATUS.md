@@ -21,7 +21,7 @@
 ## Current Feature / Phase / Blockers
 
 - Current feature: F08 Student Portal UI Standardization (Mobile-Only)
-- Current phase: F08.4 DONE (menu converted incl. student-only table cells; vendor-mode render byte-identical; mobile verified) → next F08.5 cart
+- Current phase: F08.5 DONE (cart converted, both branches render, JS hooks intact) → next F08.6 orders
 - Blockers: none (locked decisions: orange→red CTA, 35% card fill,
   Student Home desktop as-is, auth in scope; baseline committed at HEAD)
 

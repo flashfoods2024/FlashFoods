@@ -38,20 +38,21 @@
 }
 </style>
 
+<div class="portal-root">
 <section class="hero hero--compact">
-  <h1>Your cart</h1>
+  <h1 class="portal-ink">Your cart</h1>
   <% if (shop) { %>
-    <p class="muted">From <a href="/shops/<%= shop.slug %>"><%= shop.name %></a></p>
+    <p class="muted portal-soft">From <a href="/shops/<%= shop.slug %>"><%= shop.name %></a></p>
   <% } %>
 </section>
 
 <% if (!lines.length) { %>
-  <div class="card">
+  <div class="card portal-card">
     <p>Your cart is empty.</p>
-    <a class="btn" href="/shops">Browse canteens</a>
+    <a class="btn portal-btn" href="/shops">Browse canteens</a>
   </div>
 <% } else { %>
-  <div class="card">
+  <div class="card portal-card">
     <table class="table" id="cart-table">
       <thead>
         <tr>
@@ -68,9 +69,9 @@
           <% var variantMissing = hasVariants && line.variantId == null; %>
           <tr data-menu-item-id="<%= line.menuItemId %>">
             <td>
-              <div class="cart-item-name"><%= line.name %></div>
+              <div class="cart-item-name portal-ink"><%= line.name %></div>
               <% if (!line.available) { %>
-                <span class="tag tag--warn">Unavailable</span>
+                <span class="tag tag--warn portal-pill">Unavailable</span>
               <% } %>
               <% if (hasVariants) { %>
                 <div class="variant-select-wrap" style="margin-top:6px;">
@@ -88,7 +89,7 @@
                 </div>
               <% } %>
             </td>
-            <td class="cart-price-cell">
+            <td class="cart-price-cell portal-price">
               <% if (hasVariants) { %>
                 <span class="variant-price-display"><%= variantMissing ? '—' : '₹' + Number(line.variantPrice).toFixed(2) %></span>
               <% } else { %>
@@ -103,7 +104,7 @@
                 <button class="btn btn--ghost btn--small" type="submit">Update</button>
               </form>
             </td>
-            <td class="cart-subtotal-cell">
+            <td class="cart-subtotal-cell portal-price">
               <span class="line-subtotal-display">
                 <% if (hasVariants && variantMissing) { %>
                   —
@@ -118,7 +119,7 @@
       </tbody>
     </table>
 
-    <p class="cart-total">
+    <p class="cart-total portal-ink">
       <strong>Cart Subtotal:</strong> ₹<span id="cart-subtotal"><%= subtotal.toFixed(2) %></span>
     </p>
     <% if (typeof discountPercent !== 'undefined' && discountPercent > 0) { %>
@@ -129,12 +130,12 @@
     <p class="cart-total" id="parcel-charge-row" style="display:none;">
       <strong>Parcel Charge:</strong> ₹<span id="parcel-charge-amount"><%= Number(parcelCharge).toFixed(2) %></span>
     </p>
-    <p class="cart-total" id="total-row">
+    <p class="cart-total portal-ink" id="total-row">
       <strong>Total:</strong> ₹<span id="cart-total"><%= subtotal.toFixed(2) %></span>
     </p>
 
     <% if (!allVariantsSelected) { %>
-      <div class="card" style="border-left:4px solid #e63946;margin-bottom:14px;padding:12px;">
+      <div class="card portal-card" style="border-left:4px solid #e63946;margin-bottom:14px;padding:12px;">
         <p style="margin:0;color:#991b1b;font-weight:700;">
           Some items require your attention. Please select a variant for all items before continuing.
         </p>
@@ -190,29 +191,32 @@
       </form>
 
       <% if (shop && shop.paymentGateway === "razorpay") { %>
-        <button class="btn" id="rzp-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
+        <button class="btn portal-btn" id="rzp-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
           Pay with Razorpay
         </button>
       <% } else if (shop && shop.paymentGateway === "easebuzz") { %>
-        <button class="btn" id="easebuzz-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
+        <button class="btn portal-btn" id="easebuzz-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
           Pay with Easebuzz
         </button>
       <% } else if (shop && shop.paymentGateway === "phonepe") { %>
-        <button class="btn" id="phonepe-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
+        <button class="btn portal-btn" id="phonepe-button" <%= !allVariantsSelected ? 'disabled' : '' %>>
           Pay with PhonePe
         </button>
       <% } else { %>
-        <button class="btn" disabled title="This payment gateway is not yet supported">
+        <button class="btn portal-btn" disabled title="This payment gateway is not yet supported">
           Checkout unavailable
         </button>
       <% } %>
     </div>
 
-    <p class="muted small">
+    <p class="muted small portal-soft">
       Payment is simulated. You will get a pickup code to show at the counter.
     </p>
   </div>
 <% } %>
+
+<%- include("../partials/student-bottomnav") %>
+</div>
 
 <% if (shop?.paymentGateway === "razorpay") { %>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
