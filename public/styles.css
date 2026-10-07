@@ -2493,8 +2493,8 @@ html.reduced-effects {
   /* bottom-nav height (64px) + gap above it (16px) + bottom offset (16px) + safe-area */
   padding-bottom: calc(64px + 16px + 16px + env(safe-area-inset-bottom, 0px));
 }
-/* NOTE (F08.1): the photographic backdrop now lives on
-   body:has(.student-home)::before; the mesh stacks below were superseded
+/* NOTE (F08.1): the photographic backdrop lives on
+   body.student-portal::before; the mesh stacks below were superseded
    and removed. */
 .student-home .home-dish-card,
 .student-home .ticket-strip,
@@ -2515,25 +2515,17 @@ html.reduced-effects {
   box-shadow: 0 -4px 20px rgba(255, 122, 77, 0.08);
 }
 
-/* ── Student home top bar: transparent over mesh (append-only overrides) ── */
-/* Scoped via :has() — only pages rendering .student-home (logged-in student
-   home) match; vendor/admin/guest top bars keep their existing background. */
-body:has(.student-home) .topbar {
+/* ── Student portal top bar: transparent, scrolls with page (shared marker) ── */
+/* Single source of truth for every student route. Desktop restore below
+   reinstates the solid sticky bar at ≥768px. */
+body.student-portal .topbar {
   background: transparent;
-  border-bottom: none;
+  border: none;
   box-shadow: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-}
-
-/* ── Student home top bar: scroll with page, no pinning (append-only) ── */
-body:has(.student-home) .topbar {
-  position: static;
-  top: auto;
-  z-index: auto;
-}
-body:has(.student-home) .topbar {
   position: relative;
+  top: auto;
   z-index: 1;
 }
 .student-home .bottom-nav__link {
@@ -2570,15 +2562,6 @@ body:has(.student-home) .topbar {
   border-radius: 16px;
   box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
   padding: 16px;
-}
-
-/* Header: frosted-glass material only — position/scroll behavior unchanged. */
-body:has(.student-home) .topbar {
-  background: rgba(255, 250, 244, 0.72);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 8px 24px rgba(255, 122, 77, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 /* ── Student home reference-material pass (append-only, page-scoped) ── */
@@ -2644,37 +2627,10 @@ body:has(.student-home) .topbar {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-/* ── STEP 2: Student home photographic base layer (append-only, page-scoped) ── */
-/* Replaces the peach mesh on this route only; the ::before stays position:fixed
-   (stationary while cards scroll) with its existing z-index/pointer-events. */
-.student-home::before {
-  background-color: transparent;
-  background-image: url("/images/student_home_background.png");
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center top;
-  background-attachment: fixed;
-}
-
-/* ── STEP 1: Student home header transparent (append-only, page-scoped) ── */
-/* No card chrome; height/padding untouched so no layout shift. Position and
-   z-index from earlier rules are preserved (above background, scrolls away). */
-body:has(.student-home) .topbar {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* ── Adjustable student-home background blur (append-only, page-scoped) ── */
-/* Image moved off the route wrapper onto a dedicated fixed layer so only the
-   background blurs. Scoped with :has() so no other route is affected. */
-.student-home::before {
-  background-image: none;
-  background-color: transparent;
-}
-body:has(.student-home)::before {
+/* ── Adjustable student portal background blur (shared marker) ── */
+/* Dedicated fixed layer so only the background blurs. Auth (guest) pages
+   keep their own backdrop via body:has(.portal-root)::before. */
+body.student-portal::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -2690,7 +2646,7 @@ body:has(.student-home)::before {
   pointer-events: none;
 }
 @supports not (backdrop-filter: blur(1px)) {
-  body:has(.student-home)::before {
+  body.student-portal::before {
     filter: none;
   }
 }
@@ -2698,9 +2654,9 @@ body:has(.student-home)::before {
 
 /* ── Student Home desktop restores: solid pre-redesign material (≥768px) ── */
 @media (min-width: 768px) {
-  body:has(.student-home) { background: var(--bg); }
-  body:has(.student-home)::before { display: none; }
-  body:has(.student-home) .topbar {
+  body.student-portal { background: var(--bg); }
+  body.student-portal::before { display: none; }
+  body.student-portal .topbar {
     position: sticky;
     top: 0;
     z-index: 100;
@@ -2871,16 +2827,6 @@ body:has(.student-home)::before {
   /* :not(.portal-nav) — the fixed bottom nav must keep position:fixed and
      never be flattened into the content stacking layer. */
   .portal-root > *:not(.portal-nav) { position: relative; z-index: 1; }
-  /* Shops topbar: transparent over the backdrop (shops-only marker). */
-  body:has(.portal-shops) .topbar {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    position: relative;
-    z-index: 1;
-  }
   /* Student menu rows become glass cards. Scoped to portal pages so the
      shared table's vendor/admin rows keep their existing styling. */
   body:has(.portal-root) .import-table tbody tr[data-available] {

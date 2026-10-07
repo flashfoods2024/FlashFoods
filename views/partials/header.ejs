@@ -28,7 +28,7 @@
     <script src="/js/firebase-client.js"></script>
     <% } %>
   </head>
-  <body>
+  <body class="<%= currentUser && currentUser.role === 'student' ? 'student-portal' : '' %>">
     <% if (typeof hidePageBackground === "undefined" || !hidePageBackground) { %>
       <%- include("./page-background") %>
     <% } %>
@@ -44,7 +44,7 @@
                 <a class="profile-avatar-btn" href="/profile" aria-label="Profile"><%= _initials.toUpperCase() %></a>
               <% } %>
 
-              <% if (!(currentUser && currentUser.role === "student" && typeof currentPath !== "undefined" && (currentPath === "/" || currentPath === "/shops"))) { %>
+              <% if (!currentUser || currentUser.role !== "student") { %>
               <button
                 type="button"
                 class="nav-toggle"
