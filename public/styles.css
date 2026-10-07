@@ -2809,6 +2809,15 @@ body.student-portal::before {
     pointer-events: none;
   }
   .portal-root { position: relative; isolation: isolate; }
+  /* Auth pages (guest): transparent topbar over the shared backdrop.
+     Hamburger stays (pre-login navigation); positioning untouched. */
+  body:has(.auth-page) .topbar {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
   /* :not(.portal-nav) — the fixed bottom nav must keep position:fixed and
      never be flattened into the content stacking layer. */
   .portal-root > *:not(.portal-nav) { position: relative; z-index: 1; }
