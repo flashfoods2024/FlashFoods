@@ -1,33 +1,80 @@
 <%- include("../partials/header", { pageTitle }) %>
 
 <div class="portal-root">
-<section class="hero">
-  <h1 class="portal-ink">Canteens</h1>
-  <p class="muted portal-soft">Choose a spot and browse the menu.</p>
+<% var openShops = shops.filter(function(s) { var a = s.availability; return a ? !!a.available : (s.isOpen && s.isActive !== false); }); %>
+<section class="canteen-head" aria-label="Canteens">
+  <div class="canteen-head__row">
+    <span class="canteen-head__eyebrow">Good food, brighter days</span>
+    <span class="canteen-head__live"><span aria-hidden="true">●</span> Campus Live · <%= openShops.length %> canteen<%= openShops.length === 1 ? "" : "s" %> open</span>
+  </div>
+  <h1 class="canteen-head__title">Canteens &amp; Stalls</h1>
+  <p class="canteen-head__sub">Order ahead, skip the queue, and pick up at your campus canteens.</p>
 </section>
 
+<div class="canteen-search" role="search">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+  <input id="canteen-search-input" type="search" placeholder="Search canteens, food or cuisines…" aria-label="Search canteens" autocomplete="off" />
+  <button type="button" class="canteen-search__filter" aria-label="Filter options">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="15" cy="7" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="9" cy="12" r="2"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="15" cy="17" r="2"/></svg>
+  </button>
+</div>
+
+<div class="canteen-chips" aria-label="Categories">
+  <span class="canteen-chip is-active">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    All
+  </span>
+  <span class="canteen-chip">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 19C5 9 12 4 20 4c0 8-5 15-15 15z"/><path d="M5 19c3-5 7-9 11-11"/></svg>
+    South Indian
+  </span>
+  <span class="canteen-chip">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c1 4-4 6-4 11a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a6 6 0 0 1-12 0C6 8 12 6 12 2z"/></svg>
+    Snacks
+  </span>
+  <span class="canteen-chip">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9h16v3a8 8 0 0 1-8 8 8 8 0 0 1-8-8z"/><line x1="12" y1="3" x2="12" y2="6"/></svg>
+    Beverages
+  </span>
+</div>
+
 <% if (!shops.length) { %>
-  <div class="card portal-card">
-    <p>No canteens are listed yet. Run <code class="code">npm run seed</code> for sample data.</p>
+  <div class="card portal-card canteen-empty">
+    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 9l1-5h14l1 5"/><path d="M4 9v11h16V9"/><path d="M10 20v-6h4v6"/></svg>
+    <p><strong>No canteens available right now.</strong></p>
+    <p class="muted portal-soft">Check back soon — your campus kitchens are warming up.</p>
   </div>
 <% } else { %>
-  <div class="grid grid--shops">
+  <div class="canteen-list">
     <% shops.forEach((s) => { %>
-      <a class="card card--link portal-card" href="/shops/<%= s.slug %>">
-        <h2 class="card__title portal-ink"><%= s.name %></h2>
-        <% var availability = s.availability || { available: s.isOpen && s.isActive !== false, label: s.isOpen && s.isActive !== false ? "Open" : "Closed", hoursLabel: "Hours not set" }; %>
-        <p>
-          <span class="tag <%= availability.available ? "tag--ok" : "tag--warn" %> portal-pill<%= availability.available ? " portal-pill--ok" : "" %>">
-            <%= availability.label %>
+      <% var availability = s.availability || { available: s.isOpen && s.isActive !== false, label: s.isOpen && s.isActive !== false ? "Open" : "Closed", hoursLabel: "Hours not set" }; %>
+      <a class="card portal-card canteen-card" data-shop-name="<%= String(s.name || "").toLowerCase() %>" href="/shops/<%= s.slug %>">
+        <span class="canteen-card__media" aria-hidden="true">
+          <% if (s.image) { %>
+            <img class="canteen-card__img" src="<%= s.image %>" alt="" loading="lazy" />
+          <% } else { %>
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5" aria-hidden="true"><path d="M4 9l1-5h14l1 5"/><path d="M4 9v11h16V9"/><path d="M10 20v-6h4v6"/></svg>
+          <% } %>
+          <span class="portal-pill<%= availability.available ? " portal-pill--ok" : " canteen-card__status--closed" %> tag <%= availability.available ? "tag--ok" : "tag--warn" %>"><%= availability.available ? "Open" : "Closed" %></span>
+        </span>
+        <span class="canteen-card__body">
+          <span class="canteen-card__title-row">
+            <span class="canteen-card__name card__title"><%= s.name %></span>
+            <button type="button" class="canteen-card__fav" aria-label="Save <%= s.name %> to favourites">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-9-9c-1.5-3.5 1-7 4.5-7 2 0 3.5 1 4.5 2.5C13 5 14.5 4 16.5 4 20 4 22.5 7.5 21 11c-2 4.5-9 9-9 9z"/></svg>
+            </button>
           </span>
-        </p>
-        <% if (s.description) { %>
-          <p class="muted card__desc portal-soft"><%= s.description %></p>
-        <% } %>
-        <p class="muted small portal-soft">
-          <%= availability.configured ? availability.hoursLabel : "Hours not set" %>
-        </p>
-        <span class="btn btn--small portal-btn">View menu</span>
+          <% if (s.description) { %>
+            <span class="canteen-card__desc muted card__desc"><%= s.description %></span>
+          <% } %>
+          <span class="canteen-card__meta">
+            <span class="canteen-card__hours muted small">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <%= availability.configured ? availability.hoursLabel : "Hours not set" %>
+            </span>
+            <span class="canteen-card__cta btn btn--small">View Menu</span>
+          </span>
+        </span>
       </a>
     <% }) %>
   </div>
@@ -35,5 +82,26 @@
 
 <%- include("../partials/student-bottomnav") %>
 </div>
+
+<script>
+  // Canteen search: client-side name filter only. No server fetch.
+  (function () {
+    var input = document.getElementById("canteen-search-input");
+    if (!input) return;
+    var cards = Array.prototype.slice.call(document.querySelectorAll(".canteen-card"));
+    if (!cards.length) return;
+    input.addEventListener("input", function () {
+      var q = input.value.trim().toLowerCase();
+      cards.forEach(function (card) {
+        var name = card.getAttribute("data-shop-name") || "";
+        card.style.display = !q || name.indexOf(q) !== -1 ? "" : "none";
+      });
+    });
+    // Favourite hearts are visual-only: never navigate the card link.
+    Array.prototype.slice.call(document.querySelectorAll(".canteen-card__fav")).forEach(function (btn) {
+      btn.addEventListener("click", function (e) { e.preventDefault(); });
+    });
+  })();
+</script>
 
 <%- include("../partials/footer") %>

@@ -2827,4 +2827,252 @@ body.student-portal::before {
 @media (min-width: 768px) {
   body:has(.portal-root)::before { display: none; }
   .portal-nav { display: none; }
+  /* Canteens desktop: preserve the pre-redesign grid rhythm. */
+  .canteen-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  .canteen-search,
+  .canteen-chips { display: none; }
+  /* Desktop keeps the pre-redesign text-card look: hide mobile-only media. */
+  .canteen-card__media,
+  .canteen-card__fav { display: none; }
+  .canteen-card__body,
+  .canteen-card__title-row,
+  .canteen-card__meta { display: block; }
+}
+
+/* ── Canteens list redesign (mobile-only, ≤767px) ── */
+@media (max-width: 767px) {
+  .canteen-head { margin: 4px 0 12px; }
+  .canteen-head__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .canteen-head__eyebrow {
+    color: #FF6B00;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .canteen-head__live {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.65);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: #10b981;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .canteen-head__title {
+    margin: 0 0 4px;
+    color: #1A0F08;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .canteen-head__sub {
+    margin: 0;
+    color: #5C4033;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .canteen-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 8px 0 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.65);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: #6b7280;
+  }
+  .canteen-search input {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    border: none;
+    background: transparent;
+    padding: 0;
+    color: #1A0F08;
+    font-size: 14px;
+    outline: none;
+  }
+  .canteen-search input::placeholder { color: #6b7280; }
+  .canteen-search__filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #FF6B00;
+    cursor: pointer;
+  }
+  .canteen-chips {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0 14px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .canteen-chips::-webkit-scrollbar { display: none; }
+  .canteen-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.65);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: #5C4033;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .canteen-chip.is-active {
+    background: linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%);
+    border-color: transparent;
+    color: #ffffff;
+  }
+  .canteen-list { display: grid; gap: 12px; }
+  .canteen-card {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    padding: 12px;
+    border-radius: 16px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .canteen-card__media {
+    position: relative;
+    flex: 0 0 96px;
+    width: 96px;
+    height: 96px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #FFE8D6 0%, #FFD4B8 100%);
+    color: #FF6B00;
+  }
+  .canteen-card__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .canteen-card__media .portal-pill {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+  }
+  .canteen-card__status--closed {
+    background: rgba(239, 68, 68, 0.12);
+    color: #991b1b;
+  }
+  .canteen-card__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 12px;
+  }
+  .canteen-card__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .canteen-card__name {
+    color: #1A0F08;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  .canteen-card__fav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.5);
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+  }
+  .canteen-card__desc {
+    margin: 0;
+    color: #5C4033;
+    font-size: 13px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .canteen-card__meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 6px;
+  }
+  .canteen-card__hours {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #5C4033;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .canteen-card__cta {
+    margin-left: auto;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(255, 107, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  .canteen-empty {
+    text-align: center;
+    color: #1A0F08;
+  }
+  .canteen-empty svg { color: #FF6B00; }
 }
