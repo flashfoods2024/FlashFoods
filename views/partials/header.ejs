@@ -44,7 +44,7 @@
                 <a class="profile-avatar-btn" href="/profile" aria-label="Profile"><%= _initials.toUpperCase() %></a>
               <% } %>
 
-              <% if (!(currentUser && currentUser.role === "student" && typeof currentPath !== "undefined" && currentPath === "/")) { %>
+              <% if (!(currentUser && currentUser.role === "student" && typeof currentPath !== "undefined" && (currentPath === "/" || currentPath === "/shops"))) { %>
               <button
                 type="button"
                 class="nav-toggle"

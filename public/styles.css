@@ -2808,16 +2808,18 @@ body:has(.student-home)::before {
     box-shadow: 0 12px 32px rgba(255, 107, 0, 0.12),
       inset 0 1px 0 rgba(255, 255, 255, 0.7);
     padding: 8px;
+    gap: 4px;
   }
   .portal-nav__link {
-    flex: 1;
+    flex: 1 1 0;
     position: relative;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 8px 4px;
-    border-radius: 8px;
+    gap: 2px;
+    padding: 6px 4px;
+    border-radius: 12px;
     color: #6b7280;
     font-size: 11px;
     font-weight: 700;
@@ -2825,6 +2827,7 @@ body:has(.student-home)::before {
     text-decoration: none;
     min-height: 48px;
   }
+  .portal-nav__link svg { flex: 0 0 auto; }
   .portal-nav__link.is-active {
     background: rgba(255, 107, 0, 0.12);
     color: #FF6B00;
@@ -2848,7 +2851,19 @@ body:has(.student-home)::before {
     pointer-events: none;
   }
   .portal-root { position: relative; isolation: isolate; }
-  .portal-root > * { position: relative; z-index: 1; }
+  /* :not(.portal-nav) — the fixed bottom nav must keep position:fixed and
+     never be flattened into the content stacking layer. */
+  .portal-root > *:not(.portal-nav) { position: relative; z-index: 1; }
+  /* Shops topbar: transparent over the backdrop (shops-only marker). */
+  body:has(.portal-shops) .topbar {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    position: relative;
+    z-index: 1;
+  }
   /* Student menu rows become glass cards. Scoped to portal pages so the
      shared table's vendor/admin rows keep their existing styling. */
   body:has(.portal-root) .import-table tbody tr[data-available] {
