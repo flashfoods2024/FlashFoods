@@ -2586,22 +2586,24 @@ body.student-portal .topbar {
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
-/* 6. Bottom nav: floating frosted pill, 12px gap, safe-area respected. */
+/* 6. Bottom nav: floating frosted pill, 12px gap, safe-area respected.
+   Material is driven by --nav-frost-* vars (Appearance slider); fallbacks
+   preserve the current treatment when the preference is unset. */
 .student-home .bottom-nav {
   left: 12px;
   right: 12px;
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  background: rgba(255, 255, 255, 0.65);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(255, 255, 255, var(--nav-frost-alpha, 0.65));
+  -webkit-backdrop-filter: blur(var(--nav-frost-blur, 24px)) saturate(var(--nav-frost-sat, 180%));
+  backdrop-filter: blur(var(--nav-frost-blur, 24px)) saturate(var(--nav-frost-sat, 180%));
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 28px;
   box-shadow: 0 12px 32px rgba(255, 107, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-.student-home .bottom-nav__link.is-active {
-  background: rgba(255, 107, 0, 0.12);
-  color: #FF6B00;
-}
+/* NOTE: no .student-home active-pill override here by intent — the Home tab
+   inherits the shared .portal-nav__link.is-active gradient so it renders
+   identically to Browse/Orders/Cart. A translucent Home-only tint previously
+   lived here and refracted through the glass as a blurred smear. */
 /* 8. Frosted tray behind food images: same liquid-glass material. */
 .student-home .home-dish-media {
   background: rgba(255, 255, 255, 0.5);
@@ -2741,9 +2743,9 @@ body.student-portal::before {
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     z-index: 100;
     display: flex;
-    background: rgba(255, 255, 255, 0.65);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    backdrop-filter: blur(24px) saturate(180%);
+    background: rgba(255, 255, 255, var(--nav-frost-alpha, 0.65));
+    -webkit-backdrop-filter: blur(var(--nav-frost-blur, 24px)) saturate(var(--nav-frost-sat, 180%));
+    backdrop-filter: blur(var(--nav-frost-blur, 24px)) saturate(var(--nav-frost-sat, 180%));
     border: 1px solid rgba(255, 255, 255, 0.6);
     border-radius: 28px;
     box-shadow: 0 12px 32px rgba(255, 107, 0, 0.12),
@@ -2767,11 +2769,13 @@ body.student-portal::before {
     letter-spacing: 0.04em;
     text-decoration: none;
     min-height: 48px;
+    transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
   }
   .portal-nav__link svg { flex: 0 0 auto; }
   .portal-nav__link.is-active {
-    background: rgba(255, 107, 0, 0.12);
-    color: #FF6B00;
+    background-image: linear-gradient(135deg, #ff7225 0%, #ff3d3d 100%);
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(255, 107, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   }
   .portal-nav__badge {
     position: absolute;
@@ -3051,4 +3055,58 @@ body.student-portal::before {
     color: #1A0F08;
   }
   .canteen-empty svg { color: #FF6B00; }
+}
+
+/* ── liquid-gl trial hook: Student Home bottom nav only (append-only) ── */
+/* Inert unless the trial script sets html.liquidgl-on after first render.
+   Keeps nav links + badge above the injected lens canvas (per upstream
+   content-visibility guidance). Zero effect on the CSS glass fallback. */
+html.liquidgl-on .portal-nav__link { z-index: 3; }
+/* The library sets inline pointer-events:none on non-draggable targets
+   (liquidGL.js _activate), which would deaden the nav links. Its own canvas
+   and shadow/tilt helpers are already pointer-events:none, so restoring hit
+   testing on the trial nav alone is sufficient (!important beats inline). */
+html.liquidgl-on .portal-nav { pointer-events: auto !important; }
+
+/* ── Student screen entrance (mobile only) ── */
+/* Ordinary links navigate immediately. Only page content animates; the
+   persistent visual surface is deliberately excluded to avoid a second
+   navbar fade on top of the Liquid GL canvas. This is an entrance hint for
+   full-document navigation, never a click-blocking exit animation. */
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  @keyframes student-page-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .portal-root:not(.auth-page) > *:not(.portal-nav):not(.bottom-nav-spacer),
+  .student-home > *:not(.portal-nav):not(.bottom-nav-spacer) {
+    animation: student-page-in 180ms ease-out both;
+  }
+}
+/* ── Student Profile mobile fixes + Appearance slider (≤767px, append-only) ── */
+@media (max-width: 767px) {
+  /* Account rows: label on its own line so values use the full card width
+     instead of squeezing into a narrow column (fixes vertical digit wrap). */
+  .student-profile .profile-row { flex-wrap: wrap; row-gap: 2px; }
+  .student-profile .profile-row__label { flex: 1 1 100%; min-width: 0; }
+  .student-profile .profile-row__value { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .student-profile .profile-row .btn { flex: 0 0 auto; }
+  /* Edit row: input stretches, Save/Cancel wrap below on narrow screens. */
+  .student-profile #phone-edit-row { row-gap: 8px; }
+  .student-profile #phone-edit-row .input { flex: 1 1 180px; min-width: 0; max-width: none; }
+  /* Appearance (frost slider) section. */
+  .student-appearance .appearance-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 4px 0 8px;
+  }
+  .student-appearance .appearance-label { font-size: 14px; font-weight: 700; }
+  .student-appearance .appearance-value { font-size: 13px; font-weight: 800; white-space: nowrap; }
+  .student-appearance .appearance-slider {
+    width: 100%;
+    min-height: 32px;
+    accent-color: var(--orange, #ff6b00);
+  }
 }

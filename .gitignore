@@ -19,3 +19,5 @@ public/sw.js
 # OS files
 .DS_Store
 Thumbs.db
+
+graphify-out/

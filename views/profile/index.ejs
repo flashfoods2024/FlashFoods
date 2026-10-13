@@ -1,6 +1,6 @@
 <%- include("../partials/header", { pageTitle }) %>
 
-<div class="portal-root">
+<div class="portal-root student-profile">
 <section class="hero hero--compact">
   <h1 class="portal-ink">Your Profile</h1>
 </section>
@@ -31,14 +31,67 @@
 
   <div class="profile-row">
     <span class="profile-row__label portal-soft">Email</span>
-    <span class="profile-row__value portal-ink"><%= currentUser.email %></span>
+    <span class="profile-row__value portal-ink"><%= typeof profileEmail !== "undefined" && profileEmail ? profileEmail : "—" %></span>
   </div>
 
   <div class="profile-row">
     <span class="profile-row__label portal-soft">Member Since</span>
-    <span class="profile-row__value portal-ink"><%= new Date(currentUser.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) %></span>
+    <% var _ms = (typeof memberSince !== "undefined" && memberSince) ? new Date(memberSince) : null; %>
+    <span class="profile-row__value portal-ink"><%= (_ms && !isNaN(_ms.getTime())) ? _ms.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—" %></span>
   </div>
 </section>
+
+<section class="card portal-card student-appearance">
+  <h2 class="card__title portal-ink">Appearance</h2>
+  <div class="appearance-row">
+    <label class="appearance-label portal-soft" for="nav-frost">Bottom Navigation Frost</label>
+    <output class="appearance-value portal-ink" id="nav-frost-value" for="nav-frost">50 · Balanced</output>
+  </div>
+  <input class="appearance-slider" id="nav-frost" type="range" min="0" max="100" step="1" value="50"
+    aria-describedby="nav-frost-hint" />
+  <p class="muted small" id="nav-frost-hint">0 is clear glass, 100 is heavily frosted. Applies to the bottom navigation on every student screen and is saved on this device.</p>
+</section>
+
+<script>
+  (function () {
+    // Frost preference: local visual setting (localStorage), not an account
+    // feature. Runs on DOMContentLoaded so the shared student-glass module
+    // (deferred) has already exposed window.FlashFoodsGlass when present.
+    var KEY = "flashfoods.navFrost.v1";
+    var DEF = 50;
+    function clamp(v) {
+      v = Math.round(Number(v));
+      if (!isFinite(v)) return DEF;
+      return Math.min(100, Math.max(0, v));
+    }
+    function labelFor(v) { return v < 34 ? "Clear" : v < 67 ? "Balanced" : "Strong"; }
+    document.addEventListener("DOMContentLoaded", function () {
+      var slider = document.getElementById("nav-frost");
+      var out = document.getElementById("nav-frost-value");
+      if (!slider || !out) return;
+      function read() {
+        try {
+          var raw = localStorage.getItem(KEY);
+          return raw === null ? DEF : clamp(raw);
+        } catch (e) { return DEF; }
+      }
+      function render(v) { out.textContent = v + " · " + labelFor(v); }
+      function apply(v, save) {
+        v = clamp(v);
+        render(v);
+        if (window.FlashFoodsGlass) {
+          window.FlashFoodsGlass.applyNavFrost(v, { persist: !!save });
+        } else if (save) {
+          try { localStorage.setItem(KEY, String(v)); } catch (e) {}
+        }
+      }
+      var current = read();
+      slider.value = String(current);
+      apply(current, false);
+      slider.addEventListener("input", function () { apply(slider.value, true); });
+    });
+  })();
+</script>
 
 <section class="profile-section">
   <h2 class="profile-section__title portal-ink">Your FlashFoods Activity</h2>

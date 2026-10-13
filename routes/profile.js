@@ -67,6 +67,11 @@ profileRouter.get(
       pageTitle: "Profile",
       greeting: getGreeting(),
       firstName: String(req.user.name).trim().split(/\s+/)[0],
+      // res.locals.currentUser only carries id/role/name/phone; pass the
+      // display-only profile fields explicitly so the view never derives
+      // them from undefined (which rendered "Invalid Date").
+      profileEmail: req.user.email || null,
+      memberSince: req.user.createdAt || null,
       stats: {
         completedCount: summary?.count || 0,
         totalSpent: summary?.totalSpent || 0,

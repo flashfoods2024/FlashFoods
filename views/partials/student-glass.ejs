@@ -1,0 +1,7 @@
+<%# Shared Student-portal Liquid Glass bootstrap. Included once from the footer
+    for authenticated students only; the loader itself guards viewport,
+    reduced-motion, data-saver, capability, and ?no-liquid=1. %>
+<script type="module">
+  import { initStudentGlass } from "/js/student-glass.js?v=<%= typeof assetVersion !== "undefined" ? assetVersion : "dev" %>";
+  initStudentGlass();
+</script>
