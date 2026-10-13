@@ -1,4 +1,19 @@
       </main>
+      <%
+        var _isStudentPortalPath = typeof currentPath === "string" && (
+          currentPath === "/" ||
+          currentPath === "/shops" || currentPath.indexOf("/shops/") === 0 ||
+          currentPath === "/orders" || currentPath.indexOf("/orders/") === 0 ||
+          currentPath === "/cart" ||
+          currentPath === "/profile"
+        );
+        var _hideStudentPortalFooter =
+          typeof currentUser !== "undefined" &&
+          currentUser &&
+          currentUser.role === "student" &&
+          _isStudentPortalPath;
+      %>
+      <% if (!_hideStudentPortalFooter) { %>
       <footer class="footer">
         <div class="container">
           <p>
@@ -6,6 +21,7 @@
           </p>
         </div>
       </footer>
+      <% } %>
     </div>
     <script>
       (function () {
@@ -114,6 +130,44 @@
         }
       })();
     </script>
+    <% if (typeof currentUser !== "undefined" && currentUser && currentUser.role === "student") { %>
+    <script>
+      (function () {
+        // Progressive enhancement only: the server remains the router and
+        // ordinary navigation remains the fallback for every other link.
+        var allowed = { "/": "home", "/shops": "shops", "/orders": "orders", "/cart": "cart", "/profile": "profile" };
+        var main = document.querySelector("main.container");
+        if (!main) return;
+        function skeleton(kind) {
+          var label = kind === "profile" ? "Profile" : kind === "cart" ? "Cart" : kind === "orders" ? "Orders" : kind === "shops" ? "Canteens" : "Home";
+          var tall = kind === "profile" || kind === "cart";
+          var el = document.createElement("div");
+          el.className = "student-navigation-skeleton";
+          el.setAttribute("role", "status");
+          el.setAttribute("aria-label", "Loading " + label);
+          el.innerHTML = '<span class="student-skeleton-line"></span>' +
+            '<span class="student-skeleton-line student-skeleton-line--short"></span>' +
+            '<span class="student-skeleton-card' + (tall ? ' student-skeleton-card--tall' : '') + '"></span>' +
+            '<span class="student-skeleton-card"></span>';
+          return el;
+        }
+        document.addEventListener("click", function (event) {
+          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          var link = event.target.closest && event.target.closest("a[href]");
+          if (!link || link.target && link.target !== "_self" || link.hasAttribute("download")) return;
+          var url;
+          try { url = new URL(link.href, location.href); } catch (e) { return; }
+          if (url.origin !== location.origin || !allowed[url.pathname] || url.search || url.hash) return;
+          if (url.pathname === location.pathname) return;
+          // Forms, payment links, auth redirects, vendor/admin pages, and all
+          // other routes intentionally keep ordinary browser navigation.
+          main.setAttribute("aria-busy", "true");
+          main.appendChild(skeleton(allowed[url.pathname]));
+        }, { capture: true });
+        window.addEventListener("pageshow", function () { main.removeAttribute("aria-busy"); });
+      })();
+    </script>
+    <% } %>
   </body>
 </html>
 

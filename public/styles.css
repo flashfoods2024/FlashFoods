@@ -3068,6 +3068,12 @@ html.liquidgl-on .portal-nav__link { z-index: 3; }
    testing on the trial nav alone is sufficient (!important beats inline). */
 html.liquidgl-on .portal-nav { pointer-events: auto !important; }
 
+/* Keep ordinary student document navigation visually continuous where the
+   browser supports it. This is intentionally not a client-side router. */
+@view-transition { navigation: auto; }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 180ms; }
+
 /* ── Student screen entrance (mobile only) ── */
 /* Ordinary links navigate immediately. Only page content animates; the
    persistent visual surface is deliberately excluded to avoid a second
@@ -3075,13 +3081,66 @@ html.liquidgl-on .portal-nav { pointer-events: auto !important; }
    full-document navigation, never a click-blocking exit animation. */
 @media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
   @keyframes student-page-in {
-    from { opacity: 0; transform: translateY(4px); }
+    from { opacity: 0; transform: translateY(7px); }
     to { opacity: 1; transform: translateY(0); }
   }
   .portal-root:not(.auth-page) > *:not(.portal-nav):not(.bottom-nav-spacer),
   .student-home > *:not(.portal-nav):not(.bottom-nav-spacer) {
-    animation: student-page-in 180ms ease-out both;
+    animation: student-page-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+  .portal-root:not(.auth-page) .portal-card,
+  .portal-root:not(.auth-page) .order-list__item,
+  .student-home .home-dish-card,
+  .student-home .why-card {
+    animation: student-page-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .portal-root:not(.auth-page) .portal-card:nth-child(2),
+  .portal-root:not(.auth-page) .order-list__item:nth-child(2),
+  .student-home .home-dish-card:nth-child(2),
+  .student-home .why-card:nth-child(2) { animation-delay: 24ms; }
+  .portal-root:not(.auth-page) .portal-card:nth-child(3),
+  .portal-root:not(.auth-page) .order-list__item:nth-child(3),
+  .student-home .home-dish-card:nth-child(3),
+  .student-home .why-card:nth-child(3) { animation-delay: 48ms; }
+  .portal-root:not(.auth-page) .portal-card:nth-child(n+4),
+  .portal-root:not(.auth-page) .order-list__item:nth-child(n+4),
+  .student-home .home-dish-card:nth-child(n+4),
+  .student-home .why-card:nth-child(n+4) { animation-delay: 60ms; }
+}
+
+/* A small, page-shaped placeholder is shown only after a navigation has
+   started and while the browser is fetching the next document. */
+.student-navigation-skeleton {
+  display: grid;
+  gap: 12px;
+  padding: 12px 0 24px;
+}
+.student-navigation-skeleton[hidden] { display: none; }
+.student-skeleton-line,
+.student-skeleton-card {
+  display: block;
+  border-radius: 14px;
+  background: rgba(120, 95, 78, 0.13);
+}
+.student-skeleton-line { height: 18px; width: 58%; }
+.student-skeleton-line--short { width: 34%; height: 14px; }
+.student-skeleton-card { height: 84px; }
+.student-skeleton-card--tall { height: 132px; }
+@media (prefers-reduced-motion: no-preference) {
+  .student-skeleton-line, .student-skeleton-card {
+    animation: student-skeleton-pulse 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes student-skeleton-pulse { from { opacity: .55; } to { opacity: .9; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+@media (min-width: 768px) {
+  .student-navigation-skeleton { display: none !important; }
+}
+/* The shell surfaces are never part of the content animation. */
+.bottom-nav, .portal-nav, .student-glass, .liquid-glass-canvas {
+  animation: none !important;
 }
 /* ── Student Profile mobile fixes + Appearance slider (≤767px, append-only) ── */
 @media (max-width: 767px) {
