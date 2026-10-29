@@ -3096,6 +3096,26 @@ html.liquidgl-on .portal-nav__link { z-index: 3; }
    testing on the trial nav alone is sufficient (!important beats inline). */
 html.liquidgl-on .portal-nav { pointer-events: auto !important; }
 
+/* Keep the fixed surface visible and clickable while Liquid Glass prepares its
+   first snapshot. The library temporarily hides non-draggable targets during
+   activation; the CSS material remains the stable fallback until on.init. */
+html.liquidgl-pending .portal-nav {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* The fixed navbar is its own transition group. Content can keep the root
+   crossfade, but the persistent surface must not be crossfaded with pages that
+   have different heights or Liquid Glass startup timing. */
+.portal-nav { view-transition-name: student-bottom-nav; }
+::view-transition-group(student-bottom-nav),
+::view-transition-image-pair(student-bottom-nav),
+::view-transition-old(student-bottom-nav),
+::view-transition-new(student-bottom-nav) {
+  animation-duration: 0ms;
+  animation-delay: 0ms;
+}
+
 /* Keep ordinary student document navigation visually continuous where the
    browser supports it. This is intentionally not a client-side router. */
 @view-transition { navigation: auto; }

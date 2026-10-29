@@ -97,6 +97,7 @@ export function initStudentGlass() {
     if (!nav) return;
     // Light capability gate; the library re-probes and CSS-falls-back itself.
     if (!("gpu" in navigator) && !("WebGLRenderingContext" in window)) return;
+    document.documentElement.classList.add("liquidgl-pending");
     // Snapshot must stay "body": the refracted photographic backdrop lives on
     // body.student-portal::before (a pseudo-element) which no smaller subtree
     // contains. Resolution is capped for low-end GPUs.
@@ -123,14 +124,19 @@ export function initStudentGlass() {
       tint: null,
       on: {
         init() {
+          document.documentElement.classList.remove("liquidgl-pending");
           document.documentElement.classList.add("liquidgl-on");
         },
       },
     });
-    if (typeof lens === "undefined") return;
+    if (typeof lens === "undefined") {
+      document.documentElement.classList.remove("liquidgl-pending");
+      return;
+    }
     window.__liquidGLStudentNav = true;
     window.__liquidGLStudentNavLens = lens;
   } catch (err) {
+    document.documentElement.classList.remove("liquidgl-pending");
     console.warn("liquidGL trial skipped:", (err && err.message) || err);
   }
 }
