@@ -95,8 +95,9 @@ input[type="file"] {
   position: sticky;
   top: 0;
   z-index: 100;
-  background-color:#fbf1e6;
-  border-bottom: 1px solid var(--border);
+  background-color: transparent;
+  border-bottom: none;
+  -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
 }
 
@@ -2500,18 +2501,20 @@ html.reduced-effects {
   box-shadow: 0 -4px 20px rgba(255, 122, 77, 0.08);
 }
 
-/* ── Student portal top bar: transparent, scrolls with page (shared marker) ── */
-/* Single source of truth for every student route. Desktop restore below
-   reinstates the solid sticky bar at ≥768px. */
+/* ── Student portal top bar: pinned, transparent over the portal backdrop ── */
+/* Single source of truth for every student route. The bar stays pinned so the
+   brand and profile button remain reachable, while its background stays clear
+   so the portal backdrop runs unbroken behind it (no opaque band). Desktop
+   restore below re-asserts the same transparent sticky bar at ≥768px. */
 body.student-portal .topbar {
   background: transparent;
-  border: none;
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border-bottom: none;
   box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  position: relative;
-  top: auto;
-  z-index: 1;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 .student-home .bottom-nav__link {
   position: relative;
@@ -2647,8 +2650,9 @@ body.student-portal::before {
     position: sticky;
     top: 0;
     z-index: 100;
-    background-color: #fbf1e6;
-    border-bottom: 1px solid var(--border);
+    background-color: transparent;
+    border-bottom: none;
+    -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
     box-shadow: none;
   }
@@ -2687,8 +2691,8 @@ body.student-portal::before {
 @media (max-width: 767px) {
   .portal-card {
     background: rgb(255 255 255 / 35%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    backdrop-filter: blur(20px) saturate(160%);
+    /* -webkit-backdrop-filter: blur(20px) saturate(160%); */
+    /* backdrop-filter: blur(20px) saturate(160%); */
     border: 1px solid rgba(255, 255, 255, 0.6);
     border-bottom-color: rgba(255, 180, 120, 0.55);
     border-radius: 16px;
