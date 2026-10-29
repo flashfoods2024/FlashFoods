@@ -2837,16 +2837,78 @@ body.student-portal::before {
       inset 0 1px 0 rgba(255, 255, 255, 0.7);
   }
 }
+/* ── Canteens-style search bar (shared component) ──
+   Base rules live outside the mobile media query so the Shop Details page can
+   reuse the exact same component at every width. The Canteens & Stalls page
+   keeps hiding it on desktop via the rule in the ≥768px block below. */
+.canteen-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 8px 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #6b7280;
+}
+.canteen-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #1A0F08;
+  font-size: 14px;
+  outline: none;
+}
+.canteen-search input::placeholder { color: #6b7280; }
+.canteen-search__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  background: rgba(107, 114, 128, 0.14);
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+}
+.canteen-search__clear[hidden] { display: none; }
+.canteen-search__filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #FF6B00;
+  cursor: pointer;
+}
+/* Shop Details: breathing room under the shop status block. */
+.canteen-search--menu { margin: 6px 0 0; }
+
 @media (min-width: 768px) {
   body:has(.portal-root)::before { display: none; }
   .portal-nav { display: none; }
+  .canteen-search--menu { margin-top: 0; }
   /* Canteens desktop: preserve the pre-redesign grid rhythm. */
   .canteen-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 14px;
   }
-  .canteen-search { display: none; }
+  /* The shop-details menu search keeps the same component on desktop. */
+  .canteen-search:not(.canteen-search--menu) { display: none; }
   /* Desktop keeps the pre-redesign text-card look: hide mobile-only media. */
   .canteen-card__media,
   .canteen-card__fav { display: none; }
@@ -2901,44 +2963,6 @@ body.student-portal::before {
     color: #5C4033;
     font-size: 14px;
     line-height: 1.4;
-  }
-  .canteen-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 48px;
-    padding: 0 8px 0 14px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.65);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    color: #6b7280;
-  }
-  .canteen-search input {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    border: none;
-    background: transparent;
-    padding: 0;
-    color: #1A0F08;
-    font-size: 14px;
-    outline: none;
-  }
-  .canteen-search input::placeholder { color: #6b7280; }
-  .canteen-search__filter {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    flex: 0 0 auto;
-    border: none;
-    border-radius: 999px;
-    background: transparent;
-    color: #FF6B00;
-    cursor: pointer;
   }
   .canteen-list { display: grid; gap: 12px; margin-top: 14px; }
   .canteen-card {

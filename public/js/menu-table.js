@@ -1,5 +1,10 @@
 (function() {
-  var searchEl = document.getElementById('import-search');
+  // Vendor/import tables use the in-toolbar #import-search input.
+  // The shop details page has no toolbar: its Canteens-style pill search bar
+  // carries [data-menu-search] and is the one authoritative query input.
+  var searchEl = document.getElementById('import-search') || document.querySelector('[data-menu-search]');
+  var clearEl = document.querySelector('[data-search-clear]');
+  var emptyEl = document.getElementById('menu-empty');
   var filterBtns = document.querySelectorAll('.filter-btn');
   var catFilter = document.getElementById('cat-filter');
 
@@ -31,8 +36,11 @@
       var show = true;
 
       if (q) {
-        var text = row.textContent.toLowerCase();
-        if (text.indexOf(q) === -1) show = false;
+        // Match item name and category (server-rendered lowercase attributes),
+        // not row textContent — that would also match "Available"/"Add to Cart".
+        var haystack = ((row.getAttribute('data-name') || '') + ' ' +
+          (row.getAttribute('data-category') || '')).toLowerCase();
+        if (haystack.indexOf(q) === -1) show = false;
       }
 
       if (show && filter !== 'all') {
@@ -86,12 +94,31 @@
         }
       });
     }
+
+    if (emptyEl) {
+      var visible = 0;
+      rows.forEach(function(row) {
+        if (row.classList.contains('row--deleted')) return;
+        if (!row.classList.contains('is-hidden')) visible++;
+      });
+      emptyEl.hidden = visible > 0;
+    }
+
+    if (clearEl) clearEl.hidden = !searchEl || !searchEl.value;
   };
 
   var applyFilters = window.__menuTable.applyFilters;
 
   if (searchEl) {
     searchEl.addEventListener('input', applyFilters);
+  }
+
+  if (clearEl && searchEl) {
+    clearEl.addEventListener('click', function() {
+      searchEl.value = '';
+      applyFilters();
+      searchEl.focus();
+    });
   }
 
   filterBtns.forEach(function(btn) {

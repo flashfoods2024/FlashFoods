@@ -92,6 +92,7 @@ categories.sort();
   margin-bottom: 10px;
   flex-wrap: wrap;
 }
+/* filter buttons */
 .filter-btn {
   min-height: 30px;
   padding: 4px 10px;
@@ -486,6 +487,39 @@ categories.sort();
   .import-table tbody tr.is-hidden { display: none; }
 }
 
+/* ── student shop menu: chip row + empty state ─────────────── */
+/* The chip row sits in its own row directly below the page search bar;
+   no container wraps the two controls. Specificity beats the generic
+   .import-filters spacing rules above at every breakpoint. */
+.import-filters.import-filters--student {
+  margin-top: 16px;
+  margin-bottom: 22px;
+}
+
+.menu-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 36px 20px;
+  text-align: center;
+  color: #5C4033;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 35%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+.menu-empty[hidden] { display: none; }
+.menu-empty svg { color: #FF6B00; margin-bottom: 4px; }
+.menu-empty__title {
+  margin: 0;
+  color: #1A0F08;
+  font-size: 15px;
+  font-weight: 800;
+}
+.menu-empty__hint { margin: 0; font-size: 13px; }
+
 @media (max-width: 480px) {
   .import-actions { top: 48px; }
 
@@ -518,10 +552,13 @@ categories.sort();
 }
 </style>
 
-<!-- ── STICKY ACTION BAR ── -->
+<!-- ── STICKY ACTION BAR ──
+     Vendor import/review toolbar only. Student mode renders no toolbar: the
+     page-level Canteens-style search bar owns menu search, so the rectangular
+     "Search items..." input is never emitted on the shop details page. -->
+<% if (isVendor) { %>
 <div class="import-actions" id="action-bar">
   <div class="import-actions__left">
-    <% if (isVendor) { %>
     <button class="btn btn--small" type="submit" id="import-btn" style="min-height:36px;font-size:13px;">
       Import <span id="import-count"><%= typeof stats !== 'undefined' ? stats.ready : 0 %></span> Items
     </button>
@@ -532,7 +569,6 @@ categories.sort();
       Discard
     </button>
     <span style="width:1px;height:22px;background:var(--border);margin:0 4px;"></span>
-    <% } %>
   </div>
   <div class="import-actions__right">
     <div class="import-search-wrap">
@@ -540,9 +576,10 @@ categories.sort();
     </div>
   </div>
 </div>
+<% } %>
 
 <!-- ── FILTER TABS ── -->
-<div class="import-filters" id="filter-bar">
+<div class="import-filters<%= isStudent ? ' import-filters--student' : '' %>" id="filter-bar">
   <button type="button" class="filter-btn is-active" data-filter="all">
     All <span class="filter-btn--count"><%= items.length %></span>
   </button>
@@ -730,5 +767,13 @@ categories.sort();
   </tbody>
 </table>
 </div>
+
+<% if (isStudent) { %>
+<div class="menu-empty" id="menu-empty" hidden>
+  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+  <p class="menu-empty__title">No items found</p>
+  <p class="menu-empty__hint muted">Try another item name or a different filter.</p>
+</div>
+<% } %>
 
 <script src="/js/menu-table.js"></script>
