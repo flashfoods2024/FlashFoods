@@ -106,6 +106,11 @@
     <p class="cart-total portal-ink"><strong>Parcel Charge:</strong> &#8377;<%= Number(order.parcelCharge).toFixed(2) %></p>
   <% } %>
   <p class="cart-total portal-ink"><strong>Total:</strong> &#8377;<%= (order.updatedTotal || order.total).toFixed(2) %></p>
+  <% if (typeof customInvoice !== "undefined" && customInvoice) { %>
+    <p style="margin-top:12px;">
+      <a class="btn btn--small" href="/orders/<%= order._id %>/invoice" style="min-height:44px;display:inline-flex;align-items:center;">Download invoice (PDF)</a>
+    </p>
+  <% } %>
 </div>
 
 <%- include("../partials/student-bottomnav") %>

@@ -22,3 +22,8 @@ Thumbs.db
 
 graphify-out/
 ui_redesign/
+
+# Private billing documents (Never serve these from public/)
+storage/
+
+test-results/

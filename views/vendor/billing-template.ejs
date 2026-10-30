@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= pageTitle %> - Flash Foods</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#ff7a00" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="stylesheet" href="/styles.css?v=<%= typeof assetVersion !== "undefined" ? assetVersion : "dev" %>" />
+    <style>
+      .billing-wrap { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+      .billing-canvas-col { flex: 1 1 520px; min-width: 280px; }
+      .billing-side { flex: 1 1 320px; min-width: 260px; }
+      .billing-canvas-stack { position: relative; width: 100%; background: #fff; border: 1px solid var(--border, #e5d5c8); border-radius: 8px; overflow: hidden; }
+      .billing-canvas-stack canvas { display: block; width: 100%; height: auto; }
+      .billing-canvas-stack canvas.billing-overlay { position: absolute; inset: 0; pointer-events: none; }
+      .billing-field-list { list-style: none; padding: 0; margin: 0; }
+      .billing-field-list li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--border, #e5d5c8); font-size: 13px; }
+      .billing-field-list li.is-selected { background: #fff5e6; }
+      .billing-field-list li.is-error { background: #fdeaea; }
+      .billing-field-button { flex: 1 1 auto; min-width: 0; background: none; border: 0; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+      .billing-field-button:hover, .billing-field-button:focus-visible { text-decoration: underline; }
+      .billing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .billing-grid label { min-width: 0; }
+      .billing-status { padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 14px; }
+      .billing-status--ok { background: #e8f7ee; color: #17703a; }
+      .billing-status--warn { background: #fff5e6; color: #8a5200; }
+      .billing-status--err { background: #fdeaea; color: #8c1d1d; }
+      .billing-mode { font-size: 13px; color: #6b7280; }
+      .billing-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+      @media (max-width: 720px) { .billing-grid { grid-template-columns: minmax(0, 1fr); } }
+    </style>
+  </head>
+  <body>
+    <div class="page-content">
+      <header class="topbar">
+        <div class="container topbar__inner">
+          <div class="topbar__brand-row">
+            <a class="brand" href="/vendor/menu">Flash Foods</a>
+            <a class="btn btn--ghost" href="/vendor/menu">Back to Manage Menu</a>
+          </div>
+        </div>
+      </header>
+
+      <main class="container">
+        <% if (flash?.success?.length) { %><div class="flash flash--success"><%= flash.success[0] %></div><% } %>
+        <% if (flash?.error?.length) { %><div class="flash flash--error"><%= flash.error[0] %></div><% } %>
+
+        <section class="hero hero--compact">
+          <h1>Billing Template</h1>
+          <p class="muted">Upload your own invoice PDF. FlashFoods keeps your design unchanged and prints the order details on top of it. Use a clean master PDF with empty customer, item and total areas.</p>
+        </section>
+
+        <div class="card">
+          <div class="row row--split">
+            <div>
+              <h2 class="h2" style="margin:0;"><%= shop.name %></h2>
+              <p class="muted small" style="margin:4px 0 0;">
+                <% if (config.mappingFrozen) { %>
+                  Active template v<%= config.version %>. Field positions are frozen; upload a replacement to change them.
+                <% } else if (!config.versionId) { %>
+                  No template uploaded yet. Students see the default order bill.
+                <% } else { %>
+                  Draft v<%= config.version %> — configure every required field, generate a sample, then activate.
+                <% } %>
+              </p>
+            </div>
+            <div class="billing-actions">
+              <% if (config.versionId && !config.mappingFrozen) { %>
+                <button class="btn" type="button" id="billing-activate">Activate template</button>
+              <% } %>
+              <% if (config.versionId) { %>
+                <form method="post" action="/vendor/menu/billing-template/remove" onsubmit="return confirm('Remove the billing template? Students will see the default order bill and already-issued invoices stay available.');">
+                  <button class="btn btn--ghost" type="submit">Remove template</button>
+                </form>
+              <% } %>
+            </div>
+          </div>
+
+          <form method="post" action="/vendor/menu/billing-template/upload" enctype="multipart/form-data" class="form" style="margin-top:14px;">
+            <label>
+              <span>Invoice PDF (max 10 MB)</span>
+              <input type="file" name="template" accept="application/pdf,.pdf" required />
+            </label>
+            <p class="muted small" style="margin:4px 0 0;">The PDF must have empty customer, item, quantity, price and total areas. We do not erase pre-printed values.</p>
+            <div class="row" style="justify-content:flex-end;">
+              <button class="btn" type="submit">Upload PDF</button>
+            </div>
+          </form>
+        </div>
+
+        <% if (config.versionId) { %>
+        <div class="billing-wrap" style="margin-top:16px;">
+          <div class="card billing-canvas-col">
+            <h2 class="h2" style="margin-top:0;">Your invoice PDF</h2>
+            <p class="muted small">Click a field below, then click the PDF where its text baseline should sit. Positions are saved in PDF coordinates.</p>
+            <div class="billing-canvas-stack" id="billing-canvas-stack">
+              <canvas id="billing-canvas"></canvas>
+              <canvas id="billing-overlay" class="billing-overlay"></canvas>
+            </div>
+            <p class="billing-mode" id="billing-mode">No placement mode selected.</p>
+          </div>
+
+          <div class="card billing-side">
+            <h2 class="h2" style="margin-top:0;">Field positions</h2>
+            <div class="form">
+              <label>
+                <span>Field to place</span>
+                <select id="billing-field-select">
+                  <option value="">— choose a field —</option>
+                  <option value="invoiceNumber">Invoice number (required)</option>
+                  <option value="invoiceDate">Invoice date (required)</option>
+                  <option value="customerName">Customer name (required)</option>
+                  <option value="customerPhone">Customer phone</option>
+                  <option value="customerEmail">Customer email</option>
+                  <option value="orderRef">Order reference</option>
+                  <option value="orderType">Order type</option>
+                  <option value="pickupTime">Pickup time</option>
+                  <option value="subtotal">Subtotal (required)</option>
+                  <option value="discount">Discount</option>
+                  <option value="parcelCharge">Parcel charge</option>
+                  <option value="cgst">CGST</option>
+                  <option value="sgst">SGST</option>
+                  <option value="total">Final total (required)</option>
+                  <option value="amountInWords">Amount in words (required)</option>
+                  <option value="paymentReference">Payment reference</option>
+                  <option value="sellerNote">Seller note</option>
+                  <option value="termsText">Terms</option>
+                  <option value="sampleWatermark">Sample watermark</option>
+                </select>
+              </label>
+              <div class="billing-grid">
+                <label><span>Alignment</span>
+                  <select id="billing-align"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>
+                </label>
+                <label><span>Font size (pt)</span><input id="billing-fontsize" type="number" min="6" max="24" step="0.5" value="10" /></label>
+                <label><span>Max width (pt)</span><input id="billing-maxwidth" type="number" min="10" step="1" value="180" /></label>
+                <label><span>Max lines</span><input id="billing-maxlines" type="number" min="1" max="5" step="1" value="1" /></label>
+              </div>
+
+              <div class="billing-actions">
+                <button class="btn btn--small" type="button" id="billing-mode-field">Place selected field</button>
+                <button class="btn btn--small btn--ghost" type="button" id="billing-defaults">Use default positions</button>
+              </div>
+
+              <h3 class="h2" style="font-size:16px;">Placed fields</h3>
+              <p class="muted small" style="margin:0 0 6px;">Click a placed field to edit its size and wrapping. Without a selection, the values above apply to the next placement.</p>
+              <ul class="billing-field-list" id="billing-field-list"></ul>
+
+              <h3 class="h2" style="font-size:16px;">Item table</h3>
+              <div class="billing-grid">
+                <label><span>Row height (pt)</span><input id="billing-rowheight" type="number" min="8" max="60" step="1" value="22" /></label>
+                <label><span>Rows on page 1</span><input id="billing-maxrows" type="number" min="1" max="40" step="1" value="10" /></label>
+              </div>
+              <p class="muted small" style="margin:4px 0 0;">Row height must hold the wrapped item text: 22 pt fits two 9 pt lines, 16 pt fits one.</p>
+              <div class="billing-actions">
+                <button class="btn btn--small" type="button" id="billing-mode-table">Place table origin (top-left)</button>
+              </div>
+              <p class="muted small" id="billing-table-info">No item table placed.</p>
+
+              <h3 class="h2" style="font-size:16px;">Activation</h3>
+              <div class="billing-actions">
+                <button class="btn btn--small" type="button" id="billing-save">Save positions</button>
+                <button class="btn btn--small" type="button" id="billing-preview">Save + sample invoice</button>
+              </div>
+              <p class="billing-status" id="billing-feedback" hidden></p>
+            </div>
+          </div>
+        </div>
+
+        <script type="application/json" id="billing-config"><%- JSON.stringify(config).replace(/</g, "\\u003c") %></script>
+        <script type="module" src="/js/billing-template-editor.js?v=<%= typeof assetVersion !== "undefined" ? assetVersion : "dev" %>"></script>
+        <% } else { %>
+        <p class="muted" style="margin-top:16px;">Upload a PDF to configure invoice fields.</p>
+        <% } %>
+      </main>
+    </div>
+  </body>
+</html>

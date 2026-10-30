@@ -73,6 +73,104 @@ When uncertain whether a test is safe: STOP, mark UNCERTAIN, and report.
 
 ## Feature Test Requirements
 
+## F09 Native-Feel Student Navigation (planned)
+
+F09 is not implemented or verified by this documentation update. When a future
+session executes it, use the existing safe-test rules above and the phase gates
+in `.ai/roadmap.md`.
+
+### Phase test contract
+
+**Phase 1 — Baseline and focused proof**
+
+- Use an isolated/local browser harness; do not use the default Playwright
+  global setup while it points at `MONGO_URI` from `.env`.
+- Capture Home → Browse, Browse → Home, Home → Orders, Orders → Cart,
+  Cart → Orders, and Browse → Orders.
+- Record request/response, server/render, DOM/script initialization, Liquid
+  Glass, paint, and animation timing separately where the browser exposes them.
+- Assert current behavior honestly: ordinary navigation is still the baseline;
+  the footer skeleton is feedback, not a router.
+
+**Phase 2 — Persistent shell proof**
+
+- Use a minimal isolated browser prototype, not a broad page migration.
+- Assert one navbar and one Liquid Glass renderer/canvas across a supported
+  content swap, stable navbar geometry, direct full-page rendering, and no
+  console errors.
+- Verify the existing pending-state blinking fix, orange active indicator,
+  entrance animation, card staggering, and desktop-frozen rules are preserved.
+
+**Phase 3 — Controlled navigation**
+
+- Cover each required route sequence plus Back/Forward, rapid clicks, aborted
+  requests, stale responses, a failed/500/offline response, and an expired
+  session redirect.
+- Assert URL, title, active tab, `aria-current`, content, scroll behavior,
+  navbar DOM identity, one renderer, no blank state, and normal fallback.
+- Assert that POST/PUT/PATCH/DELETE forms, payment flows, cart mutations,
+  logout, external links, downloads, and unsupported routes are not intercepted.
+
+**Phase 4 — Page initialization and cleanup**
+
+- Swap supported content repeatedly and verify Browse search/favourites, Cart
+  variant/quantity/order-type/payment launch, Home notification interaction,
+  and any included order polling.
+- Assert no duplicate event handlers, intervals, observers, SDK setup, or stale
+  requests after repeated swaps. Polling must stop on content replacement;
+  `beforeunload` alone is not sufficient.
+
+**Phase 5 — Response optimization**
+
+- Only test fragment negotiation if Phase 1 measurements justify it.
+- Compare full and fragment responses for authorization, redirects, session
+  cart, flash/error state, title, active tab, cart badge, totals, empty states,
+  and visible data.
+- Verify personalized fragments have safe cache behavior and reuse the same
+  server-side business logic.
+
+**Phase 6 — Transition polish**
+
+- Measure before/after behavior at the mobile reference viewport and the
+  desktop boundary.
+- Verify subtle content-only motion, immediate active feedback, no navbar
+  opacity/position animation, no blank frames, and reduced-motion behavior.
+- Do not use arbitrary timeouts or animation durations to hide request,
+  rendering, or initialization latency.
+
+### F09 browser matrix
+
+Required sequences:
+
+1. Home → Browse
+2. Browse → Home
+3. Home → Orders
+4. Orders → Cart
+5. Cart → Orders
+6. Browse → Orders
+7. Back and Forward across supported destinations
+
+Required browser conditions: 393×852, the existing Pixel 5 profile where safe,
+390×844 or equivalent mobile viewport, 767/768 px boundary, desktop ≥768 px,
+reduced motion, slow response, rapid clicks, cancellation, offline/error, and
+session expiry. Browser checks are required for DOM identity, renderer count,
+visual continuity, history/scroll, and post-swap behavior; unit/integration
+checks cannot substitute for them.
+
+### F09 safety gate
+
+No F09 browser run may connect to production MongoDB, mutate production data,
+call live payment gateways, send real FCM notifications, upload to Cloudinary,
+or use destructive seed hooks. If isolation cannot be demonstrated, stop and
+report the environment blocker rather than running the test.
+
+### F09 evidence rule
+
+For every phase, record the exact command, isolated environment, route/viewport
+scope, passed/failed/skipped checks, timing observations, console errors,
+regressions, fixes, and rerun result in `.ai/STATUS.md`. Documentation or source
+inspection alone cannot mark a browser or performance check PASS.
+
 F01 Student Profile
 - authenticated access, correct data, approved-only edits, unauthorized blocked,
   prior profile behaviour preserved.

@@ -105,6 +105,39 @@
 </div>
 <% } %>
 
+<% if (locals.billingTemplateAction) { %>
+<% var billing = locals.billingTemplate || { state: "none", issuedCount: 0 }; %>
+<div class="card" id="billing-template-card">
+  <h2 class="h2" style="margin-top:0;">Billing Template</h2>
+  <p class="muted small" style="margin-top:0;">Upload your own invoice PDF. FlashFoods keeps your design unchanged and prints the order details on top of it. Use a clean master PDF with empty customer, item and total areas.</p>
+  <p class="muted small">
+    <strong>Status:</strong>
+    <% if (billing.state === "active") { %>
+      <span class="tag tag--ok">Active v<%= billing.activeVersion %></span> · <%= billing.issuedCount %> invoice(s) issued
+    <% } else if (billing.state === "configured") { %>
+      <span class="tag tag--warn">Configured — sample + activation pending</span>
+    <% } else if (billing.state === "uploaded") { %>
+      <span class="tag tag--warn">Uploaded — configure fields</span>
+    <% } else { %>
+      <span class="tag tag--muted">Not configured — students see the default order bill</span>
+    <% } %>
+  </p>
+  <form method="post" action="<%= billingTemplateAction %>" enctype="multipart/form-data" class="form">
+    <label>
+      <span>Invoice PDF (max 10 MB)</span>
+      <input type="file" name="template" accept="application/pdf,.pdf" required />
+    </label>
+    <p class="muted small" style="margin:4px 0 0;">Pre-printed sample values stay visible — upload a clean master PDF.</p>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="btn" type="submit">Upload PDF</button>
+    </div>
+  </form>
+  <% if (billing.state !== "none") { %>
+    <p style="margin:10px 0 0;"><a class="btn btn--small" href="/vendor/menu/billing-template">Open template settings</a></p>
+  <% } %>
+</div>
+<% } %>
+
 <% if (locals.operatingHoursAction) { %>
 <div class="card">
   <h2 class="h2" style="margin-top:0;">Operating Hours</h2>

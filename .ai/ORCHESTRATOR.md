@@ -27,13 +27,18 @@ validation, or "next step" (no `execute F07.1`, no "tell me to continue").
 
 On trigger, load in this order before touching code:
 
-1. The feature execution graph (per-feature file defining WHAT and its internal phases).
+1. The active feature contract. For F09 this is the locked F09 section in
+   `goal.md` plus the phase graph in `roadmap.md`; use a separate execution
+   graph only when one actually exists.
 2. `rules.md` — mandatory engineering constraints.
-3. `BUSINESS_RULES.md` — product invariants (plus the feature's locked contract, which overrides history).
-4. `ARCHITECTURE.md`, `DEPENDENCY_GRAPH.md`, `COMMON_PATTERNS.md` — HOW the codebase works.
+3. `BUSINESS_RULES.md` — product invariants (plus the feature's locked
+   contract, which overrides history).
+4. `ARCHITECTURE.md`, `DEPENDENCY_GRAPH.md`, `COMMON_PATTERNS.md` — HOW the
+   codebase works.
 5. `STATUS.md` — current execution state (what is already complete).
 6. `test.md` — quality gates that will judge the work.
-7. `bug_fix.md`, `git.md`, `permissions.md` — failure loop, commit gates, authority limits.
+7. `bug_fix.md`, `git.md`, `permissions.md` — failure loop, commit gates,
+   authority limits.
 
 ## 3. Execution loop
 
@@ -44,9 +49,9 @@ READ FEATURE CONTRACT + RULES + STATE (see §2)
   ↓
 RESOLVE DEPENDENCY GRAPH → eligible phases / work units
   ↓
-SELECT current eligible phase (lowest unmet dependency first)
+SELECT the single current eligible phase (lowest unmet dependency first)
   ↓
-SELECT eligible internal work within the phase
+SELECT eligible internal work within that phase only
   ↓
 INSPECT actual code (re-verify; never trust a stale report)
   ↓
@@ -62,30 +67,37 @@ RECORD result in STATUS.md (phase state, evidence, not claims)
   ↓
 RECALCULATE graph eligibility
   ↓
-CONTINUE AUTOMATICALLY (§4) until FEATURE COMPLETE, GENUINELY BLOCKED,
-or HUMAN DECISION REQUIRED (§7)
+ADVANCE only after the current phase is fully verified (§4), or stop as
+  FEATURE COMPLETE, GENUINELY BLOCKED, or HUMAN DECISION REQUIRED (§7)
 ```
 
-This loop is per-feature and reusable: every future feature gets an
-execution graph with the same shape (phases → work units → dependencies →
-gates) and runs under this same loop.
+This loop is per-feature and reusable: every future feature gets an execution
+graph with the same shape (phases → work units → dependencies → gates) and runs
+under this same loop. F09 uses the locked contract in `goal.md` and the
+phase-level graph in `roadmap.md`; no additional feature file is implied by
+this documentation update.
 
-## 4. Automatic phase transitions (no artificial stops)
+## 4. Verified phase transitions
 
-After each work unit, ask in order:
+After each work unit in the current phase, ask in order:
 
 1. "Is the CURRENT PHASE complete?" — complete means ALL of: implementation
    done AND required tests pass AND acceptance criteria pass AND validation
-   passes (see §26-style gating in the feature graph). Code existing is NOT
-   enough.
-2. "Is the NEXT PHASE now eligible?" — all its dependencies complete.
-3. "Is the FEATURE complete?" — every required phase complete, final gate
-   passes, status updated.
+   passes. Code or documentation existing is NOT enough.
+2. If incomplete, remain in the current phase and repair or finish it. Do not
+   begin work belonging to a dependent phase.
+3. If complete, record the phase evidence in `STATUS.md`, then ask whether the
+   NEXT PHASE is eligible because every dependency is complete.
+4. If all required phases are complete, run the final feature gate and mark the
+   FEATURE complete.
 
-If the answers permit continuation, continue IMMEDIATELY. Do NOT stop
-because: one task finished, one phase finished, one file changed, one
-test suite passed, a commit was created, or a report was generated.
-A commit is a checkpoint (`git.md`), never a stopping point.
+The orchestrator may select the next eligible phase automatically after the
+current phase has passed and its status is recorded; a human does not need to
+issue a second ordinary trigger. It must not combine phases, skip a phase gate,
+or continue after a critical regression, blank state, security/payment/order
+regression, stale-handler leak, or disproved architectural assumption. In
+those cases mark the phase BLOCKED or return to the same phase through
+`bug_fix.md`.
 
 ## 5. Dependency-driven eligibility
 
@@ -115,6 +127,10 @@ eligible is the only legitimate idle state (see §6).
 - Never mark failed work complete. Never lower acceptance criteria.
 - Commit gates per `git.md`: commit only after a phase/feature genuinely
   passes; a commit never ends the loop (§4).
+- For F09, a navbar identity change, duplicate Liquid Glass renderer, broken
+  direct navigation, unsafe mutation interception, blank destination, or
+  leaked page listener/timer is a critical regression. Stop the F09 path until
+  it is fixed and the affected phase checks pass again.
 
 ## 7. Human intervention (genuine decisions only)
 
@@ -136,6 +152,9 @@ or phase. "Which phase next?" is always answered by §5, never by the user.
   per-phase state (`PENDING / IN_PROGRESS / COMPLETE / BLOCKED`), evidence
   (commands run, results), commit hashes. Update it at every phase
   transition. Never claim an unexecuted test passed (`rules.md` §13).
+- For F09, record the distinction between the completed pre-existing navbar
+  blinking fix, the planned persistent-shell target, and actual phase evidence.
+  Documentation preparation alone leaves every implementation phase `PENDING`.
 - `HISTORY.md` is the consolidated historical record — read-only history,
   never active commands.
 
@@ -157,7 +176,16 @@ generic suggestions never override feature requirements. If the codebase
 contradicts documentation, follow `rules.md` §1: identify the conflict and
 resolve toward the current goal — do not silently pick a side.
 
-## 10. Obsolete-workflow protection
+## 10. F09 starting state
+
+`Execute F09.` starts with **Phase 1 — Baseline and focused proof** in
+`roadmap.md`. The current source still performs ordinary full-document
+navigation; the footer skeleton listener is progressive enhancement only. The
+completed navbar blinking fix is protected behavior, not evidence that the
+persistent shell has been built. No F09 phase may be marked complete from this
+documentation update alone.
+
+## 11. Obsolete-workflow protection
 
 Old documents describe workflows the active contract has superseded
 (OTP-only pickup, vendor confirm buttons, intermediate pickup states,

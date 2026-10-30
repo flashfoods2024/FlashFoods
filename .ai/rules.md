@@ -207,10 +207,13 @@ Execution runs under `.ai/ORCHESTRATOR.md`. The human trigger is one line
 (`Execute <FEATURE-ID>.`); after that the orchestrator owns phase
 selection, work selection, testing, validation, failure recovery, and
 advancement. Internal phases are orchestrator states, never user commands.
-Do not stop at task, phase, file-change, test-pass, commit, or report
-boundaries — stop only at FEATURE COMPLETE, GENUINELY BLOCKED, or HUMAN
-DECISION REQUIRED as defined in `.ai/ORCHESTRATOR.md` §§4–7. Never ask the
-human to choose the next ordinary coding task.
+Work one phase at a time: do not begin a dependent phase before the current
+phase is implemented and verified. After a phase passes, the orchestrator may
+advance automatically; after a critical regression it must remain in or block
+the current phase until the failure is resolved. Stop the feature only at
+FEATURE COMPLETE, GENUINELY BLOCKED, or HUMAN DECISION REQUIRED as defined in
+`.ai/ORCHESTRATOR.md` §§4–7. Never ask the human to choose the next ordinary
+coding task.
 
 ## 17. Student Portal UI Standardization (F08+)
 
@@ -230,3 +233,80 @@ All UI changes to the FlashFoods student portal fall under this rule:
   student portal UI work.
 - No student screen may deviate from the standard without an explicit,
   documented exception.
+
+## 18. F09 Native Navigation Safeguards
+
+F09 is a planned persistent-shell enhancement, not a license to replace the
+existing architecture or to treat the completed navbar blinking fix as
+unfinished.
+
+### Protected behavior
+
+- Preserve Express/EJS server rendering, session authentication,
+  authorization, server-side cart/order/payment calculations, CSRF protection,
+  flash/redirect behavior, and direct URLs.
+- Preserve the current `student-glass.js` pending-state handling, Liquid Glass
+  lifecycle, `.portal-nav` transition isolation, orange active indicator,
+  entrance animation, and card staggering unless a measured defect requires a
+  narrowly scoped change.
+- Preserve payment gateway launch/verification, cart mutations, order polling,
+  notifications, Socket.IO, service-worker behavior, vendor workflows, admin
+  workflows, and database/business rules.
+- Keep normal full-document navigation as a working fallback for unsupported
+  routes, failed soft navigation, refreshes, authentication redirects, and
+  direct visits.
+
+### Safe navigation boundary
+
+An F09 controller may intercept only explicitly supported, same-origin,
+left-click, GET links for `/`, `/shops`, `/orders`, and `/cart`. It must leave
+ordinary navigation in control for modified/new-tab clicks, downloads,
+external links, query/hash cases outside the contract, shop/order detail,
+Profile, auth, vendor/admin, and every state-changing action.
+
+Never intercept or convert payment, checkout, cart, profile, logout, or other
+POST/PUT/PATCH/DELETE operations into navigation requests. Do not duplicate
+CSRF or authorization logic in the browser.
+
+### Shell and lifecycle invariants
+
+- Keep one student navbar and one Liquid Glass renderer/canvas through supported
+  soft navigation.
+- Replace only a validated student content boundary; never inject an unexpected
+  login/error/full-document response into that region.
+- Synchronize URL, title, active tab, `aria-current`, scroll, and Back/Forward
+  state. Update active feedback promptly, but roll it back on failure.
+- Abort or supersede stale requests. A slower response must never overwrite a
+  newer navigation.
+- Use explicit page initializers and cleanup. Clear intervals, event listeners,
+  observers, and external SDK hooks before replacing content; `beforeunload` is
+  insufficient for same-document navigation.
+- Keep the prior content usable until a valid destination is ready, and never
+  leave a blank shell after an error, cancellation, redirect, or offline event.
+
+### Performance and motion policy
+
+- Establish a measurable baseline before changing navigation architecture or
+  animation values.
+- Separate network/response, server rendering, DOM/script initialization,
+  Liquid Glass, browser rendering, and animation timing in evidence.
+- Do not add arbitrary `setTimeout` delays, request waits, or exaggerated
+  animation durations to conceal genuine latency.
+- Treat 160–220 ms content motion, subtle fade/translation, immediate active
+  feedback, no navbar opacity/position motion, and reduced-motion support as
+  post-architecture tuning targets defined in `.ai/UI_STANDARD.md`, not as
+  current implementation claims.
+
+### Phase discipline and evidence
+
+- Execute F09 one phase at a time according to `.ai/roadmap.md`.
+- Before a phase: read the applicable `.ai` instructions and the exact source
+  involved; state scope and risks.
+- After a phase: run its focused checks in a safe environment, record commands
+  and results in `.ai/STATUS.md`, and advance only after all acceptance
+  criteria pass.
+- If a critical regression, security issue, payment/order issue, blank state,
+  stale-handler leak, or disproved assumption appears, stop F09 at that phase;
+  do not silently continue or weaken the criteria.
+- Never claim the persistent shell or a navigation phase is implemented or
+  verified from documentation alone.

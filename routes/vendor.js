@@ -31,8 +31,28 @@ import { validateDiscountSettings } from "../utils/discount.js";
 import { verifyPickupQr } from "../utils/qr-pickup.js";
 import { cancelOrderPaid } from "../utils/order-cancel.js";
 import { adjustOrderPaid } from "../utils/order-adjust.js";
+import { getBillingCardState } from "../utils/invoice/template-service.js";
+import { ensureInvoiceForOrder } from "../utils/invoice/invoice-resolver.js";
 
 export const vendorRouter = express.Router();
+
+/**
+ * Issue the custom invoice after a pickup completes, at most once per order.
+ * Pickup has already succeeded at this point, so nothing here may change the
+ * response, flash message or redirect when issuance is skipped or fails.
+ */
+async function issueInvoiceBestEffort(orderId) {
+  try {
+    const result = await ensureInvoiceForOrder(orderId);
+    if (!result.ok) {
+      console.warn("[billing] invoice not issued:", result.reason);
+    }
+    return result;
+  } catch (err) {
+    console.error("[billing] invoice issuance failed:", err.message);
+    return { ok: false, reason: "exception" };
+  }
+}
 
 // Whether the shop's currently selected gateway has the credentials it needs.
 export function isGatewayConfigured(shop) {
@@ -170,6 +190,13 @@ vendorRouter.get(
     const menuItems = await MenuItem.find({ shop: req.vendorShopId })
       .sort({ name: 1 })
       .lean();
+    let billingTemplate = { state: "none", issuedCount: 0 };
+    try {
+      billingTemplate = await getBillingCardState(req.vendorShopId);
+    } catch (err) {
+      console.error("Billing template state failed:", err.message);
+    }
+
     return res.render("vendor/menu", {
       pageTitle: "Vendor Dashboard",
       shop,
@@ -177,6 +204,8 @@ vendorRouter.get(
       slotSettings: shop.pickupSlots,
       discountSettings: shop.discount,
       menuItems,
+      billingTemplate,
+      billingTemplateAction: "/vendor/menu/billing-template/upload",
     });
   },
 );
@@ -936,6 +965,8 @@ vendorRouter.post(
       collectedAtAfter: order.collectedAt || null,
     });
 
+    await issueInvoiceBestEffort(order._id);
+
     if (req.accepts("json")) {
       return res.json({
         success: true,
@@ -1044,6 +1075,8 @@ vendorRouter.post(
       );
       return res.redirect("/vendor/verify");
     }
+
+    await issueInvoiceBestEffort(order._id);
 
     if (wantsJson) {
       return res.json({

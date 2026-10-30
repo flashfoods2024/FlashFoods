@@ -123,7 +123,7 @@ be reused — never redefined globally.
 |---|---|---|
 | `partials/header.ejs` | `pageTitle`, `currentUser`, `currentPath`, `cartCount`, `assetVersion`, `hidePageBackground?` | Shared all roles. Student avatar + hamburger guard live here; do not fork per screen. |
 | `partials/footer.ejs` | none | Shared; owns nav-toggle handler (null-guarded). |
-| `partials/student-bottomnav.ejs` | **TO CREATE (F08.2):** `currentPath`, `cartCount` | Extract from `home.ejs` lines 134–144; mobile-only via CSS. |
+| `partials/student-bottomnav.ejs` | `currentPath`, `cartCount` | Existing shared student navigation partial; keep one instance outside the future F09 replaceable content boundary and mobile-only via CSS. |
 | Card/pill/button | classes only, no partials | Apply `portal-*` (or legacy home equivalents); no per-screen CSS. |
 
 ---
@@ -154,3 +154,59 @@ DO NOT MODIFY these at any viewport ≥768px:
 **Sole exception (F08-D3):** Student Home desktop keeps its current
 buttons, typography, grid, and hero illustration. All other screens'
 desktop rendering must remain byte-identical to the F08 baseline commit.
+
+---
+
+## Section F — F09 navigation motion and continuity (planned)
+
+F09 is a planned interaction upgrade; these rules do not claim that
+persistent-shell navigation is implemented. The existing navbar-blinking fix is
+complete and protected.
+
+### Continuity invariants
+
+- During supported student navigation between `/`, `/shops`, `/orders`, and
+  `/cart`, keep the shared top header, one `.portal-nav`, its bottom clearance,
+  and the Liquid Glass renderer mounted once the architecture has been proven.
+- Replace only the destination content boundary. Never animate the navbar's
+  opacity or position, create a duplicate navbar, or show a blank shell.
+- Preserve the orange active indicator, current glass material/frost behavior,
+  existing page entrance animation, and card staggering unless measurement
+  proves a focused change is necessary.
+- Direct URLs, refreshes, unsupported routes, auth redirects, mutations, and
+  failures continue through ordinary server-rendered navigation.
+
+### Motion starting targets
+
+These are tuning targets for Phase 6, not reasons to add waiting now:
+
+- Content-only transition: start around 160–220 ms.
+- Motion: subtle opacity change and minimal translation; avoid large movement.
+- Active tab: update immediately after a safe navigation decision, with rollback
+  on failure.
+- Loading: show lightweight feedback only after navigation starts; never delay
+  the request or hold the old page artificially.
+- Reduced motion: remove transition, entrance, and stagger motion while keeping
+  content, focus, and navigation usable.
+
+### Measurement policy
+
+Before tuning motion, distinguish request/response latency, server rendering,
+DOM replacement, page initialization, Liquid Glass work, browser paint, and
+transition duration. A slower route must not be made to appear healthy by
+adding a timeout or extending an animation.
+
+### Lifecycle and interaction policy
+
+Page-specific scripts must be initialized after content insertion and cleaned
+up before replacement. Browse search/filtering, Cart controls/payment launch,
+Home notification interaction, and order polling must remain usable and must
+not accumulate handlers or timers. State-changing forms and payment redirects
+retain their existing server flow and are not converted into visual-only
+navigation.
+
+### Responsive policy
+
+The navigation work remains subject to Section D mobile scoping and Section E's
+desktop-frozen policy. Verify at 393×852 and the 767/768 px boundary. Visual
+continuity on desktop must not be achieved by changing frozen desktop styles.

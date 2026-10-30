@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { MenuItem } from "../models/MenuItem.js";
 import { Shop } from "../models/Shop.js";
 import { Order } from "../models/Order.js";
+import { Invoice } from "../models/Invoice.js";
 import { requireDb } from "../middleware/requireDb.js";
 import { requireAuth, requireStudent } from "../middleware/auth.js";
 import { generateOtp } from "../utils/otp.js";
@@ -35,6 +36,8 @@ import {
   verifyRazorpayCapturedPayment,
   verifyPhonePeCompletedPayment,
 } from "../utils/payment-verification.js";
+import { ensureInvoiceForOrder } from "../utils/invoice/invoice-resolver.js";
+import { getFile } from "../utils/invoice/storage.js";
 export const ordersRouter = express.Router();
 
 // Build a single order item from a cart line, looking up current MenuItem data.
@@ -1013,10 +1016,105 @@ ordersRouter.get(
       }
     }
 
+    // A custom invoice link appears only when the canteen issued one for this
+    // order. The existing default bill above remains the billing view for shops
+    // without an active billing template.
+    const customInvoice = await Invoice.findOne({ order: order._id })
+      .select("_id number")
+      .lean();
+
     return res.render("orders/show", {
       pageTitle: `Order ${String(order._id).slice(-6)}`,
       order,
       pickupQr,
+      customInvoice,
     });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Custom invoice download (billing template feature)
+//
+// Only an issued custom PDF invoice is served here. Shops without an active
+// billing template keep the existing default order bill on /orders/:id; this
+// route then explains that no custom invoice exists instead of inventing one.
+// ---------------------------------------------------------------------------
+const INVOICE_FAILURE_MESSAGES = {
+  not_found: "Order not found.",
+  not_completed: "Your invoice will be available after pickup.",
+  not_collected: "Your invoice will be available after pickup.",
+  payment_not_verified: "No invoice is available for this order.",
+  invalid_payable: "No invoice is available for this order.",
+  no_active_template:
+    "This canteen has not enabled custom invoices. Your order bill is shown on the order page.",
+  missing_mapping: "This canteen's invoice template is incomplete.",
+  template_file_missing:
+    "The invoice could not be generated. Please contact the canteen.",
+  totals_mismatch: "The invoice could not be issued. Please contact the canteen.",
+  no_billable_items: "No invoice is available for this order.",
+  invalid_order_item: "The invoice could not be issued. Please contact the canteen.",
+  invalid_data: "The invoice could not be issued. Please contact the canteen.",
+  render_failed: "The invoice could not be generated. Please try again.",
+  layout_overflow: "The invoice could not be generated. Please contact the canteen.",
+  text_overflow: "The invoice could not be generated. Please contact the canteen.",
+  tax_reconciliation_failed:
+    "The invoice could not be issued. Please contact the canteen.",
+  storage_failed: "The invoice could not be generated. Please try again.",
+  font_asset_missing: "The invoice could not be generated. Please contact support.",
+  duplicate_invoice: "The invoice could not be issued. Please try again.",
+  persist_failed: "The invoice could not be issued. Please try again.",
+};
+
+ordersRouter.get(
+  "/orders/:id/invoice",
+  requireDb,
+  requireAuth,
+  requireStudent,
+  async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      req.flash("error", "Order not found.");
+      return res.redirect("/orders");
+    }
+
+    // Same ownership check as GET /orders/:id (owner-only, no client ids).
+    const order = await Order.findById(id).select("customer").lean();
+    if (!order || String(order.customer) !== String(req.session.userId)) {
+      req.flash("error", "Order not found.");
+      return res.redirect("/orders");
+    }
+
+    const result = await ensureInvoiceForOrder(order._id);
+    if (!result.ok) {
+      req.flash(
+        "error",
+        INVOICE_FAILURE_MESSAGES[result.reason] ||
+          "The invoice is not available yet.",
+      );
+      return res.redirect(`/orders/${order._id}`);
+    }
+
+    const invoice = result.invoice;
+    let bytes;
+    try {
+      bytes = await getFile(invoice.storageKey);
+    } catch {
+      req.flash(
+        "error",
+        "The invoice file could not be read. Please contact the canteen.",
+      );
+      return res.redirect(`/orders/${order._id}`);
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Length", bytes.length);
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="invoice-${String(order._id).slice(-6)}.pdf"`,
+    );
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return res.send(bytes);
   },
 );
