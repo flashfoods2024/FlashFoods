@@ -89,7 +89,10 @@ test("builds data from persisted order facts and excludes removed items", () => 
   assert.equal(data.totals.discountPaise, 2750);
   assert.equal(data.totals.payablePaise, 24750);
   assert.equal(data.totals.payableText, "\u20B9247.50");
-  assert.equal(data.totals.amountInWords, "Two Hundred Forty Seven Rupees and Fifty Paise Only");
+  // Default suffix style omits the trailing "Only" so a template that already
+  // prints it cannot end up with a doubled suffix.
+  assert.equal(data.totals.amountInWords, "Two Hundred Forty Seven Rupees and Fifty Paise");
+  assert.equal(data.totals.amountWordsStyle, "noOnly");
   assert.equal(data.customer.name, "Aarav");
   assert.equal(data.payment.verificationSource, "razorpay");
 });
@@ -127,7 +130,7 @@ test("rejects an order item with invalid price or quantity", () => {
   );
 });
 
-test("parcel charge is only billed for parcel orders", () => {
+test("the persisted parcel charge is billed and reconciles", () => {
   const parcel = buildInvoiceData({
     order: orderFixture({
       orderType: "parcel",
@@ -143,6 +146,19 @@ test("parcel charge is only billed for parcel orders", () => {
   assert.equal(parcel.totals.parcelChargePaise, 2000);
   assert.equal(parcel.totals.payablePaise, 26750);
   assert.equal(parcel.shop.orderTypeLabel, "Parcel");
+
+  // An adjusted order can carry a persisted charge on any order type. It is
+  // authoritative order data, so it is billed rather than silently dropped.
+  const dinein = buildInvoiceData({
+    order: orderFixture({ parcelCharge: 20, total: 267.5 }),
+    shop,
+    customer,
+    mapping: mapping(),
+    invoiceNumber: "INV-x-000005",
+  });
+  assert.equal(dinein.totals.parcelChargePaise, 2000);
+  assert.equal(dinein.totals.payablePaise, 26750);
+  assert.equal(dinein.shop.orderTypeLabel, "Dine In");
 });
 
 test("inclusive tax breakdown reconciles exactly to the payable total", () => {

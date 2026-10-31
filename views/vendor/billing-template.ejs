@@ -57,8 +57,10 @@
             <div>
               <h2 class="h2" style="margin:0;"><%= shop.name %></h2>
               <p class="muted small" style="margin:4px 0 0;">
-                <% if (config.mappingFrozen) { %>
+                <% if (config.mappingFrozen && config.activeUsable) { %>
                   Active template v<%= config.version %>. Field positions are frozen; upload a replacement to change them.
+                <% } else if (config.mappingFrozen) { %>
+                  Template v<%= config.version %> is marked active but unusable (<%= config.activeIssue %>). No custom invoice will be issued until the stored PDF and mapping are valid.
                 <% } else if (!config.versionId) { %>
                   No template uploaded yet. Students see the default order bill.
                 <% } else { %>
@@ -139,6 +141,16 @@
                 <label><span>Max lines</span><input id="billing-maxlines" type="number" min="1" max="5" step="1" value="1" /></label>
               </div>
 
+              <label id="billing-words-style-wrap" style="display:none;">
+                <span>Amount in words suffix</span>
+                <select id="billing-words-style">
+                  <option value="auto">Detect from the PDF (recommended)</option>
+                  <option value="full">“Two Hundred Rupees Only”</option>
+                  <option value="noOnly">“Two Hundred Rupees”</option>
+                  <option value="wordsOnly">“Two Hundred” — PDF already prints “Rupees only”</option>
+                </select>
+              </label>
+
               <div class="billing-actions">
                 <button class="btn btn--small" type="button" id="billing-mode-field">Place selected field</button>
                 <button class="btn btn--small btn--ghost" type="button" id="billing-defaults">Use default positions</button>
@@ -154,6 +166,11 @@
                 <label><span>Rows on page 1</span><input id="billing-maxrows" type="number" min="1" max="40" step="1" value="10" /></label>
               </div>
               <p class="muted small" style="margin:4px 0 0;">Row height must hold the wrapped item text: 22 pt fits two 9 pt lines, 16 pt fits one.</p>
+              <label style="margin-top:8px;">
+                <span>Line numbers</span>
+                <input id="billing-serial" type="checkbox" checked />
+              </label>
+              <p class="muted small" style="margin:4px 0 0;">Prints 1, 2, 3… in the leftmost item column and continues the count on continuation pages. Turn it off if your PDF already prints its own numbering.</p>
               <div class="billing-actions">
                 <button class="btn btn--small" type="button" id="billing-mode-table">Place table origin (top-left)</button>
               </div>

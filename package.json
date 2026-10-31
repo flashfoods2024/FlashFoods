@@ -18,6 +18,7 @@
     "test:e2e": "playwright test",
     "test:e2e:vendor-profile": "playwright test --config playwright.vendor-profile.config.js",
     "test:e2e:billing": "playwright test --config playwright.billing.config.js",
+    "test:e2e:invoice-view": "playwright test --config playwright.invoice-view.config.js",
     "build:version": "node build-scripts/generate-version.js",
     "vendor:liquidgl": "node build-scripts/vendor-liquidgl.js",
     "vendor:pdfjs": "node build-scripts/vendor-pdfjs.js",

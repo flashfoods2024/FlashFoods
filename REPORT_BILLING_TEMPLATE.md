@@ -433,3 +433,249 @@ scripts/render-fit-samples.mjs          new visual sample renderer
 No payment, pickup, OTP/QR, eligibility, numbering or student-access behaviour
 was modified; no production database, gateway, notification, Cloudinary, deploy
 or Git operation was used.
+
+---
+
+## F13 — Production invoice issuance and retrieval (2026-10-31)
+
+**Status: code-level causes fixed and verified locally. The production root
+cause is NOT yet proven — this environment had no access to the `flashfoods.in`
+database, its storage volume or its logs, and no failing order ID was supplied.**
+Nothing was deployed, and no production record, template or file was touched.
+`scripts/diagnose-production-billing.mjs` is the read-only step that must run
+against production before Phase 4/5 actions are taken.
+
+### The two production errors, and what each one actually means
+
+| Symptom | Emitted by | Meaning |
+|---|---|---|
+| `This canteen has not enabled custom invoices.` | `ensureInvoiceForOrder()` → `no_active_template` | Either no `InvoiceTemplate` for **that** shop in **that** database, a dangling `currentVersionId`, a non-active version, or (previously) a mapping/PDF problem the resolver could not name |
+| `The invoice file could not be read.` | `GET /orders/:id/invoice` → `getFile()` threw | An `Invoice` row exists but its PDF is missing/unreadable **from the storage path this process sees** |
+
+The second error is only reachable when an invoice record already exists, so
+these are genuinely independent failures. The old code could not distinguish
+"no template configured" from "template configured but unusable", and returned
+existing invoices without checking that their PDFs still existed.
+
+### Fixes (all local, all additive)
+
+1. **One definition of a usable template.** `resolveActiveTemplate()` in
+   `utils/invoice/invoice-resolver.js` now evaluates every condition explicitly
+   (record → shop match → current version → `status === "active"` → mapping
+   present → mapping validates → original PDF readable → optional SHA-256 match)
+   and returns a named reason. `findActiveVersion()` delegates to it, so the
+   resolver's answer is unchanged for existing callers.
+2. **The vendor UI can no longer promise what the resolver refuses.**
+   `getBillingCardState()` and the billing-template page use the same function;
+   a version that is flagged active but unusable is reported as
+   `unusable — <reason>` instead of `Active vN`.
+3. **Issued invoices are immutable *and* verified.** When an `Invoice` row
+   exists, its stored PDF is now verified (existence → byte size → `%PDF-`
+   signature → SHA-256 against `outputSha256`) before it is served. On failure
+   the resolver returns `invoice_file_missing` with the exact sub-code; it never
+   allocates a new number, never re-renders, never re-templates. On success the
+   verified bytes are returned directly, so a download reads the file once.
+4. **View vs Download.** `GET /orders/:id/invoice` serves `inline` by default
+   and `attachment` for `?download=1`, both from the identical bytes. The order
+   page shows a "Your Invoice" card with `View Invoice` and `Download PDF`.
+5. **Diagnosable failures.** Broad `catch {}` blocks were replaced with a
+   structured, PII-free `[billing] invoice delivery failed` record (correlation
+   ID, order ID, invoice ID, reason, storage error code, size/signature/checksum
+   flags) plus an `X-Correlation-Id` response header. Student-facing messages
+   stay short and safe.
+6. **Explicit environment configuration.** `config/db.js` reports which URI
+   variable was selected and warns when both are set and differ; in production it
+   refuses to fall back to a localhost database. `server.js` warns when
+   `BILLING_STORAGE_DIR` is unset, because a relative `./storage` path is
+   ephemeral on hosted platforms and not shared between instances.
+
+### Evidence (measured on this machine)
+
+| Evidence | Before | After (local) |
+|---|---|---|
+| Local DB fingerprint | n/a | `13b22c2d089393e4` (disposable in-memory DB) |
+| Production DB fingerprint | not measured | **requires a production run** |
+| InvoiceTemplate lookup | null on any resolver miss | 9/9 checks PASS on the seeded fixture |
+| Active version lookup | `null` (all causes collapsed) | `USABLE`; named reasons when not |
+| Original template exists | not checked | PASS |
+| Invoice database record | returned without verification | 1 record, number unchanged |
+| Generated PDF exists | not checked | PASS (303,977 bytes) |
+| Storage backend | implicit `./storage` | `BILLING_STORAGE_DIR`, explicit + health-checked |
+| PDF checksum | not compared | record SHA-256 matches file |
+| Student view route | inline only | 200 `application/pdf` `inline` |
+| Student download route | same as view | 200, identical bytes, `attachment` |
+| Deleted-PDF case | generic "could not be read" | `invoice_file_missing` / `CAUSE B`, exit 2 |
+| Card vs resolver | could disagree | `Card/resolver consistent: YES` |
+
+Commands executed:
+
+```text
+npm test                                 341/341 pass (1 new test)
+npm run test:e2e:billing                 1/1 pass
+npm run test:e2e:invoice-view            3/3 pass (new suite)
+npm run test:e2e:vendor-profile          15/15 pass
+node scripts/diagnose-production-billing.mjs --order <id>   exit 0 (intact)
+                                                           exit 2 (PDF deleted)
+```
+
+### Still required, and blocked on production access
+
+1. Run the diagnostic with the real failing order ID in **both** environments;
+   compare `databaseFingerprint`. Different values prove the template was never
+   configured in the production database.
+2. Identify the deployment platform from its own configuration (the code comment
+   in `server.js` says Render, but the environment must confirm it) and confirm
+   whether `BILLING_STORAGE_DIR` is on persistent storage. A container-local path
+   explains Error B exactly and is not fixable in application code.
+3. If the template is missing in production, upload and activate the clean master
+   PDF through the production vendor portal; never copy a local database row.
+4. No object-storage adapter was added: the platform is not confirmed here, and
+   binding one provider without that confirmation would be a guess. The storage
+   module already exposes `putFile` / `getFile` / `fileExists` / `fileStatus` as
+   the single seam to swap.
+
+### F14 follow-up (2026-10-31)
+
+Invoice-quality audit: duplicated amount-in-words suffix, missing item serial
+numbers, subtotal/total reconciliation and tax presentation. Full detail, root
+causes and before/after samples are in **`REPORT_BILLING_FINAL_AUDIT.md`**.
+
+- `amountInWords()` now has three suffix styles and correct singular/plural, and
+  the style is auto-detected from the template's printed suffix (pdf.js, baseline
+  band only) with a per-template override. The resolved style is stored in the
+  snapshot (`totals.amountWordsStyle`) so data and PDF cannot disagree.
+- Item serial numbers are part of the default table layout and can be toggled
+  without moving other columns; numbering is the invoice's own sequential index
+  and continues across continuation pages.
+- The persisted parcel charge is now honoured on any order type (it was dropped
+  for dine-in orders, blocking issuance with `totals_mismatch`); reconciliation
+  still fails closed and no tax is fabricated.
+- Verification: `npm test` 346/346, billing E2E 1/1, invoice-view E2E 3/3,
+  `scripts/render-audit-samples.mjs` 7 scenarios inspected.
+
+Existing active mappings are frozen and must be replaced to gain numbering or an
+explicit suffix choice; already-issued invoices are immutable and unchanged.
+
+### Files changed in F13
+
+```text
+utils/invoice/invoice-resolver.js   resolveActiveTemplate, template/file integrity checks
+utils/invoice/storage.js           storageConfig, storageStatus, fileStatus, describeStorageError
+utils/invoice/template-service.js   getBillingCardState uses the resolver verdict
+routes/orders.js                   ?download=1, structured failure log, verified bytes
+routes/billing.js                  activeUsable/activeIssue for the vendor badge
+config/db.js                       explicit URI resolution, no silent localhost in production
+server.js                          BILLING_STORAGE_DIR startup warning
+views/orders/show.ejs              Your Invoice card: View Invoice + Download PDF
+views/partials/menu-manager.ejs    "Active but unusable" state
+views/vendor/billing-template.ejs  badge matches the resolver
+tests/unit/invoice-flow.test.js    missing-PDF immutability test
+tests/e2e/view-invoice.spec.js     corrected selectors + real second student
+tests/e2e/billing-template.spec.js View/Download actions
+scripts/qa-billing-server.mjs      second student + invoice-view seed mode
+playwright.invoice-view.config.js  new isolated suite
+scripts/diagnose-production-billing.mjs  new read-only diagnosis
+```
+
+---
+
+## F15 — Billing Template Reset / Cleanup (2026-10-31)
+
+Scope: a destructive **Reset Template** action beside **Upload PDF** in
+`views/partials/menu-manager.ejs`, a shop-scoped
+`POST /vendor/menu/billing-template/reset`, and one reset service that removes
+the editable configuration without ever touching issued invoices.
+
+### Reset dependency map (audited before implementation)
+
+| Artefact | Stored where | Referenced by | Reset behaviour |
+|---|---|---|---|
+| `InvoiceTemplate` document | `invoicetemplates` (unique per `shop`) | vendor dashboard, resolver | pointer cleared + mappings dropped; record deleted when no revision is referenced |
+| Template revision record (`versions[]`) | same document | `Invoice.templateVersionId` (string) | removed when unreferenced; `status:"archived"` when referenced |
+| Original uploaded PDF | `templates/<shop>/<templateId>/v<n>-<sha256>.pdf` | revision record | deleted when unreferenced; **kept** when referenced |
+| Sample / preview PDF | `previews/<shop>/<templateId>/v<n>-<mappingHash>.pdf` | nothing (derived) | always deleted |
+| Generated invoice PDF | `invoices/<shop>/<invoiceId>/<sha256>.pdf` | `Invoice.storageKey` | never touched |
+| `Invoice` document (number, snapshot, totals) | `invoices` | student/vendor download | never touched (immutable model) |
+| `InvoiceCounter` sequence | `invoicecounters` | `allocateInvoiceNumber` | never touched |
+| Order + default order bill (`views/orders/show.ejs`) | `orders` / view | student order page | never touched |
+
+Storage cleanup derives paths from the shop's own template id only
+(`templates/<shopId>/<templateId>`, `previews/<shopId>/<templateId>`). The sweep
+walks inside the resolved directory and refuses any key outside
+`BILLING_STORAGE_DIR`; `invoices/` is never a target.
+
+### Operation order (safe and idempotent)
+
+1. Load the template for `req.vendorShopId` only — no shop id is read from the body.
+2. `Invoice.distinct("templateVersionId", { shop, $in: [all revision ids] })`
+   partitions revisions into archived (referenced) and removable.
+3. One atomic single-document write: `currentVersionId = null`, mapping / hash /
+   preview state cleared, referenced revisions set to `status:"archived"`
+   (original PDF, sha and provenance kept), unreferenced revisions removed.
+4. Sweep the template directory (keeping archived `originalFileKey`s) and then
+   the preview directory.
+5. Delete the now-empty record **last**, and only when cleanup reported no error,
+   so a failed sweep can always be retried by repeating the reset.
+6. A database failure in step 3 returns `reset_failed` before any file is
+   deleted, so the template stays fully usable.
+
+Every step is repeatable: a second reset finds an archived-only or removed state
+and changes nothing.
+
+### Evidence from the E2E run
+
+`[billing] template reset shop=… archived=1 removed=1 preservedFiles=1 deletedFiles=2`
+
+- archived 1 revision: the one referenced by the issued invoice (original PDF kept).
+- removed 1 revision: the unreferenced replacement upload (record + PDF deleted).
+- deleted 2 files: that unreferenced source PDF and the derived sample preview.
+- The historical invoice returned identical bytes (`sha256` unchanged) after reset.
+- Numbering continued (`…000002` in the unit test after a reset).
+
+### Automated test results
+
+| Command | Result |
+|---|---|
+| `npm test` | **361 / 361 pass** (15 new reset tests) |
+| `npm run test:e2e:billing` | **2 / 2 pass** (new confirmation/reset test) |
+| `npm run test:e2e:invoice-view` | **3 / 3 pass** |
+| `npm run test:e2e:vendor-profile` | **15 / 15 pass** |
+
+`tests/unit/invoice-reset.test.js` covers: no template; uploaded-unconfigured;
+configured; active; multiple versions; referenced revisions; mixed referenced /
+unreferenced; historical invoices still verifiable; numbering continuity; other
+shops untouched; orders and invoice records byte-identical; repeated resets;
+cleanup-failure recovery; post-reset re-upload of the archived PDF; directory
+scoping. Mobile layout is asserted at 393×852 and 414×896 in the E2E run.
+
+### Screenshots
+
+- `temp/billing-e2e/reset-ui-card-before.png` — desktop, both actions on one row
+- `temp/billing-e2e/reset-ui-card-after.png` — clean state + success message
+- `temp/billing-e2e/reset-ui-modal.png` — typed `RESET` confirmation
+- `temp/billing-e2e/reset-ui-393x852.png`, `reset-ui-414x896.png` — stacked, no overflow
+
+### Files changed in F15
+
+```text
+models/InvoiceTemplate.js            status "archived" + archivedAt
+utils/invoice/storage.js             templateDir/previewDir, sweepFiles (path-safe, idempotent)
+utils/invoice/template-service.js    visibleVersions, resetTemplate, archived filtering
+routes/billing.js                    POST /vendor/menu/billing-template/reset
+routes/vendor.js                     billingTemplateResetAction local
+views/partials/menu-manager.ejs      Reset Template button, modal, card-only refresh
+tests/unit/invoice-reset.test.js     new — 15 reset tests
+tests/e2e/billing-template.spec.js   reset + mobile coverage, card upload selector
+```
+
+### F15 limitations
+
+- Archived revisions are preserved for audit but are intentionally not exposed
+  through the vendor editor; historical access stays through issued invoice PDFs.
+- Cleanup is filesystem-local (no object-storage adapter exists; `sweepFiles` is
+  the seam to extend, like `putFile`/`getFile`).
+- One pre-existing sub-pixel flake was observed once in the billing suite
+  (`43.9998 >= 44` for the student View Invoice link). It is unrelated to this
+  feature and passed on the next run; it was not weakened or skipped.
+- No deploy, no production data, no `.env` read, and no payment / OTP / QR /
+  authentication change.

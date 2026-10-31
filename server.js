@@ -34,6 +34,7 @@ import {
 import { initSocket } from "./socket/index.js";
 import { fcmRouter } from "./routes/api/fcm.js";
 import "./config/firebase-admin.js";
+import { storageConfig } from "./utils/invoice/storage.js";
 
 dotenv.config();
 console.log(
@@ -359,6 +360,22 @@ try {
     "Fix your MONGODB_URI in .env (preferred) or MONGO_URI, then restart.",
   );
   process.exit(1);
+}
+
+// Billing PDFs are files behind BILLING_STORAGE_DIR. When that variable is not
+// set the process relies on a relative "./storage" path that is ephemeral on
+// most hosted platforms and is not shared between instances, which makes issued
+// invoices unreadable after a restart or on another instance.
+const billingStorage = storageConfig();
+if (!billingStorage.configured) {
+  const message =
+    `BILLING_STORAGE_DIR is not set; billing PDFs are written to ${billingStorage.dir}. ` +
+    "That path must be persistent across deploys and shared by every instance that serves invoices.";
+  if (process.env.NODE_ENV === "production") {
+    console.warn(`[billing] WARNING: ${message}`);
+  } else {
+    console.log(`[billing] ${message}`);
+  }
 }
 
 const server = app.listen(port, "0.0.0.0", () => {

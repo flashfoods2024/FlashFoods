@@ -112,30 +112,146 @@
   <p class="muted small" style="margin-top:0;">Upload your own invoice PDF. FlashFoods keeps your design unchanged and prints the order details on top of it. Use a clean master PDF with empty customer, item and total areas.</p>
   <p class="muted small">
     <strong>Status:</strong>
-    <% if (billing.state === "active") { %>
-      <span class="tag tag--ok">Active v<%= billing.activeVersion %></span> · <%= billing.issuedCount %> invoice(s) issued
-    <% } else if (billing.state === "configured") { %>
-      <span class="tag tag--warn">Configured — sample + activation pending</span>
-    <% } else if (billing.state === "uploaded") { %>
-      <span class="tag tag--warn">Uploaded — configure fields</span>
-    <% } else { %>
-      <span class="tag tag--muted">Not configured — students see the default order bill</span>
-    <% } %>
+    <span data-billing-status>
+      <% if (billing.state === "active") { %>
+        <span class="tag tag--ok">Active v<%= billing.activeVersion %></span> · <%= billing.issuedCount %> invoice(s) issued
+      <% } else if (billing.state === "unusable") { %>
+        <span class="tag tag--warn">Active v<%= billing.activeVersion %> is unusable — <%= billing.issue %></span> · <%= billing.issuedCount %> invoice(s) issued
+      <% } else if (billing.state === "configured") { %>
+        <span class="tag tag--warn">Configured — sample + activation pending</span>
+      <% } else if (billing.state === "uploaded") { %>
+        <span class="tag tag--warn">Uploaded — configure fields</span>
+      <% } else { %>
+        <span class="tag tag--muted">No template uploaded</span>
+      <% } %>
+    </span>
   </p>
-  <form method="post" action="<%= billingTemplateAction %>" enctype="multipart/form-data" class="form">
+  <form id="billing-upload-form" method="post" action="<%= billingTemplateAction %>" enctype="multipart/form-data" class="form">
     <label>
       <span>Invoice PDF (max 10 MB)</span>
       <input type="file" name="template" accept="application/pdf,.pdf" required />
     </label>
     <p class="muted small" style="margin:4px 0 0;">Pre-printed sample values stay visible — upload a clean master PDF.</p>
-    <div class="row" style="justify-content:flex-end;">
-      <button class="btn" type="submit">Upload PDF</button>
-    </div>
   </form>
+  <div class="billing-actions-row">
+    <button class="btn" type="submit" form="billing-upload-form">Upload PDF</button>
+    <% if (billing.state !== "none") { %>
+      <button class="btn btn--danger" type="button" data-billing-reset>Reset Template</button>
+    <% } %>
+  </div>
+  <p class="billing-reset-feedback" data-billing-reset-feedback hidden></p>
   <% if (billing.state !== "none") { %>
-    <p style="margin:10px 0 0;"><a class="btn btn--small" href="/vendor/menu/billing-template">Open template settings</a></p>
+    <p style="margin:10px 0 0;" data-billing-settings><a class="btn btn--small" href="/vendor/menu/billing-template">Open template settings</a></p>
   <% } %>
+
+  <div class="billing-modal" id="billing-reset-modal" hidden>
+    <div class="billing-modal__backdrop" data-billing-reset-cancel></div>
+    <div class="billing-modal__panel" role="dialog" aria-modal="true" aria-labelledby="billing-reset-title">
+      <h3 class="h2" id="billing-reset-title" style="margin-top:0;">Reset Billing Template?</h3>
+      <p class="muted small" style="margin-top:0;">This will remove your current billing template configuration, deactivate the active template and delete obsolete uploaded template PDFs. Previously issued invoices and their historical records will remain safe.</p>
+      <label style="display:block;margin-top:10px;">
+        <span>Type <strong>RESET</strong> to confirm</span>
+        <input type="text" data-billing-reset-input autocomplete="off" autocapitalize="characters" spellcheck="false" />
+      </label>
+      <p class="billing-modal__error" data-billing-reset-error hidden></p>
+      <div class="billing-actions-row">
+        <button class="btn btn--ghost" type="button" data-billing-reset-cancel>Cancel</button>
+        <button class="btn btn--danger" type="button" data-billing-reset-confirm disabled>Yes, Reset Template</button>
+      </div>
+    </div>
+  </div>
 </div>
+<script>
+(function () {
+  var card = document.getElementById("billing-template-card");
+  if (!card) return;
+  var modal = card.querySelector("#billing-reset-modal");
+  var resetBtn = card.querySelector("[data-billing-reset]");
+  if (!modal || !resetBtn) return;
+
+  var RESET_URL = "<%= billingTemplateResetAction %>";
+  var CONFIRM_PHRASE = "RESET";
+  var input = modal.querySelector("[data-billing-reset-input]");
+  var confirmBtn = modal.querySelector("[data-billing-reset-confirm]");
+  var errorEl = modal.querySelector("[data-billing-reset-error]");
+  var statusEl = card.querySelector("[data-billing-status]");
+  var settingsRow = card.querySelector("[data-billing-settings]");
+  var feedbackEl = card.querySelector("[data-billing-reset-feedback]");
+  var busy = false;
+
+  function isConfirmed() {
+    return String(input.value || "").trim().toUpperCase() === CONFIRM_PHRASE;
+  }
+
+  function setBusy(value) {
+    busy = value;
+    input.disabled = value;
+    resetBtn.disabled = value;
+    confirmBtn.disabled = value || !isConfirmed();
+    confirmBtn.textContent = value ? "Resetting\u2026" : "Yes, Reset Template";
+    if (value) confirmBtn.setAttribute("aria-busy", "true");
+    else confirmBtn.removeAttribute("aria-busy");
+  }
+
+  function openModal() {
+    input.value = "";
+    errorEl.textContent = "";
+    errorEl.hidden = true;
+    confirmBtn.disabled = true;
+    modal.hidden = false;
+    input.focus();
+  }
+
+  function closeModal() {
+    if (busy) return;
+    modal.hidden = true;
+  }
+
+  resetBtn.addEventListener("click", openModal);
+  input.addEventListener("input", function () {
+    confirmBtn.disabled = busy || !isConfirmed();
+  });
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" && !confirmBtn.disabled) confirmBtn.click();
+  });
+  card.querySelectorAll("[data-billing-reset-cancel]").forEach(function (el) {
+    el.addEventListener("click", closeModal);
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && !modal.hidden) closeModal();
+  });
+
+  confirmBtn.addEventListener("click", async function () {
+    if (busy || !isConfirmed()) return;
+    errorEl.hidden = true;
+    setBusy(true);
+    try {
+      var res = await fetch(RESET_URL, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      var body = await res.json().catch(function () { return {}; });
+      if (!res.ok || !body.ok) {
+        throw new Error(body && body.error ? body.error : "Could not reset the billing template.");
+      }
+      // Refresh only the billing card; every other Manage Menu setting and the
+      // current scroll position stay exactly as they were.
+      modal.hidden = true;
+      statusEl.innerHTML = '<span class="tag tag--muted">No template uploaded</span>';
+      if (settingsRow) settingsRow.hidden = true;
+      resetBtn.hidden = true;
+      feedbackEl.textContent = "Billing template reset successfully. Upload a new PDF to begin.";
+      feedbackEl.hidden = false;
+      setBusy(false);
+    } catch (err) {
+      errorEl.textContent = err && err.message ? err.message : "Could not reset the billing template.";
+      errorEl.hidden = false;
+      setBusy(false);
+    }
+  });
+})();
+</script>
 <% } %>
 
 <% if (locals.operatingHoursAction) { %>
@@ -330,6 +446,40 @@
 <% } %>
 
 <style>
+#billing-template-card [hidden] { display: none !important; }
+.billing-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.billing-actions-row .btn { min-height: 40px; }
+.billing-reset-feedback { color: #17703a; font-size: 13px; font-weight: 600; margin: 10px 0 0; }
+.billing-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.billing-modal__backdrop { position: absolute; inset: 0; background: rgba(28, 20, 12, 0.55); }
+.billing-modal__panel {
+  position: relative;
+  width: min(460px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--border, #e5d5c8);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  padding: 18px;
+}
+.billing-modal__panel input { width: 100%; margin-top: 6px; }
+.billing-modal__error { color: var(--danger, #ef4444); font-size: 13px; margin: 8px 0 0; }
+
 .vendor-menu-item {
   display: flex;
   gap: 12px;
@@ -396,6 +546,11 @@
   .form .btn { width: 100%; justify-content: center; min-height: 44px; }
   .row--split .tag { font-size: 11px; min-height: 24px; padding: 3px 8px; }
   .card { padding: 14px; }
+}
+
+@media (max-width: 520px) {
+  .billing-actions-row { flex-direction: column; align-items: stretch; }
+  .billing-actions-row .btn { width: 100%; justify-content: center; min-height: 44px; }
 }
 </style>
 

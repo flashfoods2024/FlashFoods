@@ -22,12 +22,23 @@ const templateVersionSchema = new mongoose.Schema(
     previewedAt: { type: Date, default: null },
     status: {
       type: String,
-      enum: ["uploaded", "configured", "previewed", "active", "superseded"],
+      enum: [
+        "uploaded",
+        "configured",
+        "previewed",
+        "active",
+        "superseded",
+        // A vendor reset archives every revision that an issued invoice still
+        // references. Archived revisions keep their original PDF for audit and
+        // are hidden from the active/editable configuration.
+        "archived",
+      ],
       default: "uploaded",
     },
     createdAt: { type: Date, default: Date.now },
     activatedAt: { type: Date, default: null },
     supersededAt: { type: Date, default: null },
+    archivedAt: { type: Date, default: null },
   },
   { _id: true },
 );

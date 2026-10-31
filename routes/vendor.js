@@ -206,6 +206,7 @@ vendorRouter.get(
       menuItems,
       billingTemplate,
       billingTemplateAction: "/vendor/menu/billing-template/upload",
+      billingTemplateResetAction: "/vendor/menu/billing-template/reset",
     });
   },
 );

@@ -224,27 +224,93 @@ function init(config) {
     return Math.max(1, Math.floor((Number(rowHeight) + 0.001) / (Number(fontSize) * 1.2)));
   }
 
+  // Line numbers describe the invoice itself, so the serial column is part of
+  // the default table: the renderer prints the invoice's own sequential item
+  // index (never a database id), and continuation pages continue the count
+  // because the index is global to the invoice.
+  const SERIAL_WIDTH = 24;
+
   function buildColumns(originX, rowHeight) {
     const width = pageSize().width;
     const available = Math.max(180, width - originX - 36);
-    const descW = Math.round(available * 0.46);
-    const qtyW = Math.round(available * 0.12);
-    const rateW = Math.round(available * 0.2);
-    const amountW = available - descW - qtyW - rateW;
+    const serialW = Math.min(SERIAL_WIDTH, Math.round(available * 0.1));
+    const rest = Math.max(150, available - serialW);
+    const descW = Math.round(rest * 0.46);
+    const qtyW = Math.round(rest * 0.12);
+    const rateW = Math.round(rest * 0.2);
+    const amountW = rest - descW - qtyW - rateW;
     const descLines = Math.min(2, rowLineCapacity(rowHeight, 9));
     return [
-      { key: "description", x: originX, width: descW, align: "left", fontSize: 9, maxLines: descLines },
-      { key: "quantity", x: originX + descW, width: qtyW, align: "center", fontSize: 9, maxLines: 1 },
-      { key: "unitRate", x: originX + descW + qtyW, width: rateW, align: "right", fontSize: 9, maxLines: 1 },
+      { key: "serial", x: originX, width: serialW, align: "left", fontSize: 9, maxLines: 1 },
+      { key: "description", x: originX + serialW, width: descW, align: "left", fontSize: 9, maxLines: descLines },
+      { key: "quantity", x: originX + serialW + descW, width: qtyW, align: "center", fontSize: 9, maxLines: 1 },
+      { key: "unitRate", x: originX + serialW + descW + qtyW, width: rateW, align: "right", fontSize: 9, maxLines: 1 },
       {
         key: "lineAmount",
-        x: originX + descW + qtyW + rateW,
+        x: originX + serialW + descW + qtyW + rateW,
         width: amountW,
         align: "right",
         fontSize: 9,
         maxLines: 1,
       },
     ];
+  }
+
+  function syncSerialToggle() {
+    const toggle = document.getElementById("billing-serial");
+    if (!toggle) return;
+    toggle.checked = Boolean(
+      state.mapping?.itemTable?.columns?.some((column) => column.key === "serial"),
+    );
+  }
+
+  /**
+   * Add or remove the serial column on an existing table without moving any
+   * other column: the description box gives up (or reclaims) exactly the width
+   * the number column needs.
+   */
+  function setSerialColumn(enabled) {
+    const table = state.mapping?.itemTable;
+    if (!table || !Array.isArray(table.columns) || !table.columns.length) return;
+    const existing = table.columns.find((column) => column.key === "serial");
+    if (enabled && !existing) {
+      const desc = table.columns.find((column) => column.key === "description");
+      if (!desc) return;
+      const width = Math.min(SERIAL_WIDTH, Math.max(10, Number(desc.width) - 10));
+      table.columns.push({
+        key: "serial",
+        x: desc.x,
+        width,
+        align: "left",
+        fontSize: desc.fontSize,
+        maxLines: 1,
+      });
+      desc.x = desc.x + width;
+      desc.width = Math.max(10, desc.width - width);
+      table.columns.sort((a, b) => a.x - b.x);
+    } else if (!enabled && existing) {
+      table.columns = table.columns.filter((column) => column.key !== "serial");
+      const desc = table.columns.find((column) => column.key === "description");
+      if (desc) desc.width += existing.width;
+    }
+    syncSerialToggle();
+    drawOverlay();
+  }
+
+  /**
+   * The amount-in-words suffix style. "auto" keeps no stored choice, so the
+   * server detects whether the vendor PDF already prints "Rupees only".
+   */
+  function syncWordsStyle(field) {
+    const wrap = document.getElementById("billing-words-style-wrap");
+    const select = document.getElementById("billing-words-style");
+    const isWords = state.selectedField === "amountInWords";
+    if (wrap) wrap.style.display = isWords ? "" : "none";
+    if (select && isWords) select.value = field?.wordsStyle || "auto";
+  }
+
+  function selectedWordsStyle() {
+    return document.getElementById("billing-words-style")?.value || "auto";
   }
 
   function copyTotalsForContinuation(mapping) {
@@ -325,6 +391,7 @@ function init(config) {
     if (select && state.selectedField && select.querySelector(`option[value="${state.selectedField}"]`)) {
       select.value = state.selectedField;
     }
+    syncWordsStyle(field);
   }
 
   function selectField(key) {
@@ -360,6 +427,11 @@ function init(config) {
     field.lineHeight = Math.round(fontSize * 1.25 * 1000) / 1000;
     field.maxWidth = fitWidth(requested, field.x, align, width);
     field.maxLines = maxLines;
+    if (key === "amountInWords") {
+      const wordsStyle = selectedWordsStyle();
+      if (wordsStyle === "auto") delete field.wordsStyle;
+      else field.wordsStyle = wordsStyle;
+    }
     if (state.errorField === key) state.errorField = null;
     renderFieldList();
     drawOverlay();
@@ -408,6 +480,7 @@ function init(config) {
     if (!mapping.continuationTotals) {
       mapping.continuationTotals = copyTotalsForContinuation(mapping);
     }
+    syncSerialToggle();
     const rowHeightInput = document.getElementById("billing-rowheight");
     const maxRowsInput = document.getElementById("billing-maxrows");
     if (rowHeightInput) rowHeightInput.value = mapping.itemTable.rowHeight;
@@ -496,6 +569,10 @@ function init(config) {
         lineHeight: Math.round(fontSize * 1.25 * 1000) / 1000,
         truncate: false,
       };
+      if (key === "amountInWords") {
+        const wordsStyle = selectedWordsStyle();
+        if (wordsStyle !== "auto") mapping.fields[key].wordsStyle = wordsStyle;
+      }
       state.selectedField = key;
       state.errorField = null;
       syncControls(mapping.fields[key]);
@@ -524,6 +601,7 @@ function init(config) {
       if (state.page !== (mapping.page || 0)) mapping.page = state.page;
       state.mode = null;
       modeEl.textContent = "No placement mode selected.";
+      syncSerialToggle();
       renderFieldList();
       drawOverlay();
       setFeedback("Item table placed.", "ok");
@@ -539,6 +617,10 @@ function init(config) {
     modeEl.textContent = "Click the PDF at the top-left corner of the first item row.";
   });
   bind("billing-defaults", "click", applyDefaultPositions);
+  bind("billing-serial", "change", () => {
+    setSerialColumn(Boolean(document.getElementById("billing-serial")?.checked));
+  });
+  bind("billing-words-style", "change", applyControls);
   bind("billing-save", "click", () => saveMapping());
   bind("billing-preview", "click", async () => {
     const saved = await saveMapping({ silent: true });
@@ -602,6 +684,7 @@ function init(config) {
       return;
     }
     state.selectedField = null;
+    syncWordsStyle(null);
     renderFieldList();
     drawOverlay();
   });
@@ -623,6 +706,7 @@ function init(config) {
       }).promise;
 
       const repaired = config.mappingFrozen ? [] : repairFieldWidths();
+      syncSerialToggle();
       renderFieldList();
       drawOverlay();
 

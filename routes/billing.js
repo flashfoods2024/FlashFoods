@@ -20,12 +20,14 @@ import {
   latestVersion,
   removeTemplate,
   renderSampleInvoice,
+  resetTemplate,
   saveMapping,
 } from "../utils/invoice/template-service.js";
 import { getFile } from "../utils/invoice/storage.js";
 import {
   ensureInvoiceForOrder,
   getInvoiceForOrder,
+  resolveActiveTemplate,
 } from "../utils/invoice/invoice-resolver.js";
 
 export const billingRouter = express.Router();
@@ -68,6 +70,8 @@ const REASON_MESSAGES = {
   font_asset_missing: "Invoice fonts are unavailable. Contact support.",
   template_file_missing: "The stored template file is missing. Upload it again.",
   no_active_template: "No active billing template for this canteen.",
+  reset_failed: "The billing template could not be reset. Try again.",
+  shop_required: "No shop is linked to this vendor account.",
   not_completed: "The invoice is issued after the order is collected.",
   not_collected: "The invoice is issued after the order is collected.",
   payment_not_verified: "This order has no verified payment, so no invoice is issued.",
@@ -168,6 +172,12 @@ billingRouter.get("/vendor/menu/billing-template", ...VENDOR_CHAIN, async (req, 
   const template = await getTemplate(req.vendorShopId);
   const version = selectedVersion(req, template);
 
+  // The badge and the resolver must agree: a version flagged active whose
+  // mapping or stored PDF is unusable is reported as unusable, never Active.
+  const resolution = template
+    ? await resolveActiveTemplate(req.vendorShopId)
+    : { ok: false, reason: "no_active_template" };
+
   const config = {
     versionId: version ? String(version._id) : "",
     version: version ? version.version : null,
@@ -175,6 +185,8 @@ billingRouter.get("/vendor/menu/billing-template", ...VENDOR_CHAIN, async (req, 
     mapping: version ? version.mapping : null,
     status: version ? version.status : "none",
     mappingFrozen: Boolean(version && version.status === "active"),
+    activeUsable: resolution.ok,
+    activeIssue: resolution.ok ? null : resolution.reason,
     previewReady: Boolean(
       version && version.mappingHash && version.previewMappingHash === version.mappingHash,
     ),
@@ -190,7 +202,11 @@ billingRouter.get("/vendor/menu/billing-template", ...VENDOR_CHAIN, async (req, 
     uploadUrl: "/vendor/menu/billing-template/upload",
   };
 
-  const versions = (template?.versions || []).map((entry) => ({
+  // Archived revisions are kept only for audit; they are not part of the
+  // editable configuration after a reset.
+  const versions = (template?.versions || [])
+    .filter((entry) => entry.status !== "archived")
+    .map((entry) => ({
     id: String(entry._id),
     version: entry.version,
     status: entry.status,
@@ -395,6 +411,63 @@ billingRouter.post(
         "Billing template removed. Students see the default order bill; issued invoices remain available.",
       redirectPath: "/vendor/menu",
     });
+  },
+);
+
+/**
+ * Destructive, shop-scoped reset of the whole billing-template configuration.
+ *
+ * The shop is taken exclusively from the session (`req.vendorShopId`); no shop
+ * id is read from the body, so one vendor can never reset another's templates.
+ * Issued invoices, their generated PDFs, their numbers and the invoice counter
+ * are outside this operation. Storage paths are never echoed to the client.
+ */
+billingRouter.post(
+  "/vendor/menu/billing-template/reset",
+  ...VENDOR_CHAIN,
+  async (req, res) => {
+    let result;
+    try {
+      result = await resetTemplate({ shopId: req.vendorShopId });
+    } catch (err) {
+      console.error("[billing] template reset failed:", err?.message);
+      result = { ok: false, reason: "reset_failed" };
+    }
+
+    if (!result.ok) {
+      return sendResult(req, res, result, { redirectPath: "/vendor/menu" });
+    }
+
+    if (result.cleanupErrors?.length) {
+      // The database state is already clean; these files were simply no longer
+      // referenced and could not be removed. A repeat reset retries cleanup.
+      console.warn(
+        `[billing] template reset cleanup incomplete shop=${req.vendorShopIdStr} codes=${result.cleanupErrors.join(",")}`,
+      );
+    }
+    if (result.reset) {
+      console.info(
+        `[billing] template reset shop=${req.vendorShopIdStr} archived=${result.archivedVersions} removed=${result.removedVersions} preservedFiles=${result.preservedFiles} deletedFiles=${result.deletedFiles}`,
+      );
+    }
+
+    return sendResult(
+      req,
+      res,
+      {
+        ok: true,
+        details: {
+          reset: Boolean(result.reset),
+          archivedVersions: result.archivedVersions,
+          removedVersions: result.removedVersions,
+          deletedFiles: result.deletedFiles,
+        },
+      },
+      {
+        okMessage: "Billing template reset successfully. Upload a new PDF to begin.",
+        redirectPath: "/vendor/menu",
+      },
+    );
   },
 );
 

@@ -1,12 +1,20 @@
 import { toPaise } from "../money.js";
 import { computeDiscountPaise } from "../discount.js";
 import {
+  AMOUNT_WORDS_STYLES,
+  DEFAULT_AMOUNT_WORDS_STYLE,
   amountInWords,
   formatPaise,
   formatDateIst,
   formatDateTimeIst,
   formatTimeIst,
 } from "./format.js";
+
+function resolveWordsStyle(value) {
+  return AMOUNT_WORDS_STYLES.includes(value)
+    ? value
+    : DEFAULT_AMOUNT_WORDS_STYLE;
+}
 
 export class InvoiceBuildError extends Error {
   constructor(reason, details) {
@@ -109,6 +117,7 @@ export function buildInvoiceData({
   mode = "final",
   rendererVersion = 1,
   templateVersionId = "",
+  amountWordsStyle = null,
 }) {
   if (!order || !shop || !customer) {
     throw new InvoiceBuildError("missing_documents");
@@ -130,8 +139,11 @@ export function buildInvoiceData({
       ? Math.round(persistedDiscount)
       : computeDiscountPaise(foodSubtotalPaise, discountPercent);
 
-  const parcelChargePaise =
-    order.orderType === "parcel" ? toPaise(order.parcelCharge) || 0 : 0;
+  // The persisted parcel charge is authoritative whatever the order type: an
+  // adjusted order can carry one, and ignoring it made the persisted total
+  // unreconcilable. Nothing is invented here — a missing value is simply 0 and
+  // the reconciliation check below still fails closed on any mismatch.
+  const parcelChargePaise = toPaise(order.parcelCharge) || 0;
 
   if (discountPaise > foodSubtotalPaise) {
     throw new InvoiceBuildError("totals_mismatch", {
@@ -150,6 +162,7 @@ export function buildInvoiceData({
     });
   }
 
+  const wordsStyle = resolveWordsStyle(amountWordsStyle);
   const tax = buildTax(payablePaise, mapping);
   const taxReconciles =
     tax.taxMode !== "inclusive_breakdown" ||
@@ -209,7 +222,8 @@ export function buildInvoiceData({
       discountText: formatPaise(-discountPaise),
       parcelChargeText: formatPaise(parcelChargePaise),
       payableText: formatPaise(payablePaise),
-      amountInWords: amountInWords(payablePaise),
+      amountInWords: amountInWords(payablePaise, { style: wordsStyle }),
+      amountWordsStyle: wordsStyle,
     },
     payment: {
       method: order.paymentNote || "",
@@ -247,7 +261,7 @@ export function buildInvoiceData({
 }
 
 /** Deterministic synthetic data for the vendor's sample invoice preview. */
-export function buildSampleData({ shop, mapping }) {
+export function buildSampleData({ shop, mapping, amountWordsStyle = null }) {
   const lines = [
     ["Sample Masala Dosa", 2, 9000],
     ["Sample Filter Coffee", 3, 3500],
@@ -270,6 +284,7 @@ export function buildSampleData({ shop, mapping }) {
   const parcelChargePaise = 2000;
   const payablePaise = foodSubtotalPaise - discountPaise + parcelChargePaise;
   const tax = buildTax(payablePaise, mapping);
+  const wordsStyle = resolveWordsStyle(amountWordsStyle);
 
   return {
     schemaVersion: 1,
@@ -314,7 +329,8 @@ export function buildSampleData({ shop, mapping }) {
       discountText: formatPaise(-discountPaise),
       parcelChargeText: formatPaise(parcelChargePaise),
       payableText: formatPaise(payablePaise),
-      amountInWords: amountInWords(payablePaise),
+      amountInWords: amountInWords(payablePaise, { style: wordsStyle }),
+      amountWordsStyle: wordsStyle,
     },
     payment: {
       method: "sample",

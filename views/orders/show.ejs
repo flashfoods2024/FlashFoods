@@ -107,9 +107,14 @@
   <% } %>
   <p class="cart-total portal-ink"><strong>Total:</strong> &#8377;<%= (order.updatedTotal || order.total).toFixed(2) %></p>
   <% if (typeof customInvoice !== "undefined" && customInvoice) { %>
-    <p style="margin-top:12px;">
-      <a class="btn btn--small" href="/orders/<%= order._id %>/invoice" style="min-height:44px;display:inline-flex;align-items:center;">Download invoice (PDF)</a>
-    </p>
+    <div class="card" style="margin-top:16px;padding:16px;">
+      <h2 class="h2 portal-ink" style="margin:0 0 4px;">Your Invoice</h2>
+      <p class="muted small" style="margin:0 0 12px;">Your order invoice is ready. View or download your bill.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn btn--small" href="/orders/<%= order._id %>/invoice" target="_blank" rel="noopener" style="min-height:44px;display:inline-flex;align-items:center;">View Invoice</a>
+        <a class="btn btn--small" href="/orders/<%= order._id %>/invoice?download=1" download="invoice-<%= String(order._id).slice(-6) %>.pdf" style="min-height:44px;display:inline-flex;align-items:center;">Download PDF</a>
+      </div>
+    </div>
   <% } %>
 </div>
 

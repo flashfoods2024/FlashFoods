@@ -261,3 +261,170 @@ No change to eligibility, numbering, payment, pickup, OTP/QR or student access.
 
 No production/configured database, no `.env` value read or printed, no seed, no
 live gateway/FCM/Cloudinary call, no deploy, no Git operations, no F09 change.
+
+## F13 — Production invoice issuance and retrieval (2026-10-31)
+
+Reported production symptoms (both on `https://flashfoods.in`):
+
+- A: `This canteen has not enabled custom invoices.` on a completed order.
+- B: `The invoice file could not be read. Please contact the canteen.` on the
+  invoice route.
+
+These cannot share a single cause: B is only reachable when an `Invoice` record
+already exists, while A is emitted before issuance starts.
+
+### Defects found in the code (each was reproducible in the isolated harness)
+
+12. **`findActiveVersion()` collapsed six distinct failures into `null`.** A
+    missing template, a dangling `currentVersionId`, a superseded version, a
+    missing mapping and a template PDF absent from storage all produced
+    `no_active_template`, so the student saw "this canteen has not enabled custom
+    invoices" even when the vendor had configured everything. Replaced by
+    `resolveActiveTemplate()`, which returns a named reason and the per-check
+    detail. `findActiveVersion()` is now a thin wrapper, so no caller changed.
+13. **`getBillingCardState()` reported `active` for a version the resolver would
+    reject.** The dashboard could show `Active v1` while every invoice download
+    failed. Both now call the same function; a flagged-active but unusable
+    version renders as `Active vN is unusable — <reason>`.
+14. **An existing `Invoice` row was returned without checking its PDF.** A
+    missing file only surfaced later as the generic read error. Issued invoices
+    are now verified (existence → size → `%PDF-` → SHA-256) and reported as
+    `invoice_file_missing` with the exact sub-code. The number, snapshot and
+    financial values are never reallocated or rewritten; no re-render is
+    attempted.
+15. **The download route always served `inline`.** `?download=1` now returns the
+    identical bytes as `attachment`, and the order page renders a "Your Invoice"
+    card with `View Invoice` and `Download PDF`.
+16. **Every storage exception was swallowed.** Replaced with one structured,
+    PII-free log record (correlation ID, order/invoice ID, reason, storage error
+    code, size/signature/checksum flags) and an `X-Correlation-Id` header.
+17. **The relative `./storage` default was silent.** `server.js` now warns when
+    `BILLING_STORAGE_DIR` is unset, and `config/db.js` reports which MongoDB
+    variable was selected, warns when both differ, and refuses a localhost
+    fallback in production.
+
+### Evidence executed locally
+
+| Check | Result |
+|---|---|
+| `npm test` | 341 / 341 pass (new: missing-PDF immutability) |
+| `npm run test:e2e:billing` | 1 / 1 pass |
+| `npm run test:e2e:invoice-view` | 3 / 3 pass (new isolated suite) |
+| `npm run test:e2e:vendor-profile` | 15 / 15 pass |
+| `scripts/diagnose-production-billing.mjs` (intact invoice) | 9/9 template checks PASS, checksum match, exit 0 |
+| same script after deleting the stored PDF | `CAUSE B: Invoice record exists but its PDF is missing`, exit 2 |
+
+### Not done, deliberately
+
+- **No production diagnosis.** No access to the production database, storage
+  volume, logs or a full failing order ID was available in this session, and
+  production must not be mutated on a guess. The script is the next step.
+- **No production template setup.** Never copy a local `InvoiceTemplate` row into
+  production; the clean master PDF must be uploaded through the vendor portal.
+- **No object-storage adapter.** The host platform is unconfirmed; choosing a
+  provider first would be a guess. `putFile`/`getFile`/`fileExists`/`fileStatus`
+  are the single seam for that change.
+- **No deploy.**
+
+Safety: this session used only `mongodb-memory-server` and temp directories. No
+production/configured database was read, no `.env` was printed, no invoice or
+number was altered, no pickup/payment/OTP/QR logic was touched, and no generic
+FlashFoods fallback PDF was created.
+
+## F14 — Invoice quality, financial accuracy and final hardening (2026-10-31)
+
+Full report: `REPORT_BILLING_FINAL_AUDIT.md`.
+
+### Defects found and fixed
+
+18. **Duplicated currency suffix in amount in words.** `amountInWords()` always
+    appended `Rupees` + ` Only`, but the Well B master already prints
+    `Rupees only`, so the overlay produced `One Rupees Only … Rupees only`. It
+    also always used the plural (`One Rupees`). Now: three styles (`full`,
+    `noOnly` default, `wordsOnly`), correct singular/plural (`One Rupee`,
+    `One Paisa`), auto-detection from the template's own printed suffix (pdf.js,
+    field baseline band only), and a per-template override in the editor. The
+    resolved style is recorded on the snapshot so the stored data and the PDF
+    cannot diverge. Detection is best-effort and its teardown is guarded.
+19. **Item serial numbers were unreachable.** The renderer supported the
+    `serial` column (`line.index`) and the schema accepted it, but the editor's
+    `buildColumns()` never created one and there was no control to add it. The
+    serial column is now the first default column, with a `Line numbers` toggle
+    that adds/removes it without moving other columns. Numbering is sequential
+    over the invoice's own lines and continues on continuation pages.
+20. **Persisted parcel charges were dropped on dine-in orders.**
+    `buildInvoiceData()` billed a parcel charge only when
+    `orderType === "parcel"`, so an adjusted order carrying a persisted charge
+    could not reconcile with its persisted total and issuance failed with
+    `totals_mismatch`. The persisted charge is now used for any order type;
+    reconciliation still fails closed and no adjustment or tax is invented.
+21. **Tax rows audit.** No tax is fabricated: with `taxMode: "none"` the tax
+    values are null/empty, the fields are skipped, and the payable total never
+    includes tax. The Well B master's static `CGST 9%`/`SGST 9%` labels remain
+    visible with blank values; the proposed fix is a vendor-side note or a clean
+    master, not code. `inclusive_breakdown` still reconciles base + CGST + SGST to
+    the payable total exactly.
+
+### Verification
+
+- `npm test` → **346 / 346 pass** (suffix styles, serial numbering across pages,
+  suffix detection/override, snapshot reconciliation, tax neutrality).
+- `npm run test:e2e:billing` → **1 / 1 pass** (serial default, suffix persistence
+  through the server round-trip, existing activation/fallback/role checks).
+- `npm run test:e2e:invoice-view` → **3 / 3 pass** at 393×852 and 414×896,
+  including bottom navigation, identical View/Download bytes and repeated
+  requests without a new invoice.
+- `node scripts/render-audit-samples.mjs` → 7 scenarios (1/3/10/30 items, long
+  values, before/after suffix) rendered to `temp/billing-e2e/audit-*.pdf|png` and
+  inspected at 110 dpi.
+
+### Limitations carried forward
+
+- Frozen active mappings do not gain numbering automatically; a replacement
+  template version or a re-created mapping is required. Issued invoices are
+  immutable.
+- Suffix detection only inspects the field's baseline band; the vendor can set
+  the style explicitly.
+- Continuation-page totals have no printed labels (the master's labels are static
+  page-1 text); the dynamic totals still land on the last page.
+- No production database/storage verification yet (F13 blocker). `npm test`
+  passing is not a production-readiness claim.
+
+No payment, OTP, QR, refund, authentication, eligibility, numbering or
+immutability behaviour was modified; no deploy, no production data, no `.env`
+read.
+
+---
+
+## F15 — Billing template reset / cleanup (2026-10-31)
+
+- Request: vendor-facing destructive **Reset Template** beside **Upload PDF**.
+- Audited first: `InvoiceTemplate` + `versions[]`, storage keys
+  (`templates/<shop>/<templateId>/…`, `previews/<shop>/<templateId>/…`,
+  `invoices/<shop>/<invoiceId>/…`), `Invoice` / `InvoiceCounter`, the resolver,
+  the vendor card and the route chain. Deleting a template document does not
+  delete its files; cleanup now targets resolved directories derived from the
+  shop's own template id — never `invoices/`, never the storage root.
+- Files: `models/InvoiceTemplate.js` ("archived" status, `archivedAt`),
+  `utils/invoice/storage.js` (`templateDir` / `previewDir`, `sweepFiles`),
+  `utils/invoice/template-service.js` (`visibleVersions`, `resetTemplate`,
+  archived-aware `getVersionById` / `latestVersion` / card state / dedupe),
+  `routes/billing.js` (reset endpoint), `routes/vendor.js` (card local),
+  `views/partials/menu-manager.ejs` (button + modal + card-only refresh),
+  `tests/unit/invoice-reset.test.js` (new), `tests/e2e/billing-template.spec.js`.
+- Behaviour: atomic single-document transition first (no active pointer, no
+  editable mapping), then directory sweeps keeping referenced
+  `originalFileKey`s, then record deletion last and only when cleanup succeeded.
+  Referenced revisions become `archived` with their original PDF intact;
+  unreferenced ones are removed. `Invoice`, generated PDFs, invoice numbers and
+  `InvoiceCounter` are outside the operation.
+- Defect found and fixed while testing: the record was initially deleted before
+  cleanup, which made a failed sweep unrecoverable (orphan files). Reordering
+  fixed it, and a dedicated test now proves the retry path.
+- Verification: `npm test` **361/361**; `npm run test:e2e:billing` **2/2**
+  (`archived=1 removed=1 deletedFiles=2`, historical invoice sha unchanged);
+  `npm run test:e2e:invoice-view` **3/3**; `npm run test:e2e:vendor-profile`
+  **15/15**. Screenshots written to `temp/billing-e2e/reset-ui-*.png`.
+- Not changed: payment, OTP, QR pickup, refunds, authentication, invoice
+  eligibility / numbering / immutability, the PDF generation engine and the
+  default order bill.

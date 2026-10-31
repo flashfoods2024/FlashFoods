@@ -1063,7 +1063,42 @@ const INVOICE_FAILURE_MESSAGES = {
   font_asset_missing: "The invoice could not be generated. Please contact support.",
   duplicate_invoice: "The invoice could not be issued. Please try again.",
   persist_failed: "The invoice could not be issued. Please try again.",
+  invoice_file_missing:
+    "The invoice file could not be read. Please contact the canteen.",
+  current_version_missing:
+    "This canteen's invoice template is incomplete. Your order bill is shown on the order page.",
+  version_not_active:
+    "This canteen has not enabled custom invoices. Your order bill is shown on the order page.",
+  invalid_mapping:
+    "This canteen's invoice template is incomplete. Your order bill is shown on the order page.",
 };
+
+/**
+ * Structured, PII-free diagnostics for invoice delivery. The student still gets
+ * only the safe message above; this record is for the server log.
+ */
+function logInvoiceFailure({ correlationId, orderId, stage, result, error }) {
+  const details = result?.details || {};
+  console.error(
+    "[billing] invoice delivery failed",
+    JSON.stringify({
+      correlationId,
+      orderId: String(orderId),
+      stage,
+      reason: result?.reason || error?.code || "unknown",
+      invoiceId:
+        details.invoiceId ||
+        (result?.invoice ? String(result.invoice._id) : null),
+      storageBackend: details.storageBackend || "filesystem",
+      storageErrorCode: details.errorCode || error?.code || null,
+      fileMissing: details.code === "file_missing",
+      actualSize: details.actualSize ?? null,
+      expectedSize: details.expectedSize ?? null,
+      signatureValid: details.code === "invalid_signature" ? false : null,
+      checksumMatches: details.code === "checksum_mismatch" ? false : null,
+    }),
+  );
+}
 
 ordersRouter.get(
   "/orders/:id/invoice",
@@ -1084,8 +1119,20 @@ ordersRouter.get(
       return res.redirect("/orders");
     }
 
+    const correlationId = crypto.randomUUID();
+    // ?download=1 serves the identical bytes as an attachment; the default is
+    // inline for the "View Invoice" action.
+    const download =
+      req.query.download === "1" || req.query.download === "true";
+
     const result = await ensureInvoiceForOrder(order._id);
     if (!result.ok) {
+      logInvoiceFailure({
+        correlationId,
+        orderId: order._id,
+        stage: "resolve",
+        result,
+      });
       req.flash(
         "error",
         INVOICE_FAILURE_MESSAGES[result.reason] ||
@@ -1095,23 +1142,40 @@ ordersRouter.get(
     }
 
     const invoice = result.invoice;
-    let bytes;
-    try {
-      bytes = await getFile(invoice.storageKey);
-    } catch {
-      req.flash(
-        "error",
-        "The invoice file could not be read. Please contact the canteen.",
-      );
-      return res.redirect(`/orders/${order._id}`);
+    // The resolver already verified and returned the exact stored bytes, so a
+    // successful integrity check is served without a second read.
+    let bytes = result.bytes;
+    if (!bytes) {
+      try {
+        bytes = await getFile(invoice.storageKey);
+      } catch (err) {
+        logInvoiceFailure({
+          correlationId,
+          orderId: order._id,
+          stage: "read",
+          result: {
+            reason: "invoice_file_missing",
+            invoice,
+            details: { errorCode: err?.code || "UNKNOWN" },
+          },
+          error: err,
+        });
+        req.flash(
+          "error",
+          "The invoice file could not be read. Please contact the canteen.",
+        );
+        return res.redirect(`/orders/${order._id}`);
+      }
     }
 
+    const filename = `invoice-${String(order._id).slice(-6)}.pdf`;
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Length", bytes.length);
     res.setHeader(
       "Content-Disposition",
-      `inline; filename="invoice-${String(order._id).slice(-6)}.pdf"`,
+      `${download ? "attachment" : "inline"}; filename="${filename}"`,
     );
+    res.setHeader("X-Correlation-Id", correlationId);
     res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("X-Content-Type-Options", "nosniff");

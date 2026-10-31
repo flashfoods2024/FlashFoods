@@ -60,6 +60,7 @@ const { MenuItem } = await import(fileUrl("models/MenuItem.js"));
 
 const VENDOR_EMAIL = "qa.billing.vendor@flashfoods.test";
 const STUDENT_EMAIL = "qa.billing.student@flashfoods.test";
+const OTHER_STUDENT_EMAIL = "qa.billing.student2@flashfoods.test";
 const PASSWORD = "QaPass123!";
 
 const passwordHash = await bcrypt.hash(PASSWORD, 10);
@@ -109,6 +110,16 @@ const student = await User.create({
   passwordHash,
   role: "student",
   phone: "9876543210",
+});
+
+// A second student owns no orders: proves cross-student invoice access is
+// refused even though the account is a valid student.
+const otherStudent = await User.create({
+  name: "QA Other Student",
+  email: OTHER_STUDENT_EMAIL,
+  passwordHash,
+  role: "student",
+  phone: "9876500001",
 });
 
 const completedOrder = await Order.create({
@@ -184,6 +195,8 @@ fs.writeFileSync(
       vendor2Email: "qa.billing.vendor2@flashfoods.test",
       plainVendorEmail: "qa.billing.plain@flashfoods.test",
       studentEmail: STUDENT_EMAIL,
+      otherStudentEmail: OTHER_STUDENT_EMAIL,
+      otherStudentId: String(otherStudent._id),
       password: PASSWORD,
       baseUrl: `http://127.0.0.1:${PORT}`,
       shopId: String(shop._id),
@@ -198,6 +211,95 @@ fs.writeFileSync(
     2,
   ),
 );
+
+// Optional seed for tests/e2e/view-invoice.spec.js: an activated template plus
+// one already-issued invoice on the seeded completed order, produced through
+// the real template-service and resolver (not by inserting a fake record).
+// Billing-template.spec.js must NOT run against this mode, because it asserts
+// the first-upload state of a fresh shop.
+if (process.env.QA_BILLING_SEED === "invoice-view") {
+  const { PDFDocument } = await import("pdf-lib");
+  const { createTemplateVersion, saveMapping, renderSampleInvoice, activateVersion } =
+    await import(fileUrl("utils/invoice/template-service.js"));
+  const { ensureInvoiceForOrder } = await import(
+    fileUrl("utils/invoice/invoice-resolver.js")
+  );
+
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([595, 842]);
+  page.drawText("TESTING CANTEEN", { x: 48, y: 792, size: 16 });
+  page.drawText("Tax Invoice", { x: 470, y: 792, size: 12 });
+  page.drawText("Invoice No:", { x: 48, y: 760, size: 9 });
+  page.drawText("Total:", { x: 330, y: 200, size: 11 });
+  const templateBytes = Buffer.from(await doc.save());
+
+  const created = await createTemplateVersion({
+    shopId: shop._id,
+    bytes: templateBytes,
+    originalFileName: "qa-invoice-template.pdf",
+  });
+  if (!created.ok) throw new Error(`QA template upload failed: ${created.reason}`);
+
+  const rawMapping = {
+    schemaVersion: 1,
+    page: 0,
+    taxMode: "none",
+    fields: {
+      invoiceNumber: { x: 500, y: 760, align: "right", fontSize: 10, font: "bold", maxWidth: 150, maxLines: 1 },
+      invoiceDate: { x: 500, y: 744, align: "right", fontSize: 9, font: "regular", maxWidth: 150, maxLines: 1 },
+      customerName: { x: 48, y: 720, align: "left", fontSize: 10, font: "medium", maxWidth: 240, maxLines: 1 },
+      subtotal: { x: 500, y: 300, align: "right", fontSize: 9, font: "regular", maxWidth: 140, maxLines: 1 },
+      total: { x: 500, y: 270, align: "right", fontSize: 12, font: "bold", maxWidth: 160, maxLines: 1 },
+      amountInWords: { x: 48, y: 220, align: "left", fontSize: 9, font: "regular", maxWidth: 420, maxLines: 3 },
+    },
+    itemTable: {
+      originX: 48,
+      originY: 580,
+      rowHeight: 16,
+      maxRowsFirstPage: 10,
+      baselineOffsetFromRowTop: 11,
+      columns: [
+        { key: "serial", x: 48, width: 24, align: "left", fontSize: 9, maxLines: 1 },
+        { key: "description", x: 72, width: 236, align: "left", fontSize: 9, maxLines: 2 },
+        { key: "quantity", x: 308, width: 48, align: "center", fontSize: 9, maxLines: 1 },
+        { key: "unitRate", x: 356, width: 72, align: "right", fontSize: 9, maxLines: 1 },
+        { key: "lineAmount", x: 428, width: 90, align: "right", fontSize: 9, maxLines: 1 },
+      ],
+    },
+    continuationTotals: {
+      subtotal: { x: 420, y: 180, align: "right", fontSize: 9, font: "regular", maxWidth: 140, maxLines: 1 },
+      total: { x: 420, y: 150, align: "right", fontSize: 12, font: "bold", maxWidth: 160, maxLines: 1 },
+      amountInWords: { x: 48, y: 110, align: "left", fontSize: 9, font: "regular", maxWidth: 400, maxLines: 3 },
+    },
+  };
+
+  const saved = await saveMapping({
+    shopId: shop._id,
+    versionId: created.version._id,
+    rawMapping,
+  });
+  if (!saved.ok) throw new Error(`QA mapping failed: ${saved.reason}`);
+
+  const shopDoc = await Shop.findById(shop._id).lean();
+  const preview = await renderSampleInvoice({
+    shopId: shop._id,
+    versionId: created.version._id,
+    shop: shopDoc,
+  });
+  if (!preview.ok) throw new Error(`QA sample render failed: ${preview.reason}`);
+
+  const activated = await activateVersion({
+    shopId: shop._id,
+    versionId: created.version._id,
+  });
+  if (!activated.ok) throw new Error(`QA activation failed: ${activated.reason}`);
+
+  const issued = await ensureInvoiceForOrder(completedOrder._id);
+  if (!issued.ok) throw new Error(`QA invoice issuance failed: ${issued.reason}`);
+  console.log(
+    `[qa-billing] seeded invoice ${issued.invoice.number} (${issued.invoice.byteSize} bytes)`,
+  );
+}
 
 console.log(`[qa-billing] seeded; fixture at ${path.relative(ROOT, FIXTURE_FILE)}`);
 console.log(`[qa-billing] starting app on http://127.0.0.1:${PORT}`);

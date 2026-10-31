@@ -298,6 +298,64 @@ test("issued invoices are immutable and survive template replacement", async () 
   assert.deepEqual(afterBytes, before);
 });
 
+test("an issued invoice whose stored PDF disappeared is reported, never reissued", async () => {
+  await createTemplateAndActivate();
+  const order = await Order.create(orderPayload());
+  const issued = await ensureInvoiceForOrder(order._id);
+  assert.equal(issued.ok, true, issued.reason);
+
+  // Simulate an ephemeral filesystem / different instance: the record survives
+  // but the bytes it points at are gone.
+  await fs.rm(
+    path.join(process.env.BILLING_STORAGE_DIR, issued.invoice.storageKey),
+  );
+
+  const result = await ensureInvoiceForOrder(order._id);
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "invoice_file_missing");
+  assert.equal(result.details.code, "file_missing");
+  assert.equal(String(result.invoice._id), String(issued.invoice._id));
+
+  // The original number and snapshot must never be replaced or reallocated.
+  const stored = await Invoice.findOne({ order: order._id }).lean();
+  assert.equal(stored.number, issued.invoice.number);
+  assert.equal(await Invoice.countDocuments({ order: order._id }), 1);
+});
+
+test("snapshot reconciles persisted discount and parcel charge without inventing tax", async () => {
+  await createTemplateAndActivate();
+  // 275.00 food subtotal, 10% persisted discount, 15.00 parcel charge on a
+  // dine-in order: the persisted charge is authoritative whatever the type.
+  const order = await Order.create({
+    ...orderPayload({ total: 262.5 }),
+    orderType: "dinein",
+    parcelCharge: 15,
+  });
+
+  const result = await ensureInvoiceForOrder(order._id);
+  assert.equal(result.ok, true, result.reason);
+  const totals = result.invoice.snapshot.totals;
+  assert.equal(totals.foodSubtotalPaise, 27500);
+  assert.equal(totals.discountPaise, 2750);
+  assert.equal(totals.parcelChargePaise, 1500);
+  assert.equal(totals.payablePaise, 26250);
+  assert.equal(
+    totals.foodSubtotalPaise - totals.discountPaise + totals.parcelChargePaise,
+    totals.payablePaise,
+  );
+
+  // No stored tax configuration means no tax values and no paid-tax wording.
+  assert.equal(totals.taxMode, "none");
+  assert.equal(totals.cgstPaise, null);
+  assert.equal(totals.sgstPaise, null);
+  assert.equal(totals.cgstText, "");
+  assert.equal(totals.sgstText, "");
+
+  // The suffix style is recorded so the snapshot and PDF cannot disagree.
+  assert.ok(["full", "noOnly", "wordsOnly"].includes(totals.amountWordsStyle));
+  assert.equal(totals.amountInWords.includes("Only Only"), false);
+});
+
 test("removing the template keeps issued invoices downloadable", async () => {
   const { removeTemplate } = await import("../../utils/invoice/template-service.js");
   await createTemplateAndActivate();

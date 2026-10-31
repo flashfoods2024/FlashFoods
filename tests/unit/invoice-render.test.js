@@ -7,6 +7,10 @@ import { validateTemplatePdf } from "../../utils/invoice/pdf-validate.js";
 import { buildSampleData } from "../../utils/invoice/invoice-data.js";
 import { validateMapping } from "../../utils/invoice/mapping.js";
 import { generateInvoicePdf } from "../../utils/invoice/invoice-generator.js";
+import {
+  detectAmountWordsStyle,
+  resolveAmountWordsStyle,
+} from "../../utils/invoice/template-text.js";
 
 async function fontBaseNames(pdfBytes) {
   const doc = await PDFDocument.load(pdfBytes, { updateMetadata: false });
@@ -63,6 +67,61 @@ function mappingFor({ withContinuationTotals = true } = {}) {
   const result = validateMapping(raw, { pageSizes: [{ width: 595, height: 842 }] });
   assert.equal(result.ok, true, result.reason);
   return result.mapping;
+}
+
+/** The same table plus the optional serial column, shifted to make room. */
+function mappingWithSerial() {
+  const base = mappingFor();
+  const columns = [
+    { key: "serial", x: 48, width: 24, align: "left", fontSize: 9, maxLines: 1 },
+    ...base.itemTable.columns.map((column) => ({
+      ...column,
+      x: column.x + 24,
+      width: column.width - 24,
+    })),
+  ];
+  const result = validateMapping(
+    { ...base, itemTable: { ...base.itemTable, columns } },
+    { pageSizes: [{ width: 595, height: 842 }] },
+  );
+  assert.equal(result.ok, true, result.reason);
+  return result.mapping;
+}
+
+/** A master PDF that already prints the currency suffix next to the value box. */
+async function makeTemplateWithSuffix() {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([595, 842]);
+  page.drawText("Amount in words:", { x: 48, y: 220, size: 9 });
+  page.drawText("Rupees only", { x: 330, y: 220, size: 9 });
+  return Buffer.from(await doc.save());
+}
+
+async function textItemsByPage(bytes) {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdf = await pdfjs.getDocument({
+    data: new Uint8Array(bytes),
+    useSystemFonts: false,
+    isEvalSupported: false,
+  }).promise;
+  try {
+    const pages = [];
+    for (let index = 1; index <= pdf.numPages; index += 1) {
+      const page = await pdf.getPage(index);
+      const content = await page.getTextContent();
+      pages.push(
+        content.items.map((item) => ({
+          str: item.str,
+          x: Number(item.transform?.[4]),
+          y: Number(item.transform?.[5]),
+        })),
+      );
+    }
+    return pages;
+  } finally {
+    if (typeof pdf.destroy === "function") await pdf.destroy();
+    else if (typeof pdf.cleanup === "function") await pdf.cleanup();
+  }
 }
 
 test("template validation accepts a clean PDF and reports geometry", async () => {
@@ -154,6 +213,100 @@ test("renderer fails closed when overflow totals are not configured", async () =
   await assert.rejects(
     () => generateInvoicePdf({ templateBytes, mapping, data }),
     (error) => error.reason === "layout_overflow",
+  );
+});
+
+test("item rows render sequential serial numbers, continued on later pages", async () => {
+  const templateBytes = await makeTemplate();
+  const mapping = mappingWithSerial();
+  const shop = { _id: "shop1", name: "Well B", slug: "well-b" };
+  const data = buildSampleData({ shop, mapping });
+  data.lines = Array.from({ length: 8 }, (_, index) => ({
+    index: index + 1,
+    description: `Line item ${index + 1}`,
+    quantity: 1,
+    unitRatePaise: 1000,
+    lineAmountPaise: 1000,
+    unitRateText: "\u20B910.00",
+    lineAmountText: "\u20B910.00",
+    foodType: "",
+  }));
+
+  const rendered = await generateInvoicePdf({ templateBytes, mapping, data });
+  assert.equal(rendered.pageCount, 2);
+
+  const pages = await textItemsByPage(rendered.bytes);
+  // The serial column is the only numeric text drawn at x = 48.
+  const serials = pages.flatMap((items) =>
+    items
+      .filter((item) => Math.abs(item.x - 48) <= 1.5 && /^\d+$/.test(item.str.trim()))
+      .map((item) => Number(item.str.trim())),
+  );
+  assert.deepEqual(serials, [1, 2, 3, 4, 5, 6, 7, 8]);
+});
+
+test("amount-in-words style follows the template's printed suffix", async () => {
+  const printable = await makeTemplateWithSuffix();
+  const field = { x: 48, y: 220, fontSize: 9 };
+  assert.equal(
+    await detectAmountWordsStyle({ templateBytes: printable, pageIndex: 0, field }),
+    "wordsOnly",
+  );
+  // A blank master has no printed suffix, so the full phrasing is safe.
+  assert.equal(
+    await detectAmountWordsStyle({ templateBytes: await makeTemplate(), pageIndex: 0, field }),
+    "full",
+  );
+
+  const mapping = mappingFor();
+  const style = await resolveAmountWordsStyle({
+    mapping,
+    templateBytes: printable,
+    pageIndex: 0,
+  });
+  assert.equal(style, "wordsOnly");
+
+  const data = buildSampleData({
+    shop: { _id: "shop1", name: "Well B", slug: "well-b" },
+    mapping,
+    amountWordsStyle: style,
+  });
+  assert.equal(data.totals.amountWordsStyle, "wordsOnly");
+  assert.equal(data.totals.amountInWords.includes("Rupees"), false);
+  assert.equal(/only$/i.test(data.totals.amountInWords), false);
+
+  // The drawn value must not repeat the printed "Rupees only" label.
+  const rendered = await generateInvoicePdf({ templateBytes: printable, mapping, data });
+  const pages = await textItemsByPage(rendered.bytes);
+  const drawn = pages[0]
+    .filter((item) => Math.abs(item.y - 220) <= 1.5 && Math.abs(item.x - 48) <= 1.5)
+    .map((item) => item.str);
+  assert.ok(drawn.includes(data.totals.amountInWords));
+  assert.equal(drawn.some((text) => /Rupees|Only/i.test(text)), false);
+});
+
+test("an explicit words style overrides template auto-detection", async () => {
+  const printable = await makeTemplateWithSuffix();
+  const base = mappingFor();
+  const validated = validateMapping(
+    {
+      ...base,
+      fields: {
+        ...base.fields,
+        amountInWords: { ...base.fields.amountInWords, wordsStyle: "full" },
+      },
+    },
+    { pageSizes: [{ width: 595, height: 842 }] },
+  );
+  assert.equal(validated.ok, true, validated.reason);
+  assert.equal(validated.mapping.fields.amountInWords.wordsStyle, "full");
+  assert.equal(
+    await resolveAmountWordsStyle({
+      mapping: validated.mapping,
+      templateBytes: printable,
+      pageIndex: 0,
+    }),
+    "full",
   );
 });
 

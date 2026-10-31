@@ -1,4 +1,5 @@
 import { canonicalJson, hashJson } from "./canonical.js";
+import { AMOUNT_WORDS_STYLES } from "./format.js";
 
 export const MAPPING_SCHEMA_VERSION = 1;
 export const ALIGNMENTS = ["left", "center", "right"];
@@ -138,6 +139,12 @@ function normalizeField(raw, pageSize) {
       ? round3(Math.max(fontSize, Math.min(40, Number(raw.lineHeight))))
       : round3(fontSize * 1.25),
     truncate: raw.truncate === true,
+    // Optional, only meaningful for amountInWords: lets the vendor declare how
+    // the template prints the currency suffix. Omitted means "auto-detect" and
+    // is kept out of the stored object so unchanged mappings keep their hash.
+    ...(AMOUNT_WORDS_STYLES.includes(raw.wordsStyle)
+      ? { wordsStyle: raw.wordsStyle }
+      : {}),
   };
 }
 

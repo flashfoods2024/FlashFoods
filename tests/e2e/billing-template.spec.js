@@ -74,7 +74,12 @@ async function waitForCanvas(page) {
   });
 }
 
-async function uploadTemplate(page, formSelector, name, buffer) {
+// The Manage Menu card keeps its submit button in a shared actions row beside
+// Reset Template, so it is outside the upload form (linked via form=).
+const CARD_UPLOAD_FORM = "#billing-upload-form";
+const CARD_UPLOAD_BUTTON = '.billing-actions-row button[form="billing-upload-form"]';
+
+async function uploadTemplate(page, formSelector, name, buffer, submitSelector) {
   await page.setInputFiles(`${formSelector} input[name=template]`, {
     name,
     mimeType: "application/pdf",
@@ -82,7 +87,7 @@ async function uploadTemplate(page, formSelector, name, buffer) {
   });
   const [response] = await Promise.all([
     page.waitForNavigation({ waitUntil: "domcontentloaded" }),
-    page.click(`${formSelector} button[type=submit]`),
+    page.click(submitSelector || `${formSelector} button[type=submit]`),
   ]);
   return response;
 }
@@ -124,9 +129,10 @@ test.describe.serial("custom billing template on the Testing shop", () => {
     const templateOne = await writeCleanTemplate("clean-template.pdf", "master template v1");
     const uploadResponse = await uploadTemplate(
       vendorPage,
-      "#billing-template-card form",
+      CARD_UPLOAD_FORM,
       "clean-template.pdf",
       templateOne,
+      CARD_UPLOAD_BUTTON,
     );
     expect(uploadResponse.status()).toBeLessThan(400);
     await expect(vendorPage.locator(".flash--success")).toContainText("Invoice PDF uploaded");
@@ -142,6 +148,8 @@ test.describe.serial("custom billing template on the Testing shop", () => {
 
     // 4. Configure field positions and the item table, save, reload, verify persistence.
     await vendorPage.click("#billing-defaults");
+    // The default table layout numbers its item rows.
+    await expect(vendorPage.locator("#billing-serial")).toBeChecked();
     const [saveRequest, saveResponse] = await Promise.all([
       vendorPage.waitForRequest((request) => request.url().endsWith("/mapping")),
       vendorPage.waitForResponse((response) => response.url().endsWith("/mapping")),
@@ -164,6 +172,9 @@ test.describe.serial("custom billing template on the Testing shop", () => {
     // 4b. Selecting a placed field edits that exact field, and an impossible box
     // is reported by name instead of a generic "a value is too long".
     await vendorPage.selectOption("#billing-field-select", "amountInWords");
+    // The amount-in-words suffix is configurable because vendor masters differ:
+    // some already print "Rupees only" next to the empty value box.
+    await expect(vendorPage.locator("#billing-words-style-wrap")).toBeVisible();
     await expect(vendorPage.locator("#billing-maxlines")).toHaveValue("3");
     await vendorPage.fill("#billing-maxwidth", "180");
     await vendorPage.fill("#billing-maxlines", "1");
@@ -190,6 +201,9 @@ test.describe.serial("custom billing template on the Testing shop", () => {
     await expect(vendorPage.locator("#billing-field-list")).toContainText("3 lines");
     await expect(vendorPage.locator("#billing-field-list li")).toHaveCount(placedFields);
 
+    // Record an explicit suffix choice; it must round-trip through the server.
+    await vendorPage.selectOption("#billing-words-style", "wordsOnly");
+
     // 5. Sample invoice (same generator, sample mode), then visual/text checks.
     const config = JSON.parse(await vendorPage.locator("#billing-config").innerText());
     const versionId = config.versionId;
@@ -199,6 +213,19 @@ test.describe.serial("custom billing template on the Testing shop", () => {
     await expect(vendorPage.locator("#billing-feedback")).toContainText(
       "Sample invoice generated",
     );
+
+    // Both settings must survive the server round-trip, not just the DOM.
+    await vendorPage.goto("/vendor/menu/billing-template");
+    await waitForCanvas(vendorPage);
+    await vendorPage.selectOption("#billing-field-select", "amountInWords");
+    await expect(vendorPage.locator("#billing-words-style")).toHaveValue("wordsOnly");
+    const persisted = JSON.parse(
+      await vendorPage.locator("#billing-config").innerText(),
+    );
+    expect(persisted.mapping.fields.amountInWords.wordsStyle).toBe("wordsOnly");
+    expect(
+      persisted.mapping.itemTable.columns.some((column) => column.key === "serial"),
+    ).toBe(true);
 
     const sampleResponse = await vendorContext.request.get(
       `/vendor/menu/billing-template/sample.pdf?version=${versionId}`,
@@ -250,7 +277,10 @@ test.describe.serial("custom billing template on the Testing shop", () => {
     await studentPage.reload();
     const invoiceLink = studentPage.locator('a[href$="/invoice"]');
     await expect(invoiceLink).toHaveCount(1);
-    await expect(invoiceLink).toContainText("Download invoice");
+    await expect(invoiceLink).toContainText("View Invoice");
+    await expect(
+      studentPage.locator('a[href$="/invoice?download=1"][download]'),
+    ).toHaveText("Download PDF");
     const target = await invoiceLink.boundingBox();
     expect(target?.height ?? 0).toBeGreaterThanOrEqual(44);
     const horizontalOverflow = await studentPage.evaluate(
@@ -344,9 +374,10 @@ test.describe.serial("custom billing template on the Testing shop", () => {
     await plainVendorPage.goto("/vendor/menu");
     await uploadTemplate(
       plainVendorPage,
-      "#billing-template-card form",
+      CARD_UPLOAD_FORM,
       "plain-template.pdf",
       templateOne,
+      CARD_UPLOAD_BUTTON,
     );
     await expect(plainVendorPage.locator("#billing-template-card")).toContainText(
       "Uploaded — configure fields",
@@ -380,5 +411,127 @@ test.describe.serial("custom billing template on the Testing shop", () => {
     await vendorContext.close();
     await rival.close();
     await plainVendorContext.close();
+  });
+
+  test("vendor resets the billing template behind a typed confirmation", async ({ browser }) => {
+    const summary = JSON.parse(
+      fs.readFileSync(path.join(ARTIFACTS, "e2e-summary.json"), "utf8"),
+    );
+    const pageErrors = [];
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    page.on("pageerror", (error) => pageErrors.push({ page: "vendor", message: error.message }));
+
+    await login(page, fixture.vendorEmail, fixture.password);
+    await page.goto("/vendor/menu");
+
+    // 1. Reset sits immediately beside Upload PDF in the billing card.
+    const card = page.locator("#billing-template-card");
+    const resetBtn = page.locator("[data-billing-reset]");
+    const uploadBtn = page.locator(CARD_UPLOAD_BUTTON);
+    await expect(resetBtn).toBeVisible();
+    await expect(resetBtn).toHaveText("Reset Template");
+    await expect(resetBtn).toHaveClass(/btn--danger/);
+    const uploadBox = await uploadBtn.boundingBox();
+    const resetBox = await resetBtn.boundingBox();
+    expect(Math.abs(uploadBox.y - resetBox.y)).toBeLessThan(4);
+    expect(resetBox.x).toBeGreaterThan(uploadBox.x);
+    await card.screenshot({ path: path.join(ARTIFACTS, "reset-ui-card-before.png") });
+
+    // 2. The destructive action needs an explicit typed confirmation.
+    await resetBtn.click();
+    const modal = page.locator("#billing-reset-modal");
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText("Reset Billing Template?");
+    await expect(modal).toContainText(
+      "This will remove your current billing template configuration, deactivate the active template and delete obsolete uploaded template PDFs. Previously issued invoices and their historical records will remain safe.",
+    );
+    const confirmBtn = modal.locator("[data-billing-reset-confirm]");
+    const confirmInput = modal.locator("[data-billing-reset-input]");
+    await expect(confirmBtn).toBeDisabled();
+    await confirmInput.fill("RES");
+    await expect(confirmBtn).toBeDisabled();
+    await confirmInput.fill("RESET");
+    await expect(confirmBtn).toBeEnabled();
+    await modal.screenshot({ path: path.join(ARTIFACTS, "reset-ui-modal.png") });
+
+    // 3. Confirm: loading state, then the card returns to a clean upload state.
+    await confirmBtn.click();
+    await expect(page.locator("[data-billing-reset-feedback]")).toContainText(
+      "Billing template reset successfully. Upload a new PDF to begin.",
+    );
+    await expect(page.locator("[data-billing-status]")).toContainText("No template uploaded");
+    await expect(modal).toBeHidden();
+    await expect(resetBtn).toBeHidden();
+    await expect(page.locator("[data-billing-settings]")).toBeHidden();
+    await expect(page.locator(`${CARD_UPLOAD_FORM} input[name=template]`)).toBeVisible();
+    // Only the card is refreshed: the rest of the Manage Menu is still there.
+    await expect(page.getByRole("heading", { name: "Operating Hours" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pickup Slots" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Discount" })).toBeVisible();
+    await card.screenshot({ path: path.join(ARTIFACTS, "reset-ui-card-after.png") });
+
+    // 4. The already-issued invoice is byte-identical and still numbers the
+    // same after the reset.
+    const invoiceResponse = await context.request.get(
+      `/vendor/orders/${summary.orderId}/invoice`,
+    );
+    expect(invoiceResponse.status()).toBe(200);
+    expect(sha256(await invoiceResponse.body())).toBe(summary.invoiceSha256);
+
+    // 5. The vendor can immediately upload and configure a fresh PDF.
+    const freshTemplate = await writeCleanTemplate(
+      "post-reset-template.pdf",
+      "master template after reset",
+    );
+    const uploadResponse = await uploadTemplate(
+      page,
+      CARD_UPLOAD_FORM,
+      "post-reset-template.pdf",
+      freshTemplate,
+      CARD_UPLOAD_BUTTON,
+    );
+    expect(uploadResponse.status()).toBeLessThan(400);
+    await expect(page.locator("#billing-template-card")).toContainText(
+      "Uploaded — configure fields",
+    );
+    await page.goto("/vendor/menu/billing-template");
+    await waitForCanvas(page);
+    const versionsText = await page.locator("main").innerText();
+    expect(versionsText).not.toContain("archived");
+
+    // 6. Mobile layouts stack the two actions without horizontal overflow.
+    for (const viewport of [
+      { width: 393, height: 852 },
+      { width: 414, height: 896 },
+    ]) {
+      const mobile = await browser.newContext({ viewport });
+      const mobilePage = await mobile.newPage();
+      await login(mobilePage, fixture.vendorEmail, fixture.password);
+      await mobilePage.goto("/vendor/menu");
+      const mobileUpload = await mobilePage.locator(CARD_UPLOAD_BUTTON).boundingBox();
+      const mobileReset = await mobilePage.locator("[data-billing-reset]").boundingBox();
+      expect(mobileReset.height).toBeGreaterThanOrEqual(44);
+      expect(Math.abs(mobileUpload.width - mobileReset.width)).toBeLessThan(2);
+      expect(mobileReset.y).toBeGreaterThanOrEqual(mobileUpload.y + mobileUpload.height - 2);
+      const overflow = await mobilePage.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(1);
+
+      await mobilePage.locator("[data-billing-reset]").click();
+      await expect(mobilePage.locator("#billing-reset-modal")).toBeVisible();
+      const panel = await mobilePage.locator(".billing-modal__panel").boundingBox();
+      expect(panel.width).toBeLessThanOrEqual(viewport.width);
+      expect(panel.x).toBeGreaterThanOrEqual(0);
+      expect(panel.y).toBeGreaterThanOrEqual(0);
+      await mobilePage.screenshot({
+        path: path.join(ARTIFACTS, `reset-ui-${viewport.width}x${viewport.height}.png`),
+      });
+      await mobile.close();
+    }
+
+    expect(pageErrors).toEqual([]);
+    await context.close();
   });
 });

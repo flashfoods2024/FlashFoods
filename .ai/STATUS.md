@@ -3,8 +3,8 @@
 ## FlashFoods — Smart College Canteen Pre-ordering System
 
 **Version:** 1.0.1
-**Last Updated:** 2026-10-29
-**Status:** F08 and the navbar-blinking fix COMPLETE; F09 Phase 1 COMPLETE, Phase 2 pending; F10 Custom Billing Template Phases 1–4 COMPLETE, Phase 5 partial (browser evidence outstanding)
+**Last Updated:** 2026-10-31
+**Status:** F08 and the navbar-blinking fix COMPLETE; F09 Phase 1 COMPLETE, Phase 2 pending; F10 Custom Billing Template Phases 1–4 COMPLETE, Phase 5 partial (browser evidence outstanding); F13 invoice delivery hardening COMPLETE locally, production diagnosis blocked on access
 
 ---
 
@@ -175,6 +175,43 @@ Phase 1 is complete. Do not begin Phase 2 in this session.
   payment evidence. No tax is computed (`taxMode: "none"` default).
 - No Git operations, deploys, production data, `.env` reads, or live
   gateway/FCM/Cloudinary calls were performed.
+
+## F13 — Production Invoice Issuance and Retrieval (2026-10-31)
+
+- Status: **LOCAL IMPLEMENTATION AND VERIFICATION COMPLETE; PRODUCTION ROOT
+  CAUSE NOT PROVEN.** No production database, storage volume, logs or full
+  failing order ID were available this session. Nothing was deployed.
+- Symptoms addressed: Error A (`This canteen has not enabled custom invoices.`)
+  is the collapsed `no_active_template` path; Error B (`The invoice file could
+  not be read.`) is an existing `Invoice` row whose PDF is missing/unreadable
+  from the serving process's storage path. They are independent.
+- Fixes: `resolveActiveTemplate()` gives one definition of a usable template and
+  a named reason; `getBillingCardState()` and the billing-template page use it,
+  so the vendor UI can no longer show `Active` for an unusable template; existing
+  invoices are verified (existence → size → `%PDF-` → SHA-256) and never
+  renumbered/re-rendered; `?download=1` serves identical bytes as `attachment`
+  while the default stays `inline`; storage exceptions are logged as one
+  structured, PII-free record with a correlation ID; `config/db.js` and
+  `server.js` report URI selection and warn on an unset `BILLING_STORAGE_DIR`.
+- New read-only tool: `scripts/diagnose-production-billing.mjs` (env fingerprints
+  without secrets, order/eligibility, invoice+PDF integrity, the 9-check template
+  table, card-vs-resolver consistency, optional log correlation). It refuses to
+  run without a full 24-hex order ID and never writes.
+- Verification: `npm test` 341/341; `npm run test:e2e:billing` 1/1;
+  `npm run test:e2e:invoice-view` 3/3 (new isolated suite with its own server:
+  the shared billing server is mutated and torn down by the older suite);
+  `npm run test:e2e:vendor-profile` 15/15. Diagnostic run against a disposable
+  in-memory DB: intact invoice → 9/9 PASS, checksum match, exit 0; after deleting
+  the stored PDF → `CAUSE B`, exit 2.
+- Pending, blocked on production access: run the diagnostic in both environments
+  and compare `databaseFingerprint`; confirm the host platform and whether
+  `BILLING_STORAGE_DIR` is on persistent, shared storage; configure/activate the
+  production template through the vendor portal if it is genuinely absent.
+- No object-storage adapter was added: the platform is unconfirmed and choosing
+  a provider first would be a guess. `putFile`/`getFile`/`fileExists`/
+  `fileStatus` are the seam for it.
+- Untouched: OTP/QR pickup, payment, refund, eligibility, numbering and invoice
+  immutability. No deploy, no production mutation, no `.env` disclosure.
 
 ## Last Milestone
 

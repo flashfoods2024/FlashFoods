@@ -8,21 +8,39 @@ import {
 import {
   getFile,
   putFile,
+  previewDir,
   previewKey,
+  sweepFiles,
+  templateDir,
   templateKey,
 } from "./storage.js";
 import { buildSampleData } from "./invoice-data.js";
 import { generateInvoicePdf } from "./invoice-generator.js";
+import { resolveActiveTemplate } from "./invoice-resolver.js";
+import { resolveAmountWordsStyle } from "./template-text.js";
 
 export async function getTemplate(shopId) {
   return InvoiceTemplate.findOne({ shop: shopId });
 }
 
-export function getVersionById(template, versionId) {
+/**
+ * Revisions the vendor can see and act on. Archived revisions (kept only
+ * because an issued invoice references them) are excluded everywhere: they are
+ * neither offered in the editor nor selectable through `?version=`.
+ */
+export function visibleVersions(template) {
+  return (template?.versions || []).filter(
+    (version) => version.status !== "archived",
+  );
+}
+
+export function getVersionById(template, versionId, { includeArchived = false } = {}) {
   if (!template) return null;
-  return (template.versions || []).find(
-    (version) => String(version._id) === String(versionId),
+  const version = (template.versions || []).find(
+    (entry) => String(entry._id) === String(versionId),
   ) || null;
+  if (version && !includeArchived && version.status === "archived") return null;
+  return version;
 }
 
 export function getActiveVersion(template) {
@@ -49,7 +67,9 @@ export async function createTemplateVersion({ shopId, bytes, originalFileName })
     template = await InvoiceTemplate.create({ shop: shopId, versions: [] });
   }
 
-  const duplicate = (template.versions || []).find(
+  // Only revisions the vendor can still see take part in deduplication. An
+  // archived revision must never make a post-reset re-upload look like a no-op.
+  const duplicate = visibleVersions(template).find(
     (version) => version.sha256 === validation.sha256,
   );
   if (duplicate) {
@@ -142,7 +162,16 @@ export async function renderSampleInvoice({ shopId, versionId, shop }) {
     return { ok: false, reason: "template_file_missing" };
   }
 
-  const data = buildSampleData({ shop, mapping: version.mapping });
+  const amountWordsStyle = await resolveAmountWordsStyle({
+    mapping: version.mapping,
+    templateBytes: bytes,
+    pageIndex: version.mapping.page || 0,
+  });
+  const data = buildSampleData({
+    shop,
+    mapping: version.mapping,
+    amountWordsStyle,
+  });
   let rendered;
   try {
     rendered = await generateInvoicePdf({
@@ -209,6 +238,147 @@ export async function activateVersion({ shopId, versionId }) {
   return { ok: true, versionId: String(version._id) };
 }
 
+const RESET_STORAGE = { sweep: sweepFiles };
+
+/**
+ * Full reset of a shop's billing template configuration.
+ *
+ * The database transition runs first as one atomic single-document write, so a
+ * template can never be left flagged active after the editable configuration
+ * has been cleared. Storage cleanup runs afterwards against paths derived from
+ * this shop's own template id; unreferenced revisions lose their PDFs, and
+ * every revision an issued invoice points at is archived with its original PDF
+ * kept intact.
+ *
+ * Historical data is never touched: Invoice records, generated invoice PDFs,
+ * invoice numbers and InvoiceCounter are outside this operation entirely. A
+ * repeated reset is a no-op (or only retries leftover file cleanup).
+ *
+ * @param {object} options
+ * @param {string|import("mongoose").Types.ObjectId} options.shopId
+ * @param {{ sweep: Function }} [options.storage] injection seam for cleanup tests
+ */
+export async function resetTemplate({ shopId, storage = RESET_STORAGE } = {}) {
+  if (!shopId) return { ok: false, reason: "shop_required" };
+
+  const template = await InvoiceTemplate.findOne({ shop: shopId });
+  if (!template) {
+    return {
+      ok: true,
+      reset: false,
+      archivedVersions: 0,
+      removedVersions: 0,
+      preservedFiles: 0,
+      deletedFiles: 0,
+      cleanupErrors: [],
+    };
+  }
+
+  const templateId = String(template._id);
+  const allVersions = template.versions || [];
+  const allVersionIds = allVersions.map((version) => String(version._id));
+
+  // Issued invoices are the only authority on which revisions must survive.
+  // The query is shop-scoped, so another shop's invoice can never pin ours.
+  const referencedIds = allVersionIds.length
+    ? await Invoice.distinct("templateVersionId", {
+        shop: shopId,
+        templateVersionId: { $in: allVersionIds },
+      })
+    : [];
+  const referenced = new Set(referencedIds.map(String));
+
+  const archived = [];
+  const removable = [];
+  for (const version of allVersions) {
+    if (referenced.has(String(version._id))) archived.push(version);
+    else removable.push(version);
+  }
+
+  // Original PDFs still needed by a historical invoice.
+  const preservedKeys = archived
+    .map((version) => String(version.originalFileKey || ""))
+    .filter(Boolean);
+
+  const now = new Date();
+  try {
+    // One atomic single-document write. Activation is cleared and the editable
+    // configuration is dropped in the same update, so no partial state can ever
+    // show a template as active after its storage was cleaned up. The record
+    // stays (even with an empty version list) until cleanup has been attempted,
+    // which is what makes a failed cleanup retryable.
+    template.versions = archived.map((version) => ({
+      _id: version._id,
+      version: version.version,
+      originalFileKey: version.originalFileKey,
+      originalFileName: version.originalFileName,
+      byteSize: version.byteSize,
+      sha256: version.sha256,
+      pageCount: version.pageCount,
+      pageSizes: version.pageSizes || [],
+      // Editable configuration is cleared; the immutable original PDF and its
+      // provenance stay for audit.
+      mapping: null,
+      mappingHash: "",
+      previewMappingHash: "",
+      previewedAt: null,
+      status: "archived",
+      createdAt: version.createdAt,
+      activatedAt: null,
+      supersededAt: version.supersededAt || now,
+      archivedAt: now,
+    }));
+    template.currentVersionId = null;
+    await template.save();
+  } catch (err) {
+    // No files were deleted yet and the single-document write did not apply,
+    // so the template is still usable exactly as before the request.
+    return {
+      ok: false,
+      reason: "reset_failed",
+      storageCode: err?.code || "UNKNOWN",
+    };
+  }
+
+  let deletedFiles = 0;
+  const cleanupErrors = [];
+  const sweeps = [
+    { prefix: templateDir(shopId, templateId), keep: preservedKeys },
+    { prefix: previewDir(shopId, templateId), keep: [] },
+  ];
+  for (const { prefix, keep } of sweeps) {
+    try {
+      const result = await storage.sweep(prefix, { keep });
+      deletedFiles += result.removed.length;
+      cleanupErrors.push(...(result.errorCodes || []));
+    } catch (err) {
+      cleanupErrors.push(err?.code || "UNKNOWN");
+    }
+  }
+
+  // Nothing is archived, so the record itself is obsolete. It is removed last,
+  // and only when cleanup succeeded: if a sweep failed above, keeping the
+  // (already inactive, mapping-free) record lets a repeated reset find this
+  // shop's directories again and finish the job rather than orphaning files.
+  if (!archived.length && cleanupErrors.length === 0) {
+    try {
+      await InvoiceTemplate.deleteOne({ _id: template._id, shop: shopId });
+    } catch (err) {
+      cleanupErrors.push(err?.code || "UNKNOWN");
+    }
+  }
+
+  return {
+    ok: true,
+    reset: true,
+    archivedVersions: archived.length,
+    removedVersions: removable.length,
+    preservedFiles: preservedKeys.length,
+    deletedFiles,
+    cleanupErrors,
+  };
+}
+
 export async function removeTemplate(shopId) {
   const template = await InvoiceTemplate.findOne({ shop: shopId });
   if (!template) return { ok: false, reason: "template_not_found" };
@@ -225,30 +395,57 @@ export async function removeTemplate(shopId) {
 
 // Synchronous on purpose: callers select a version and use its _id inline.
 export function latestVersion(template) {
-  if (!template || !(template.versions || []).length) return null;
-  return template.versions[template.versions.length - 1];
+  const versions = visibleVersions(template);
+  if (!versions.length) return null;
+  return versions[versions.length - 1];
 }
 
-/** Compact state for the Vendor → Manage Menu billing card. */
+/**
+ * Compact state for the Vendor → Manage Menu billing card.
+ *
+ * "active" is reported only when the resolver would actually accept the
+ * template (current version, active status, valid mapping, readable original
+ * PDF). A version that is flagged active but unusable is reported as
+ * "unusable" with the exact reason, so the dashboard never promises invoicing
+ * that the resolver will refuse.
+ */
 export async function getBillingCardState(shopId) {
   const template = await InvoiceTemplate.findOne({ shop: shopId }).lean();
   const issuedCount = await issuedInvoiceCount(shopId);
-  const versions = template?.versions || [];
+  const versions = visibleVersions(template);
+  // Archived-only (or absent) history is a clean "no template" state: the
+  // vendor must upload and configure a PDF from zero after a reset.
   if (!versions.length) return { state: "none", issuedCount };
 
   const latest = versions[versions.length - 1];
-  const active = template.currentVersionId
+  const resolution = await resolveActiveTemplate(shopId);
+  const activeEntry = template?.currentVersionId
     ? versions.find((entry) => String(entry._id) === String(template.currentVersionId))
     : null;
 
+  if (resolution.ok) {
+    return {
+      state: "active",
+      issuedCount,
+      versionId: String(latest._id),
+      version: latest.version,
+      pageCount: latest.pageCount,
+      hasMapping: Boolean(latest.mapping),
+      activeVersionId: resolution.active.versionId,
+      activeVersion: resolution.active.version,
+      issue: null,
+    };
+  }
+
   return {
-    state: active ? "active" : latest.mapping ? "configured" : "uploaded",
+    state: activeEntry ? "unusable" : latest.mapping ? "configured" : "uploaded",
     issuedCount,
     versionId: String(latest._id),
     version: latest.version,
     pageCount: latest.pageCount,
     hasMapping: Boolean(latest.mapping),
-    activeVersionId: active ? String(active._id) : null,
-    activeVersion: active ? active.version : null,
+    activeVersionId: activeEntry ? String(activeEntry._id) : null,
+    activeVersion: activeEntry ? activeEntry.version : null,
+    issue: activeEntry ? resolution.reason : null,
   };
 }
